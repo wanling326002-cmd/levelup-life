@@ -272,11 +272,12 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
 const minsOn = (d, cat) => S.log.filter(x => x.d === d && (!cat || x.cat === cat)).reduce((a, x) => a + x.m, 0);
-const MAX_LEVEL = 50, OWNER_LEVEL = 100;
+const MAX_LEVEL = 1000, OWNER_LEVEL = MAX_LEVEL;
+const xpForNext = lv => Math.min(100 + (lv - 1) * 25, 500); // XP to go from lv to lv + 1; capped so level 1000 is reachable
 const level = () => {
   if (isOwner) return {lv:OWNER_LEVEL, xp:1, need:1, max:true};
-  let lv = 1, need = 100, xp = S.xp;
-  while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = 100 + (lv - 1) * 25; }
+  let lv = 1, need = xpForNext(1), xp = S.xp;
+  while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = xpForNext(lv); }
   return lv >= MAX_LEVEL ? {lv:MAX_LEVEL, xp:1, need:1, max:true} : {lv, xp, need, max:false};
 };
 const displayName = () => (me() && me().username) || S.name || 'Player';
@@ -702,7 +703,7 @@ const BADGES = [
   {name:'Completionist', icon:'play', unit:'games finished', t:ladder(1, 60), v:() => S.backlog.filter(b => b.status === 'finished').length},
   {name:'Series Buff', icon:'series', unit:'episodes', t:ladder(1, 1500), v:() => S.stats.episodes},
   {name:'Video Learner', icon:'youtube', unit:'learning videos', t:ladder(1, 300), v:() => S.yt.filter(y => y.watched && y.kind === 'learn').length},
-  {name:'Level Up', icon:'badge', unit:'level', t:ladder(2, MAX_LEVEL, 1), v:() => level().lv},
+  {name:'Level Up', icon:'badge', unit:'level', t:ladder(2, MAX_LEVEL), v:() => level().lv},
 ];
 function badgeState(b) {
   if (isOwner) return {tier:TOP, val:b.unit === 'level' ? OWNER_LEVEL : b.t[TOP], next:null};
@@ -963,8 +964,8 @@ function accountCard() {
 }
 function ownerCard() {
   return card('c6', 'Owner', isOwner
-    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level 100, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
-    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock level 100, every badge and the owner extras.</p>
+    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level ${OWNER_LEVEL}, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
+    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock level ${OWNER_LEVEL}, every badge and the owner extras.</p>
       <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
 }
 VIEWS.options = () => `<div class="grid">
