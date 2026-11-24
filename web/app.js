@@ -274,6 +274,7 @@ const DEFAULT = {
   ignored:[],                     // friend requests I declined
   modHidden:[],                   // owner/admin: players hidden from the leaderboard
   packHash:'',                    // owner/admin: last published chat emoji pack
+  staffAdds:[],                   // the owner/admins who added me (so I'm told only once)
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -311,6 +312,7 @@ function clean(raw) {
   d.pub = s.pub === true; d.pubHash = /^[0-9a-f]{64}$/.test(s.pubHash || '') ? s.pubHash : ''; d.pubAt = num(s.pubAt, 0, 0, 1e15);
   d.friends = names(s.friends, 200); d.ignored = names(s.ignored, 200); d.modHidden = names(s.modHidden, 500);
   d.packHash = /^[0-9a-f]{64}$/.test(s.packHash || '') ? s.packHash : '';
+  d.staffAdds = names(s.staffAdds, 50);
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
   if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
@@ -1192,7 +1194,7 @@ async function loadPlayers(force) {
       for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (!m) continue;
         for (const u of arr(m.hidden)) { const p = by.get(u); if (!p || p.role === 'owner') continue; if (m.role === 'owner') hidden.set(u, 'owner'); else if (!p.role && !hidden.has(u)) hidden.set(u, 'admin'); } }
       list.sort((a, b) => b.lv - a.lv || b.xp - a.xp || a.n.localeCompare(b.n));
-      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot();
+      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot(); staffNotice();
     } catch { PL.status = 'offline'; if (!PL.at) PL.at = 0; }
     finally { PL.loading = null; }
     return PL.list;
@@ -1201,12 +1203,27 @@ async function loadPlayers(force) {
 }
 const visiblePlayers = () => PL.list.filter(p => !PL.hidden.has(p.u) || p.u === myU());
 const levelOf = xp => { let lv = 1, need = xpForNext(1); while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = xpForNext(lv); } return {lv, xp, need}; };
+/* Staff powers: the owner can add anyone as a friend instantly, admins can add regular players instantly.
+   A role can only do this to a lower role (owner > admin > player), and roles are proven by signatures. */
+const roleRank = r => r === 'owner' ? 2 : r === 'admin' ? 1 : 0;
+const canForce = (from, to) => roleRank(from) > 0 && roleRank(from) > roleRank(to);
+const myRole = () => isOwner ? 'owner' : isAdmin ? 'admin' : '';
 function friendState(u) {
   const me_ = myU(); if (!me_ || u === me_) return 'self';
-  const mine = S.friends.includes(u), theirs = !!(PL.by.get(u) || {fr:[]}).fr.includes(me_);
-  return mine && theirs ? 'friends' : mine ? 'sent' : theirs ? 'incoming' : 'none';
+  const p = PL.by.get(u), mine = S.friends.includes(u), theirs = !!(p && p.fr.includes(me_));
+  if (mine && theirs) return 'friends';
+  if (mine && canForce(myRole(), p ? p.role : '')) return 'friends'; // I'm staff: no acceptance needed
+  if (theirs && canForce(p.role, myRole())) return 'forced';          // staff added me
+  return mine ? 'sent' : theirs ? 'incoming' : 'none';
 }
-const friendRequests = () => { const m = myU(); return m ? PL.list.filter(p => p.fr.includes(m) && !S.friends.includes(p.u) && !S.ignored.includes(p.u) && !PL.hidden.has(p.u)) : []; };
+const isFriend = s => s === 'friends' || s === 'forced';
+const friendRequests = () => { const m = myU(); return m ? PL.list.filter(p => p.fr.includes(m) && !S.friends.includes(p.u) && !S.ignored.includes(p.u) && !PL.hidden.has(p.u) && !canForce(p.role, myRole())) : []; };
+function staffNotice() { // tell a player once when the owner or an admin added them
+  const m = myU(); if (!m || !PL.at) return;
+  const by = PL.list.filter(p => p.fr.includes(m) && canForce(p.role, myRole())).map(p => p.u), fresh = by.filter(u => !S.staffAdds.includes(u));
+  if (fresh.length) { const p = PL.by.get(fresh[0]); toast(`${p.n} (${p.role === 'owner' ? 'Owner' : 'Admin'}) added you as a friend`); }
+  if (fresh.length || by.length !== S.staffAdds.length) { S.staffAdds = by.slice(0, 50); save(); }
+}
 const canHidePlayer = p => !!p && p.u !== myU() && (isOwner ? p.role !== 'owner' : isAdminOnly() && !p.role);
 async function changeFriend(u, act) {
   if (!me()) return openAuth('signup');
@@ -1219,7 +1236,7 @@ async function changeFriend(u, act) {
   save(); repaintSocial();
   if (act !== 'ignore') { const ok = await publishProfile(true); if (!S.pub) { repaintSocial(); return; } // the name was taken
     if (ok && wentPublic) await loadPlayers(true);
-    toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (friendState(u) === 'friends' ? `You and ${u} are now friends!` : `Friend request sent to ${u}${wentPublic ? ' · your profile is now public' : ''}`) : `Removed ${u}`); }
+    toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (isFriend(friendState(u)) ? `You and ${u} are now friends!` : `Friend request sent to ${u}${wentPublic ? ' · your profile is now public' : ''}`) : `Removed ${u}`); }
   repaintSocial(); reqDot(); if (wentPublic && current === 'players') rerender();
 }
 function reqDot() { // a dot on the Players menu item when someone sent you a friend request
@@ -1291,10 +1308,12 @@ async function linkChat() { // a name in chat links to a profile only when the m
 const roleTag = p => p.role === 'owner' ? `<span class="tag owner">${icon('crown')}Owner</span>` : p.role === 'admin' ? `<span class="tag adm">${icon('shield')}Admin</span>` : '';
 const plAvatar = (p, big) => `<span class="avatar${big ? ' big' : ''}${p.role === 'owner' ? ' gold' : p.role === 'admin' ? ' blue' : ''}" style="background:${p.pf ? 'var(--card2)' : hue(p.u)}">${p.pf ? `<img src="${p.pf}" alt="">` : esc(p.n.charAt(0).toUpperCase())}</span>`;
 const bestRank = p => { const t = Math.max(-1, ...p.rk); return t < 0 ? 'No badges yet' : `Best rank: ${RANKS[t].name}`; };
-const mutualCount = p => PL.list.filter(q => p.fr.includes(q.u) && q.fr.includes(p.u)).length;
+const pairFriends = (a, b) => (a.fr.includes(b.u) && (b.fr.includes(a.u) || canForce(a.role, b.role))) || (b.fr.includes(a.u) && canForce(b.role, a.role));
+const mutualCount = p => PL.list.filter(q => q !== p && pairFriends(p, q)).length;
 function friendButtons(u, sm = '') {
   const s = friendState(u);
   if (s === 'self') return `<a class="btn ${sm}" href="#badges" data-close-pm>Edit my profile</a>`;
+  if (s === 'forced') { const p = PL.by.get(u); return `<span class="tag g">${icon('check')}Friends</span><span class="muted small">Added by the ${p && p.role === 'owner' ? 'owner' : 'admin'}</span>`; }
   if (s === 'friends') return `<span class="tag g">${icon('check')}Friends</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Remove</button>`;
   if (s === 'sent') return `<span class="tag">Request sent</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Cancel</button>`;
   const add = me() && !S.pub ? 'pubadd' : 'add'; // a private player is asked to go public in the same click
@@ -1302,7 +1321,7 @@ function friendButtons(u, sm = '') {
   return `<button type="button" class="btn primary ${sm}" data-fr="${add}" data-u="${u}">${icon('userplus')}${add === 'pubadd' ? 'Go public & add friend' : 'Add friend'}</button>`;
 }
 const privateCardHTML = (u, name) => `<div class="pm-body"><div class="row" style="gap:14px;flex-wrap:nowrap"><span class="avatar big" style="background:${hue(u)}">${esc(name.charAt(0).toUpperCase())}</span><div style="min-width:0"><h2>${esc(name)}</h2><p class="muted small" style="margin:2px 0 0">@${esc(u)} · no public profile yet</p></div></div>
-  <p class="muted" style="margin:0">${u === myU() ? 'This is you. Make your profile public on the Players page so others can open it and add you.' : `${esc(name)} hasn't made their profile public, so there are no stats to show yet. You can still send a friend request: they'll see it on their Players page and can accept it there.`}</p>
+  <p class="muted" style="margin:0">${u === myU() ? 'This is you. Make your profile public on the Players page so others can open it and add you.' : isOwner || isAdmin ? `${esc(name)} keeps their profile private. Their stats are stored only on their own device and were never uploaded, so they can't be shown here, not even to the owner. You can still add them: as ${isOwner ? 'the owner' : 'an admin'}, they become your friend right away, no request needed.` : `${esc(name)} hasn't made their profile public, so there are no stats to show yet. You can still send a friend request: they'll see it on their Players page and can accept it there.`}</p>
   ${me() && !S.pub && u !== myU() ? `<p class="muted small" style="margin:0">${SHARED_INFO}</p>` : ''}
   <div class="row">${friendButtons(u)}</div></div>`;
 function profileHTML(u) {
@@ -1385,24 +1404,24 @@ async function goPrivate() {
 function lbRow(p, i) {
   const s = friendState(p.u);
   return `<li><button type="button" class="lb-row${p.u === myU() ? ' me' : ''}" data-player="${p.u}"><span class="lb-pos${i < 3 ? ' g' + (i + 1) : ''}">#${i + 1}</span>${plAvatar(p)}
-    <span class="grow lb-name"><span class="row" style="gap:6px"><b>${esc(p.n)}</b>${roleTag(p)}${p.u === myU() ? '<span class="tag">You</span>' : s === 'friends' ? '<span class="tag g">Friend</span>' : ''}</span>
+    <span class="grow lb-name"><span class="row" style="gap:6px"><b>${esc(p.n)}</b>${roleTag(p)}${p.u === myU() ? '<span class="tag">You</span>' : isFriend(s) ? '<span class="tag g">Friend</span>' : ''}</span>
     <span class="muted small">${bestRank(p)}</span></span><span class="lb-lv">Lv ${p.lv}</span></button></li>`;
 }
 function paintPlayers() {
   const box = $('#lbList'); if (!box) return;
   const all = visiblePlayers(), q = PL.q.trim().toLowerCase();
   let list = all.map((p, i) => [p, i]);
-  if (PL.tab === 'friends') list = list.filter(([p]) => p.u === myU() || friendState(p.u) === 'friends');
+  if (PL.tab === 'friends') list = list.filter(([p]) => p.u === myU() || isFriend(friendState(p.u)));
   if (q) list = list.filter(([p]) => p.u.includes(q) || p.n.toLowerCase().includes(q));
   box.innerHTML = !PL.at && PL.loading ? `<li class="empty">Loading players…</li>` : PL.status === 'offline' && !PL.list.length ? `<li class="empty">Can't reach the leaderboard right now.</li>`
     : list.slice(0, 200).map(([p, i]) => lbRow(p, i)).join('') || `<li class="empty">${PL.tab === 'friends' ? 'No friends yet. Open a player and press Add friend.' : q ? 'Nobody matches that name.' : 'No public players yet. Be the first!'}</li>`;
   $('#lbCount').textContent = `${all.length} player${all.length === 1 ? '' : 's'}`;
   const fb = $('#friendsBox'); if (fb) {
     const reqs = friendRequests(), mine = S.friends.map(u => PL.by.get(u) || {u, n:u, role:'', pf:'', fr:[], rk:[], lv:0});
-    const friends = mine.filter(p => friendState(p.u) === 'friends'), sent = mine.filter(p => friendState(p.u) === 'sent');
+    const friends = [...mine.filter(p => friendState(p.u) === 'friends'), ...PL.list.filter(p => friendState(p.u) === 'forced')], sent = mine.filter(p => friendState(p.u) === 'sent');
     const row = (p, btns) => `<div class="friend-row"><button type="button" class="friend-who" data-player="${p.u}">${plAvatar(p)}<span><b>${esc(p.n)}</b>${p.lv ? `<br><span class="muted small">Lv ${p.lv}</span>` : ''}</span></button><span class="row" style="gap:6px">${btns}</span></div>`;
     fb.innerHTML = `${reqs.length ? `<p class="small" style="margin:0 0 6px"><b>Friend requests</b> <span class="tag p">${reqs.length}</span></p>${reqs.map(p => row(p, friendButtons(p.u, 'sm'))).join('')}` : ''}
-      <p class="small" style="margin:${reqs.length ? 14 : 0}px 0 6px"><b>Friends</b> <span class="muted">${friends.length}</span></p>${friends.map(p => row(p, `<button type="button" class="iconbtn" data-fr="remove" data-u="${p.u}" aria-label="Remove ${esc(p.n)}" title="Remove">${icon('x')}</button>`)).join('') || '<p class="muted small" style="margin:0">No friends yet.</p>'}
+      <p class="small" style="margin:${reqs.length ? 14 : 0}px 0 6px"><b>Friends</b> <span class="muted">${friends.length}</span></p>${friends.map(p => row(p, friendState(p.u) === 'forced' ? `<span class="muted small">Added by the ${p.role}</span>` : `<button type="button" class="iconbtn" data-fr="remove" data-u="${p.u}" aria-label="Remove ${esc(p.n)}" title="Remove">${icon('x')}</button>`)).join('') || '<p class="muted small" style="margin:0">No friends yet.</p>'}
       ${sent.length ? `<p class="small" style="margin:14px 0 6px"><b>Sent requests</b></p>${sent.map(p => row(p, `<button type="button" class="btn sm" data-fr="remove" data-u="${p.u}">Cancel</button>`)).join('')}` : ''}`;
   }
   const hb = $('#hiddenBox'); if (hb) {
@@ -1437,7 +1456,7 @@ BIND.players = m => {
   const af = $('#addFriendForm'); if (af) af.onsubmit = async e => { e.preventDefault(); const v = $('#addFriendIn').value.trim().toLowerCase();
     if (!USER_OK.test(v)) return toast('Usernames are 3–20 letters, numbers or underscores.');
     if (v === myU()) return toast("That's you!");
-    await loadPlayers(); if (!PL.by.has(v)) return toast(`No public player called ${v}.`);
+    await loadPlayers(); if (!PL.by.has(v) && !(isOwner || isAdmin)) return toast(`No public player called ${v}.`);
     $('#addFriendIn').value = ''; changeFriend(v, 'add'); };
   const hb = $('#hiddenBox'); if (hb) hb.onclick = e => { const b = e.target.closest('[data-hidep2]'); if (b) setHidden(b.dataset.hidep2, false); };
   paintPlayers();
@@ -1581,7 +1600,7 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <p>The chat is the one feature that sends data off your device. If you join a chat room, each message you send (with your display name and the time) is stored on the website host's database (Wix), encrypted with the room's invite code. Anyone who has the invite code can read the room. The owner can hide messages and mute names, and can delete stored messages. Don't share personal information in the chat.</p>
   <h2>4a. Public profile, leaderboard and friends (optional, off by default)</h2>
   <p>If you turn on "Show me on the leaderboard", the app publishes a small public profile to the website host's database (Wix) that <b>anyone can see</b>: your username, level, XP, badge ranks, the usernames you added as friends, and the date you made your account. The owner's and admins' profile picture and banner are shared too. Your tasks, games, series, videos, notes, email and password are <b>never</b> shared.</p>
-  <p>Your profile is signed with a key made on your device, so nobody else can edit it. If chat is on, messages you send while public carry your username so others can open your profile. Levels are reported by your own app; the owner and admins can hide a profile from the leaderboard. Turning the setting off, deleting your account or deleting all your data replaces your public profile with an empty "removed" note.</p>
+  <p>Your profile is signed with a key made on your device, so nobody else can edit it. If chat is on, messages you send while public carry your username so others can open your profile. Levels are reported by your own app; the owner and admins can hide a profile from the leaderboard. The owner can add any player as a friend without a request, and admins can do the same for regular players; you'll be told when this happens. Turning the setting off, deleting your account or deleting all your data replaces your public profile with an empty "removed" note.</p>
   <h2>4b. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
@@ -1769,7 +1788,7 @@ function resetTimers() {
 }
 function init() {
   applyTheme(); paintPlayer(); route();
-  if (me() && (S.pub || S.friends.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
+  if (me() && (S.pub || S.friends.length || S.staffAdds.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
   if (ACC.current) $('#consent').hidden = true; else openAuth('signup');
 }
 buildNav(); events();
