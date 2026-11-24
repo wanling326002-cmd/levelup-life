@@ -284,8 +284,20 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 }
 @media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.switch{display:none}}
 /* accounts, owner and badges */
+.peekwrap{position:relative;display:block;min-width:0}
+.field>.peekwrap{padding-left:0}
+.row>.peekwrap{flex:1 1 140px}
+.peekwrap input{padding-right:52px}
+.peek{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.peek:hover,.peek[aria-pressed="true"]{color:var(--text);background:var(--soft2)}
+.peek svg{width:20px;height:20px}
+input::-ms-reveal,input::-ms-clear{display:none}
+.hint{margin:-4px 0 0;padding-left:20px;font-size:.84rem;text-align:left;color:var(--muted)}
+.hint:empty{display:none}
+.hint.ok{color:var(--ok)}.hint.no{color:var(--warn)}
 .modal{overflow-y:auto;align-items:flex-start;padding:5vh 16px}
 .modal-box{position:relative;margin:auto}
+.modal-box.glass{background:var(--card)}
 .auth .seg{justify-self:center}
 .close{position:absolute;top:14px;right:14px;font-size:1.3rem;line-height:1}
 .orb.small{width:170px;height:170px;transform:scale(.6);margin:-34px auto -40px}

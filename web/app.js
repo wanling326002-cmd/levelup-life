@@ -34,6 +34,7 @@ const P = {
   star:'<path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
@@ -271,7 +272,26 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); }
+function render() { const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+
+/* show / hide buttons on every password box, so people can check what they typed */
+function addPeek(root = document) {
+  root.querySelectorAll('input[type="password"]:not([data-peek])').forEach(inp => {
+    inp.dataset.peek = '1';
+    const wrap = document.createElement('span'); wrap.className = 'peekwrap';
+    inp.replaceWith(wrap); wrap.append(inp);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'peek';
+    b._set = show => { inp.type = show ? 'text' : 'password'; b.innerHTML = icon(show ? 'eyeoff' : 'eye'); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); b.setAttribute('aria-pressed', String(show)); b.title = show ? 'Hide' : 'Show'; };
+    b.onclick = () => { b._set(inp.type === 'password'); inp.focus(); };
+    b._set(false); wrap.append(b);
+  });
+}
+const hidePeeks = root => root.querySelectorAll('.peek').forEach(b => b._set(false));
+function showMatch() {
+  const a = $('#suPass').value, b = $('#suPass2').value, el = $('#suMatch');
+  el.className = 'hint' + (b ? (a === b ? ' ok' : ' no') : '');
+  el.textContent = !b ? '' : a === b ? 'Passwords match' : 'Passwords do not match yet';
+}
 const rerender = () => render();
 
 /* ---------- small components ---------- */
@@ -850,6 +870,8 @@ function events() {
   });
   $$('[data-auth]').forEach(b => b.onclick = () => setAuthTab(b.dataset.auth));
   $('#signupForm').onsubmit = signup;
+  addPeek($('#consent'));
+  $('#suPass').oninput = $('#suPass2').oninput = showMatch;
   $('#loginForm').onsubmit = login;
   $('#guestBtn').onclick = asGuest;
   $('#authClose').onclick = () => { $('#consent').hidden = true; };
@@ -863,6 +885,7 @@ function setAuthTab(t) {
   $$('[data-auth]').forEach(b => b.classList.toggle('on', b.dataset.auth === t));
   $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login';
   $('#suErr').textContent = ''; $('#liErr').textContent = '';
+  hidePeeks($('#consent'));
 }
 function openAuth(t = 'signup') {
   $('#consent').hidden = false; $('#authClose').hidden = !ACC.current; $('#guestBtn').hidden = !!ACC.current; setAuthTab(t);
@@ -891,7 +914,7 @@ async function signup(e) {
     const carry = ACC.current === GUEST; // a guest who signs up keeps their progress
     const data = clean(carry ? loadJSON(GUEST_KEY, {}) : {}); data.agreed = true; if (!data.name) data.name = name;
     try { localStorage.setItem(keyFor(name), JSON.stringify(data)); if (carry) localStorage.removeItem(GUEST_KEY); } catch {}
-    $('#signupForm').reset(); $('#consent').hidden = true; switchTo(name);
+    $('#signupForm').reset(); showMatch(); hidePeeks($('#consent')); $('#consent').hidden = true; switchTo(name);
     if (carry) toast(`Account created. Your progress moved into ${name}.`); else { gainXP(10, 'welcome'); toast(`Welcome, ${name}! +10 XP`); }
   } catch { err.textContent = 'Could not create the account in this browser. Try another browser.'; }
   finally { btn.disabled = false; }
@@ -904,7 +927,7 @@ async function login(e) {
   const ok = u && await checkPassword(u, $('#liPass').value).catch(() => false);
   btn.disabled = false;
   if (!ok) { if (++fails.n >= 5) { fails.n = 0; fails.until = Date.now() + 30000; } return err.textContent = 'Wrong username or password. Accounts only exist on the device where they were made.'; }
-  fails.n = 0; $('#loginForm').reset(); $('#consent').hidden = true; switchTo(u.username); toast(`Welcome back, ${u.username}!`);
+  fails.n = 0; $('#loginForm').reset(); hidePeeks($('#consent')); $('#consent').hidden = true; switchTo(u.username); toast(`Welcome back, ${u.username}!`);
 }
 function asGuest() {
   const g = clean(loadJSON(GUEST_KEY, {})); g.agreed = true;
