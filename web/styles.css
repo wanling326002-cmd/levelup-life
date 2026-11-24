@@ -18,6 +18,7 @@
   color-scheme:light;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{
   font-family:"Outfit",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-weight:400;
@@ -55,7 +56,7 @@ h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em}
 .pillnav{display:flex;gap:2px;padding:5px;border:1px solid var(--line2);border-radius:var(--pill);
   background:var(--soft);overflow-x:auto;scrollbar-width:none;max-width:100%}
 .pillnav::-webkit-scrollbar{display:none}
-.pillnav a{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:var(--pill);
+.pillnav a{display:flex;align-items:center;gap:8px;padding:10px 15px;border-radius:var(--pill);
   color:var(--muted);text-decoration:none;font-size:.98rem;white-space:nowrap;position:relative;transition:.2s}
 .pillnav a:hover{color:var(--text)}
 .pillnav a.active{color:var(--text);background:linear-gradient(180deg,var(--soft2),var(--soft));
@@ -250,6 +251,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 .bottomnav{display:none}
 
 /* responsive */
+@media (max-width:1360px){.pillnav a{padding:10px 12px}.pillnav a svg{display:none}}
 @media (max-width:1200px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}.statrow{grid-template-columns:repeat(2,1fr)}.tiles.cols-4{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:860px){
   body{padding-block:12px 100px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -281,4 +283,39 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
   .card-h{flex-wrap:wrap}
 }
 @media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.switch{display:none}}
+/* accounts, owner and badges */
+.modal{overflow-y:auto;align-items:flex-start;padding:5vh 16px}
+.modal-box{position:relative;margin:auto}
+.auth .seg{justify-self:center}
+.close{position:absolute;top:14px;right:14px;font-size:1.3rem;line-height:1}
+.orb.small{width:170px;height:170px;transform:scale(.6);margin:-34px auto -40px}
+.agree{display:flex;gap:10px;align-items:center;font-size:.9rem;color:var(--muted);text-align:left;cursor:pointer}
+.err{color:var(--bad);font-size:.86rem;margin:0;text-align:left}
+.err:empty{display:none}
+.linkbtn{background:none;border:0;color:var(--muted);font:inherit;cursor:pointer;text-decoration:underline;padding:6px;justify-self:center}
+.linkbtn:hover{color:var(--text)}
+details.pw summary{list-style:none;display:inline-flex;cursor:pointer;width:max-content}
+details.pw summary::-webkit-details-marker{display:none}
+input:disabled{opacity:.65}
+.profile.owner .avatar,.avatar.gold{box-shadow:0 0 0 2px var(--frame),0 0 0 4px #f2c46d,0 0 18px rgba(242,196,109,.45)}
+.tag.owner{display:inline-flex;align-items:center;gap:6px;background:rgba(242,196,109,.16);color:#f2c46d;padding:3px 10px}
+.tag.owner svg{width:14px;height:14px}
+.pc{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.pc .grow{flex:1;min-width:220px}
+.pc h2{font-size:1.5rem}
+.avatar.big{width:84px;height:84px;font-size:2rem;flex:none}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.badge-tile{--tc:var(--dim);border:1px solid var(--line);border-radius:22px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;background:var(--soft)}
+.badge-tile .medal{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;color:#17141f;margin-bottom:6px;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),transparent 45%),var(--tc);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--tc) 22%,transparent),0 8px 24px color-mix(in srgb,var(--tc) 28%,transparent)}
+.badge-tile .medal svg{width:28px;height:28px;stroke-width:2}
+.badge-tile b{font-weight:500}
+.badge-tile .tier{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tc)}
+.badge-tile p{margin:0}
+.badge-tile .meter{width:100%;margin-top:6px}
+.badge-tile.locked .medal{background:var(--soft2);color:var(--dim);box-shadow:none}
+.badge-tile.locked .tier{color:var(--dim)}
+.badge-tile.tier-3{border-color:color-mix(in srgb,var(--tc) 45%,transparent)}
+.badge-tile.tier-owner{--tc:#f2c46d;border-color:rgba(242,196,109,.55);background:linear-gradient(180deg,rgba(242,196,109,.12),var(--soft))}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

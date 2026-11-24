@@ -23,7 +23,7 @@
     </button>
     <div class="spacer"></div>
     <button class="switch" id="themeBtn" role="switch" aria-checked="true" aria-label="Dark mode"><i></i></button>
-    <a class="profile" href="#options" title="Your profile">
+    <a class="profile" href="#badges" title="Your profile and badges">
       <span class="avatar" id="avatar">P</span>
       <span class="lv">Lv <b id="lvl">1</b></span>
       <span class="xpbar" title="XP"><i id="xpBar"></i></span>
@@ -42,7 +42,7 @@
 </div>
 
 <footer class="foot">
-  <span class="trust"><span class="dot"></span>Private by design · no account · no tracking</span>
+  <span class="trust"><span class="dot"></span>Private by design · your data stays on your device · no tracking</span>
   <span class="links"><a href="#privacy">Privacy Terms</a><a href="#help">Help &amp; Shortcuts</a></span>
 </footer>
 
@@ -62,13 +62,29 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal" id="consent" hidden>
-  <div class="modal-box glass">
-    <div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
-    <h2>Welcome to LevelUp Life</h2>
-    <p>Track your games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
-    <p class="muted small">Everything you enter is stored <b>only on this device</b>. No account, no tracking, no ads. By continuing you agree to the <a href="#privacy" id="consentPrivacy">Privacy Terms</a>.</p>
-    <label class="field"><span>What should we call you?</span><input id="consentName" maxlength="24" placeholder="Your gamer tag"></label>
-    <button class="btn primary wide" id="consentOk">Agree &amp; start</button>
+  <div class="modal-box glass auth" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <button class="iconbtn close" id="authClose" type="button" aria-label="Close" hidden>&times;</button>
+    <div class="orb small" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h2 id="authTitle">Welcome to LevelUp Life</h2>
+    <p class="muted">Track games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
+    <div class="seg" role="tablist"><button type="button" class="on" data-auth="signup">Create account</button><button type="button" data-auth="login">Log in</button></div>
+    <form id="signupForm" class="form" novalidate>
+      <label class="field"><span>Username</span><input id="suUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _"></label>
+      <label class="field"><span>Password</span><input id="suPass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></label>
+      <label class="field"><span>Confirm password</span><input id="suPass2" type="password" autocomplete="new-password" placeholder="Type it again"></label>
+      <label class="field"><span>Email (optional)</span><input id="suEmail" type="email" autocomplete="email" maxlength="120" placeholder="Stays on this device"></label>
+      <label class="agree"><input type="checkbox" class="check" id="suAgree"><span>I agree to the <a href="#privacy" class="toPrivacy">Privacy Terms</a></span></label>
+      <p class="err" id="suErr" role="alert"></p>
+      <button class="btn primary wide">Create account</button>
+    </form>
+    <form id="loginForm" class="form" hidden novalidate>
+      <label class="field"><span>Username</span><input id="liUser" autocomplete="username" maxlength="20"></label>
+      <label class="field"><span>Password</span><input id="liPass" type="password" autocomplete="current-password"></label>
+      <p class="err" id="liErr" role="alert"></p>
+      <button class="btn primary wide">Log in</button>
+    </form>
+    <button class="linkbtn" id="guestBtn" type="button">Continue as guest</button>
+    <p class="muted small">Accounts live on this device only. Your password is hashed and never leaves your device. Continuing as a guest means you agree to the <a href="#privacy" class="toPrivacy">Privacy Terms</a>.</p>
   </div>
 </div>
 

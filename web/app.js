@@ -36,6 +36,8 @@ const P = {
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>', upload:'<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
 };
 const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
@@ -50,11 +52,12 @@ const ROUTES = [
   {id:'youtube', name:'YouTube', sub:'Save videos to learn from — or just enjoy.', key:'6', main:true},
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
   {id:'impact', name:'Help the World', short:'Impact', sub:'Small daily quests that make things better.', key:'8', main:true},
-  {id:'options', name:'Settings', sub:'Make the app yours. Export or delete your data anytime.', key:'9'},
+  {id:'badges', name:'Badges', sub:'Your level, rank and achievements.', key:'9'},
+  {id:'options', name:'Settings', sub:'Your account, preferences and data.', key:'0'},
   {id:'help', name:'Help', sub:'How to use LevelUp Life, and keyboard shortcuts.'},
   {id:'privacy', name:'Privacy Terms', sub:'Short version: your data stays on your device.'},
 ];
-const iconFor = id => icon(id === 'options' ? 'settings' : id);
+const iconFor = id => icon(id === 'options' ? 'settings' : id === 'badges' ? 'badge' : id);
 
 /* ---------- learning content ---------- */
 const TRACKS = {
@@ -110,8 +113,54 @@ const ORGS = [
   ['freeCodeCamp','Learn to code for free — and help others learn.','https://www.freecodecamp.org/'],
 ];
 
+/* ---------- accounts ----------
+   Accounts live on this device only. Passwords are never stored: only a salted PBKDF2-SHA256 hash.
+   Each account keeps its own progress under its own storage key. */
+const ACC_KEY = 'levelup-accounts-v1', GUEST_KEY = 'levelup-life-v1', GUEST = '__guest__';
+const keyFor = name => name && name !== GUEST ? `${GUEST_KEY}:u:${name.toLowerCase()}` : GUEST_KEY;
+const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v && typeof v === 'object' ? v : d; } catch { return d; } };
+let ACC = loadJSON(ACC_KEY, {});
+if (!ACC.users || typeof ACC.users !== 'object' || Array.isArray(ACC.users)) ACC.users = {};
+const saveAcc = () => { try { localStorage.setItem(ACC_KEY, JSON.stringify(ACC)); } catch {} };
+const me = () => ACC.current && ACC.current !== GUEST ? ACC.users[String(ACC.current).toLowerCase()] || null : null;
+if (ACC.current && ACC.current !== GUEST && !me()) ACC.current = null;
+if (!ACC.current && loadJSON(GUEST_KEY, {}).agreed === true) { ACC.current = GUEST; saveAcc(); } // people who used the app before accounts existed
+let KEY = keyFor(ACC.current);
+const USER_RE = /^[A-Za-z0-9_]{3,20}$/, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/* ---------- crypto helpers (Web Crypto) ---------- */
+const enc = new TextEncoder();
+const toHex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const randHex = n => toHex(crypto.getRandomValues(new Uint8Array(n)));
+async function pbkdf2(secret, saltHex, iterations) {
+  const k = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveBits']);
+  const salt = new Uint8Array(saltHex.match(/../g).map(h => parseInt(h, 16)));
+  return toHex(await crypto.subtle.deriveBits({name:'PBKDF2', hash:'SHA-256', salt, iterations}, k, 256));
+}
+const sha256 = async s => toHex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+const safeEq = (a, b) => { a = String(a); b = String(b); if (a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; };
+async function setPassword(u, pw) { u.salt = randHex(16); u.iter = 150000; u.hash = await pbkdf2(pw, u.salt, u.iter); }
+async function checkPassword(u, pw) { return !!(u && u.salt && u.hash) && safeEq(await pbkdf2(pw, u.salt, u.iter || 150000), u.hash); }
+
+/* ---------- owner ----------
+   Only a hash of the owner key's PBKDF2 output is in this file, so the key can't be read from the code.
+   Owner status is re-checked every time the app loads; editing saved data can't fake it. */
+const OWNER_CHECK = '22c14d7502ee76c4cebd42bd61044ac94f3666f80082df1364e4ffe140d1fb17';
+const OWNER_SALT = '6c6576656c75702d6f776e65722d7631'; // "levelup-owner-v1"
+const normKey = k => String(k).toUpperCase().replace(/[^A-Z0-9]/g, '');
+let isOwner = false;
+async function verifyOwner() {
+  let ok = false;
+  try { ok = !!S.ownerProof && safeEq(await sha256(S.ownerProof), OWNER_CHECK); } catch {}
+  if (ok !== isOwner) { isOwner = ok; paintPlayer(); if (['home', 'badges', 'options'].includes(current)) rerender(); }
+}
+async function claimOwner(key) {
+  const proof = await pbkdf2(normKey(key), OWNER_SALT, 200000);
+  if (!safeEq(await sha256(proof), OWNER_CHECK)) return false;
+  S.ownerProof = proof; save(); await verifyOwner(); return true;
+}
+
 /* ---------- state ---------- */
-const KEY = 'levelup-life-v1';
 const DEFAULT = {
   name:'', agreed:false, theme:'dark', xp:0, notify:false, thumbs:true, breakEvery:60, epLen:40, track:'web',
   goals:{learn:60, play:120, watch:90},
@@ -125,6 +174,8 @@ const DEFAULT = {
   quests:{},                      // date -> [index]
   questsTotal:0,
   run:{},                         // running timers, so a reload does not lose them
+  stats:{episodes:0},
+  ownerProof:'',
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -152,6 +203,8 @@ function clean(raw) {
     kind:x.kind === 'fun' ? 'fun' : 'learn', mins:num(x.mins, 10, 1, 1440), watched:x.watched === true}));
   for (const [k, v] of Object.entries(s.quests || {})) if (isDay(k)) d.quests[k] = [...new Set(arr(v).map(i => num(i, 0, 0, QUESTS.length - 1)))];
   d.questsTotal = num(s.questsTotal, 0);
+  d.stats = {episodes:num((s.stats || {}).episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6)};
+  d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
   if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
@@ -165,7 +218,14 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
 const minsOn = (d, cat) => S.log.filter(x => x.d === d && (!cat || x.cat === cat)).reduce((a, x) => a + x.m, 0);
-const level = () => { let lv = 1, need = 100, xp = S.xp; while (xp >= need) { xp -= need; lv++; need = 100 + (lv - 1) * 25; } return {lv, xp, need}; };
+const MAX_LEVEL = 50;
+const level = () => {
+  if (isOwner) return {lv:MAX_LEVEL, xp:1, need:1, max:true};
+  let lv = 1, need = 100, xp = S.xp;
+  while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = 100 + (lv - 1) * 25; }
+  return lv >= MAX_LEVEL ? {lv:MAX_LEVEL, xp:1, need:1, max:true} : {lv, xp, need, max:false};
+};
+const displayName = () => (me() && me().username) || S.name || 'Player';
 const gainXP = (n, why) => {
   const before = level().lv; S.xp = Math.max(0, S.xp + n); save(); paintPlayer();
   if (n > 0) toast(level().lv > before ? `🎉 Level up! You are now level ${level().lv}` : `+${n} XP · ${why}`);
@@ -180,10 +240,11 @@ function notify(title, body) {
   if (S.notify && 'Notification' in window && Notification.permission === 'granted') try { new Notification(title, {body, icon:'icon.svg'}); } catch {}
 }
 function paintPlayer() {
-  const {lv, xp, need} = level();
-  $('#lvl').textContent = lv; $('#xpBar').style.width = (xp / need * 100) + '%';
-  $('.profile').title = `${S.name || 'Player'} · ${xp}/${need} XP to level ${lv + 1}`;
-  $('#avatar').textContent = (S.name || 'P').trim().charAt(0).toUpperCase();
+  const {lv, xp, need, max} = level();
+  $('#lvl').textContent = max ? `${lv} MAX` : lv; $('#xpBar').style.width = (max ? 100 : xp / need * 100) + '%';
+  $('.profile').title = `${displayName()}${me() ? '' : ' (guest)'} · ${max ? 'Max level' : `${xp}/${need} XP to level ${lv + 1}`}`;
+  $('#avatar').textContent = displayName().trim().charAt(0).toUpperCase();
+  $('.profile').classList.toggle('owner', isOwner);
 }
 function applyTheme() {
   document.documentElement.dataset.theme = S.theme;
@@ -245,7 +306,7 @@ VIEWS.home = () => {
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`)}
-  ${card('c7', `${greet}, ${esc(S.name || 'Player')}`, `<div class="statrow">
+  ${card('c7', `${greet}, ${esc(displayName())}`, `<div class="statrow">
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
@@ -262,7 +323,7 @@ VIEWS.home = () => {
   </ul>`, '<span class="more">···</span>')}
   ${card('c4', "Today's quest", `<div class="quest" style="border:0;padding:0"><span class="thumb" style="--h:var(--accent)">${icon('impact')}</span><div><b>${esc(qi[1][0])}</b><p class="muted small" style="margin:4px 0 0">${esc(qi[1][1])}</p></div></div>
     <div class="row" style="margin-top:16px"><button class="btn primary" data-quest="${qi[0]}" ${questDone(qi[0]) ? 'disabled' : ''}>${questDone(qi[0]) ? 'Done ✓' : 'Complete +15 XP'}</button><a class="btn" href="#impact">All quests</a></div>`)}
-  ${card('c12', 'Programs', `<div class="tiles cols-5">${ROUTES.filter(r=>r.id!=='home').map(r=>`<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short||r.name}</span></a>`).join('')}</div>`, '<span class="more">···</span>')}
+  ${card('c12', 'Programs', `<div class="tiles cols-5">${ROUTES.filter(r=>r.id!=='home'&&r.id!=='privacy').map(r=>`<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short||r.name}</span></a>`).join('')}</div>`, '<span class="more">···</span>')}
   </div>`;
 };
 BIND.home = m => {
@@ -433,7 +494,7 @@ BIND.gaming = m => {
 
 /* series */
 let seriesFilter = 'all';
-function watchEp(id) { const s = S.series.find(x=>x.id===id); if (!s) return; s.e++; if (s.status === 'plan') s.status = 'watching'; addLog('watch', S.epLen); save(); toast(`${s.title}: S${s.s}E${s.e} watched`); rerender(); }
+function watchEp(id) { const s = S.series.find(x=>x.id===id); if (!s) return; s.e++; S.stats.episodes++; if (s.status === 'plan') s.status = 'watching'; addLog('watch', S.epLen); save(); toast(`${s.title}: S${s.s}E${s.e} watched`); rerender(); }
 VIEWS.series = () => {
   const st = {watching:'Watching', plan:'Plan to watch', done:'Finished'};
   const list = S.series.filter(s => seriesFilter === 'all' || s.status === seriesFilter);
@@ -537,10 +598,85 @@ VIEWS.impact = () => {
 };
 BIND.impact = m => m.querySelectorAll('[data-q]').forEach(c => c.onchange = () => doQuest(+c.dataset.q));
 
+/* badges */
+const TIERS = [['Bronze', '#c98a5a'], ['Silver', '#b9bfcc'], ['Gold', '#f2c46d'], ['Diamond', '#7fe3ff']];
+const LESSON_TOTAL = Object.values(TRACKS).reduce((a, t) => a + t.modules.reduce((b, m) => b + m.l.length, 0), 0);
+function bestStreak() {
+  const days = new Set(S.log.filter(x => x.cat === 'learn' && x.m > 0).map(x => x.d));
+  Object.entries(S.quests).forEach(([d, q]) => { if (q.length) days.add(d); });
+  let best = 0, run = 0, prev = null;
+  for (const d of [...days].sort()) { const t = Date.parse(d + 'T12:00'); run = prev !== null && Math.round((t - prev) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = t; }
+  return best;
+}
+function goalDays() { const by = {}; S.log.forEach(x => { if (x.cat === 'learn') by[x.d] = (by[x.d] || 0) + x.m; }); return Object.values(by).filter(m => m >= Math.max(1, S.goals.learn)).length; }
+const BADGES = [
+  {name:'Focus Master', icon:'focus', unit:'focus sessions', t:[1, 10, 50, 200], v:() => S.focus.count},
+  {name:'Scholar', icon:'study', unit:'lessons', t:[1, 10, 25, LESSON_TOTAL], v:() => Object.keys(S.lessons).length},
+  {name:'Goal Getter', icon:'star', unit:'days at your learning goal', t:[1, 7, 30, 100], v:goalDays},
+  {name:'On Fire', icon:'balance', unit:'day best streak', t:[3, 7, 30, 100], v:bestStreak},
+  {name:'World Helper', icon:'impact', unit:'good deeds', t:[1, 10, 50, 200], v:() => S.questsTotal},
+  {name:'Gamer', icon:'gaming', unit:'hours played', t:[1, 10, 50, 200], v:() => Math.floor(S.log.filter(x => x.cat === 'play').reduce((a, x) => a + x.m, 0) / 60)},
+  {name:'Completionist', icon:'play', unit:'games finished', t:[1, 5, 15, 30], v:() => S.backlog.filter(b => b.status === 'finished').length},
+  {name:'Series Buff', icon:'series', unit:'episodes', t:[1, 25, 100, 500], v:() => S.stats.episodes},
+  {name:'Video Learner', icon:'youtube', unit:'learning videos', t:[1, 10, 50, 150], v:() => S.yt.filter(y => y.watched && y.kind === 'learn').length},
+  {name:'Level Up', icon:'badge', unit:'level', t:[5, 10, 25, MAX_LEVEL], v:() => level().lv},
+];
+function badgeState(b) {
+  if (isOwner) return {tier:3, val:b.t[3], next:null};
+  const val = b.v(); let tier = -1; b.t.forEach((x, i) => { if (val >= x) tier = i; });
+  return {tier, val, next:tier < 3 ? b.t[tier + 1] : null};
+}
+VIEWS.badges = () => {
+  const L = level(), u = me(), st = BADGES.map(b => [b, badgeState(b)]);
+  const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner ? 1 : 0), diamonds = st.filter(([, x]) => x.tier === 3).length;
+  const total = BADGES.length + (isOwner ? 1 : 0);
+  return `<div class="grid">
+  ${card('c12', '', `<div class="pc">
+    <span class="avatar big${isOwner ? ' gold' : ''}">${esc(displayName().charAt(0).toUpperCase())}</span>
+    <div class="grow"><div class="row" style="gap:10px"><h2>${esc(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
+      <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${diamonds} Diamond</p>
+      <div class="meter" style="max-width:440px"><i style="width:${L.max ? 100 : L.xp / L.need * 100}%"></i></div>
+      <p class="muted small" style="margin:6px 0 0">${L.max ? 'Max level reached. Legendary.' : `${L.xp} / ${L.need} XP to level ${L.lv + 1}`}</p></div>
+    ${u ? '' : '<button class="btn primary" data-open-auth="signup">Create account</button>'}</div>`)}
+  ${card('c12', 'Badges', `<div class="badges">
+    ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : ''}
+    ${st.map(([b, x]) => `<div class="badge-tile ${x.tier < 0 ? 'locked' : 'tier-' + x.tier}"${x.tier >= 0 ? ` style="--tc:${TIERS[x.tier][1]}"` : ''}>
+      <span class="medal">${icon(b.icon)}</span><b>${b.name}</b><span class="tier">${x.tier < 0 ? 'Locked' : TIERS[x.tier][0]}</span>
+      <p class="muted small">${x.next == null ? `Top tier · ${x.val} ${b.unit}` : `${Math.min(x.val, x.next)} / ${x.next} ${b.unit} for ${TIERS[x.tier + 1][0]}`}</p>
+      ${x.next == null ? '' : `<div class="meter"><i style="width:${Math.min(100, x.val / x.next * 100)}%"></i></div>`}</div>`).join('')}
+  </div>`, `<span class="tag p">${diamonds}/${BADGES.length} Diamond</span>`)}
+  ${card('c12', 'How badges work', `<div class="legend">${TIERS.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}</div>
+    <p class="muted small" style="margin:10px 0 0">Every badge has four tiers. Study, focus, play, watch and help others to climb them. Level ${MAX_LEVEL} is the max level.</p>`)}
+  </div>`;
+};
+BIND.badges = m => m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+
 /* settings */
+function accountCard() {
+  const u = me();
+  if (!u) return card('c6', 'Account', `<p class="muted" style="margin-top:-6px">You're using a guest profile. Create an account so each person on this device has their own progress, protected by a password. Your current progress moves into the new account.</p>
+    <div class="row"><button class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button class="btn" data-open-auth="login">Log in</button></div>`);
+  return card('c6', 'Account', `<div class="form">
+    <label class="field"><span>Username</span><input id="acUser" value="${esc(u.username)}" disabled></label>
+    <label class="field"><span>Email (optional)</span><input id="acEmail" type="email" maxlength="120" value="${esc(u.email || '')}" placeholder="Not set"></label>
+    <details class="pw"><summary class="btn sm">Change password</summary><form class="form" id="pwForm" style="margin-top:12px">
+      <input id="pwOld" type="password" autocomplete="current-password" placeholder="Current password" aria-label="Current password">
+      <input id="pwNew" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" aria-label="New password">
+      <input id="pwNew2" type="password" autocomplete="new-password" placeholder="Confirm new password" aria-label="Confirm new password">
+      <p class="err" id="pwErr" role="alert"></p><button class="btn primary">Save new password</button></form></details>
+    <div class="row"><button class="btn" id="acLogout">${icon('logout')}Log out</button><button class="btn danger" id="acDelete">${icon('trash')}Delete account</button></div></div>`);
+}
+function ownerCard() {
+  return card('c6', 'Owner', isOwner
+    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: max level, every badge at Diamond and the Founder badge.</p><button class="btn" id="ownOff">Turn off owner status</button>`
+    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock max level and every badge.</p>
+      <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
+}
 VIEWS.options = () => `<div class="grid">
+  ${accountCard()}
+  ${ownerCard()}
   ${card('c6', 'Profile & look', `<div class="form">
-    <label class="field"><span>Your name / gamer tag</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
+    <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
     <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-checked="${S.theme==='dark'}"><i></i></button></div>
     <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-checked="${S.thumbs}"><i></i></button></div>
     <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-checked="${S.notify}"><i></i></button></div>
@@ -549,14 +685,40 @@ VIEWS.options = () => `<div class="grid">
     <label class="field"><span>Gaming break reminder every (minutes, 0 = off)</span><input type="number" min="0" max="600" id="stBreak" value="${S.breakEvery}"></label>
     <label class="field"><span>Average episode length (minutes)</span><input type="number" min="1" max="200" id="stEp" value="${S.epLen}"></label>
     <a class="btn" href="#balance">Edit daily goals →</a></div>`)}
-  ${card('c12', 'Your data', `<p class="muted" style="margin-top:-6px">All your data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
+  ${card('c12', 'Your data', `<p class="muted" style="margin-top:-6px">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
     <div class="row"><button class="btn" id="stExport">${icon('download')}Export backup (.json)</button>
     <label class="btn" style="cursor:pointer">${icon('upload')}Import backup<input type="file" id="stImport" accept="application/json,.json" hidden></label>
     <button class="btn" id="stCopy">${icon('link')}Copy backup</button>
     <button class="btn danger" id="stWipe">${icon('trash')}Delete all my data</button></div>
     <textarea id="stBackupText" hidden readonly style="margin-top:12px" aria-label="Backup text"></textarea>`)}
 </div>`;
-BIND.options = () => {
+BIND.options = m => {
+  m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  const u = me();
+  if (u) {
+    $('#acEmail').onchange = e => { const v = e.target.value.trim(); if (v && !EMAIL_RE.test(v)) return toast('That email does not look right'); u.email = v; saveAcc(); toast(v ? 'Email saved' : 'Email removed'); };
+    $('#pwForm').onsubmit = async e => {
+      e.preventDefault(); const err = $('#pwErr'); err.textContent = '';
+      if (!(await checkPassword(u, $('#pwOld').value))) return err.textContent = 'Your current password is not right.';
+      const p = $('#pwNew').value; if (p.length < 8) return err.textContent = 'Use at least 8 characters.';
+      if (p !== $('#pwNew2').value) return err.textContent = 'The new passwords do not match.';
+      await setPassword(u, p); saveAcc(); toast('Password changed'); rerender();
+    };
+    $('#acLogout').onclick = logout;
+    let armedDel = false;
+    $('#acDelete').onclick = () => {
+      if (!armedDel) { armedDel = true; $('#acDelete').innerHTML = `${icon('trash')}Click again to delete account`; setTimeout(() => { armedDel = false; const b = $('#acDelete'); if (b) b.innerHTML = `${icon('trash')}Delete account`; }, 5000); return; }
+      try { localStorage.removeItem(keyFor(u.username)); } catch {}
+      delete ACC.users[u.username.toLowerCase()]; switchTo(null); toast('Account deleted');
+    };
+  }
+  if (isOwner) $('#ownOff').onclick = () => { S.ownerProof = ''; save(); verifyOwner(); toast('Owner status turned off'); };
+  else $('#ownForm').onsubmit = async e => {
+    e.preventDefault(); const k = $('#ownKey').value; if (!k.trim()) return;
+    $('#ownErr').textContent = ''; toast('Checking key…');
+    if (await claimOwner(k)) { toast('Owner unlocked: max level and every badge'); location.hash = '#badges'; }
+    else $('#ownErr').textContent = 'That owner key is not right.';
+  };
   $('#stName').onchange = e => { S.name = e.target.value.trim(); save(); paintPlayer(); toast('Name saved'); };
   const sw = (id, fn) => $(id).onclick = () => { fn(); save(); rerender(); };
   sw('#stTheme', () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; applyTheme(); });
@@ -582,10 +744,13 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Track your fun</b>: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.</li>
     <li><b style="color:var(--text)">Check Balance</b> to see how your week splits between learning, playing and watching.</li>
     <li><b style="color:var(--text)">Do daily quests</b> in Help the World — good deeds earn XP too.</li>
+    <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one has Bronze, Silver, Gold and Diamond tiers.</li>
+    <li><b style="color:var(--text)">Make an account</b> with a username and password so everyone on this device has their own progress. Email is optional.</li>
     <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is ever uploaded.</li></ol>`)}
   ${card('c5', 'Keyboard shortcuts', `<div class="keys">
     <span><kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>/</kbd></span><span class="muted">Search & jump anywhere</span>
-    <span><kbd>1</kbd> – <kbd>9</kbd></span><span class="muted">Go to tab 1–9</span>
+    <span><kbd>1</kbd> – <kbd>9</kbd></span><span class="muted">Go to tab 1–9 (9 is Badges)</span>
+    <span><kbd>0</kbd></span><span class="muted">Settings</span>
     <span><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></span><span class="muted">Previous / next tab</span>
     <span><kbd>Space</kbd></span><span class="muted">Start / pause the focus timer (Focus tab)</span>
     <span><kbd>T</kbd></span><span class="muted">Toggle light / dark</span>
@@ -595,14 +760,14 @@ VIEWS.help = () => `<div class="grid">
 
 /* privacy */
 VIEWS.privacy = () => card('c12', '', `<div class="prose">
-  <p class="dim small">Last updated: 24 November 2026</p>
+  <p class="dim small">Last updated: 24 November 2026 (accounts added)</p>
   <h2>1. The short version</h2>
   <p>LevelUp Life is a local-first app. <b>Everything you type stays on your own device.</b> We do not have servers that store your data, we do not require an account, and we do not use analytics, trackers, cookies for advertising, or sell anything about you.</p>
   <h2>2. What data the app stores</h2>
-  <ul><li>Your name or gamer tag (optional).</li><li>Study progress, tasks, focus sessions and goals.</li><li>Games, gaming sessions, series and saved YouTube links you add.</li><li>Completed daily quests, XP and app settings (theme, reminders).</li></ul>
+  <ul><li>If you make an account: your username, your email if you choose to add one, and a hashed version of your password. The password itself is never stored; it is scrambled with PBKDF2-SHA256 and a random salt.</li><li>Your nickname (optional).</li><li>Study progress, tasks, focus sessions and goals.</li><li>Games, gaming sessions, series and saved YouTube links you add.</li><li>Completed daily quests, XP and app settings (theme, reminders).</li></ul>
   <p>This is saved in your browser's <i>localStorage</i> (website) or the app's local storage folder (desktop app) on this device only.</p>
   <h2>3. What we do not collect</h2>
-  <ul><li>No email, phone number, location or contacts.</li><li>No usage analytics or crash tracking.</li><li>No advertising IDs. No ads at all.</li></ul>
+  <ul><li>Email is optional. If you add one, it stays on this device and is never sent anywhere or used to contact you.</li><li>No phone number, location or contacts.</li><li>No usage analytics or crash tracking.</li><li>No advertising IDs. No ads at all.</li></ul>
   <h2>4. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
@@ -611,7 +776,7 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <h2>5. Notifications</h2>
   <p>If you turn on notifications, they are created locally by your device for timers and break reminders. Nothing is sent over the internet.</p>
   <h2>6. Your control</h2>
-  <ul><li><b>Access & portability:</b> export all your data as a JSON file in Settings.</li><li><b>Deletion:</b> "Delete all my data" in Settings removes everything instantly. Uninstalling the desktop app or clearing site data also removes it.</li><li><b>Correction:</b> edit or delete any item directly in the app.</li></ul>
+  <ul><li><b>Accounts are per device:</b> an account only exists in the browser or app where it was created. Anyone with access to this device's files could copy the stored data, so use a device password.</li><li><b>Access & portability:</b> export all your data as a JSON file in Settings.</li><li><b>Deletion:</b> "Delete account" or "Delete all my data" in Settings removes it instantly. Uninstalling the desktop app or clearing site data also removes it.</li><li><b>Correction:</b> edit or delete any item directly in the app.</li></ul>
   <h2>7. Children</h2>
   <p>The app does not knowingly collect personal data from anyone, including children, because no data leaves the device. Younger users should use the app with a parent or guardian's permission where local law requires it.</p>
   <h2>8. Security</h2>
@@ -633,6 +798,7 @@ const ACTIONS = () => [
   {n:'Save a YouTube video', h:'Action', i:'youtube', run:() => { location.hash = '#youtube'; setTimeout(() => $('#yUrl')?.focus(), 60); }},
   {n:'Add a study task', h:'Action', i:'study', run:() => { location.hash = '#study'; setTimeout(() => $('#taskIn')?.focus(), 60); }},
   {n:'Toggle light / dark mode', h:'Action', i:'eye', run:() => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); }},
+  ...(me() ? [{n:'Log out', h:'Account', i:'logout', run:() => logout()}] : [{n:'Create account or log in', h:'Account', i:'user', run:() => openAuth('signup')}]),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
   ...S.series.map(s => ({n:s.title, h:'Series', i:'series', run:() => location.hash = '#series'})),
   ...S.backlog.map(b => ({n:b.title, h:'Game', i:'gaming', run:() => location.hash = '#gaming'})),
@@ -667,7 +833,7 @@ function events() {
     else if (e.key === 'Enter') runPal(palSel);
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closePalette(); $('#sheet').hidden = true; return; }
+    if (e.key === 'Escape') { closePalette(); $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;
     if (typing || e.ctrlKey || e.metaKey) return;
@@ -682,10 +848,68 @@ function events() {
     else if (e.key.toLowerCase() === 't') $('#themeBtn').click();
     else if (e.key === ' ' && current === 'focus' && !document.activeElement?.closest('button')) { e.preventDefault(); toggleTimer(); }
   });
-  $('#consentOk').onclick = () => { S.agreed = true; S.name = $('#consentName').value.trim() || 'Player'; save(); $('#consent').hidden = true; paintPlayer(); render(); toast(`Welcome, ${S.name}! +10 XP`); gainXP(10, 'welcome'); };
-  $('#consentName').onkeydown = e => { if (e.key === 'Enter') $('#consentOk').click(); };
-  $('#consentPrivacy').onclick = () => { $('#consent').hidden = true; };
-  window.addEventListener('hashchange', () => { if (!S.agreed && current !== 'privacy') $('#consent').hidden = false; });
+  $$('[data-auth]').forEach(b => b.onclick = () => setAuthTab(b.dataset.auth));
+  $('#signupForm').onsubmit = signup;
+  $('#loginForm').onsubmit = login;
+  $('#guestBtn').onclick = asGuest;
+  $('#authClose').onclick = () => { $('#consent').hidden = true; };
+  $$('.toPrivacy').forEach(a => a.onclick = () => { $('#consent').hidden = true; });
+  window.addEventListener('hashchange', () => { if (!ACC.current && current !== 'privacy') openAuth('signup'); });
+}
+
+/* ---------- sign up / log in ---------- */
+const fails = {n:0, until:0};
+function setAuthTab(t) {
+  $$('[data-auth]').forEach(b => b.classList.toggle('on', b.dataset.auth === t));
+  $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login';
+  $('#suErr').textContent = ''; $('#liErr').textContent = '';
+}
+function openAuth(t = 'signup') {
+  $('#consent').hidden = false; $('#authClose').hidden = !ACC.current; $('#guestBtn').hidden = !!ACC.current; setAuthTab(t);
+  setTimeout(() => $(t === 'login' ? '#liUser' : '#suUser').focus(), 30);
+}
+function switchTo(name) { // a username, GUEST, or null for "logged out"
+  ACC.current = name; saveAcc(); KEY = keyFor(name);
+  resetTimers(); S = clean(loadJSON(KEY, {})); isOwner = false;
+  resumeFocus(); if (S.run.game) startGame(S.run.game.game, S.run.game.start);
+  init(); verifyOwner();
+}
+function logout() { switchTo(null); toast('Logged out'); }
+async function signup(e) {
+  e.preventDefault(); const err = $('#suErr'); err.textContent = '';
+  const name = $('#suUser').value.trim(), pw = $('#suPass').value, email = $('#suEmail').value.trim();
+  if (!USER_RE.test(name)) return err.textContent = 'Usernames are 3–20 letters, numbers or underscores.';
+  if (ACC.users[name.toLowerCase()]) return err.textContent = 'That username is already used on this device. Pick another or log in.';
+  if (pw.length < 8) return err.textContent = 'Use a password with at least 8 characters.';
+  if (pw !== $('#suPass2').value) return err.textContent = 'The passwords do not match.';
+  if (email && !EMAIL_RE.test(email)) return err.textContent = 'That email does not look right. You can also leave it empty.';
+  if (!$('#suAgree').checked) return err.textContent = 'Please agree to the Privacy Terms to continue.';
+  const btn = $('#signupForm .btn.primary'); btn.disabled = true;
+  try {
+    const u = {username:name, email, created:today()}; await setPassword(u, pw);
+    ACC.users[name.toLowerCase()] = u;
+    const carry = ACC.current === GUEST; // a guest who signs up keeps their progress
+    const data = clean(carry ? loadJSON(GUEST_KEY, {}) : {}); data.agreed = true; if (!data.name) data.name = name;
+    try { localStorage.setItem(keyFor(name), JSON.stringify(data)); if (carry) localStorage.removeItem(GUEST_KEY); } catch {}
+    $('#signupForm').reset(); $('#consent').hidden = true; switchTo(name);
+    if (carry) toast(`Account created. Your progress moved into ${name}.`); else { gainXP(10, 'welcome'); toast(`Welcome, ${name}! +10 XP`); }
+  } catch { err.textContent = 'Could not create the account in this browser. Try another browser.'; }
+  finally { btn.disabled = false; }
+}
+async function login(e) {
+  e.preventDefault(); const err = $('#liErr'); err.textContent = '';
+  if (Date.now() < fails.until) return err.textContent = `Too many tries. Wait ${Math.ceil((fails.until - Date.now()) / 1000)} seconds.`;
+  const name = $('#liUser').value.trim(), u = ACC.users[name.toLowerCase()];
+  const btn = $('#loginForm .btn.primary'); btn.disabled = true;
+  const ok = u && await checkPassword(u, $('#liPass').value).catch(() => false);
+  btn.disabled = false;
+  if (!ok) { if (++fails.n >= 5) { fails.n = 0; fails.until = Date.now() + 30000; } return err.textContent = 'Wrong username or password. Accounts only exist on the device where they were made.'; }
+  fails.n = 0; $('#loginForm').reset(); $('#consent').hidden = true; switchTo(u.username); toast(`Welcome back, ${u.username}!`);
+}
+function asGuest() {
+  const g = clean(loadJSON(GUEST_KEY, {})); g.agreed = true;
+  try { localStorage.setItem(GUEST_KEY, JSON.stringify(g)); } catch {}
+  $('#consent').hidden = true; switchTo(GUEST);
 }
 
 function resetTimers() {
@@ -694,10 +918,11 @@ function resetTimers() {
 }
 function init() {
   applyTheme(); paintPlayer(); route();
-  $('#consent').hidden = S.agreed;
+  if (ACC.current) $('#consent').hidden = true; else openAuth('signup');
 }
 buildNav(); events();
 resumeFocus();
 if (S.run.game) startGame(S.run.game.game, S.run.game.start);
 init();
+verifyOwner();
 })();
