@@ -188,27 +188,46 @@ const mediaGet = k => mediaOp('readonly', s => s.get(mk(k)));
 const mediaPut = (k, v) => mediaOp('readwrite', s => s.put(v, mk(k)));
 const mediaDel = k => mediaOp('readwrite', s => s.delete(mk(k)));
 async function mediaWipe() { try { const ks = await mediaOp('readonly', s => s.getAllKeys()); for (const k of ks) if (String(k).startsWith(KEY + '|')) await mediaOp('readwrite', s => s.delete(k)); } catch {} }
-const M = {pfp:'', banner:'', emoji:new Map()};
-function clearMedia() { [M.pfp, M.banner, ...M.emoji.values()].forEach(u => u && URL.revokeObjectURL(u)); M.pfp = M.banner = ''; M.emoji = new Map(); }
+const M = {pfp:'', banner:'', pfpVid:false, bannerVid:false, pfpLive:false, bannerLive:false, emoji:new Map()};
+function clearMedia() { [M.pfp, M.banner, ...M.emoji.values()].forEach(u => u && URL.revokeObjectURL(u)); M.pfp = M.banner = ''; M.pfpVid = M.bannerVid = M.pfpLive = M.bannerLive = false; M.emoji = new Map(); }
 async function loadMedia() {
   clearMedia(); if (!(isOwner || isAdmin) || !window.indexedDB) return;
   try {
     const url = b => b ? URL.createObjectURL(b) : '';
-    M.pfp = url(await mediaGet('pfp')); M.banner = url(await mediaGet('banner'));
+    for (const k of ['pfp', 'banner']) { const b = await mediaGet(k); if (!b) continue;
+      const a = await inspectMedia(b); M[k] = url(b); M[k + 'Vid'] = a.video; M[k + 'Live'] = a.live; }
     for (const e of S.emoji) { const b = await mediaGet('emoji:' + e.id); if (b) M.emoji.set(e.name, URL.createObjectURL(b)); }
   } catch {}
 }
-async function isAnimated(file) {
-  const b = new Uint8Array(await file.slice(0, 2 * 1048576).arrayBuffer());
-  if (file.type === 'image/gif') { let n = 0; for (let i = 0; i < b.length - 2; i++) if (b[i] === 0x21 && b[i + 1] === 0xF9 && b[i + 2] === 0x04 && ++n > 1) return true; return false; }
-  if (file.type === 'image/webp') for (let i = 0; i < Math.min(b.length, 4096) - 3; i++) if (b[i] === 0x41 && b[i + 1] === 0x4E && b[i + 2] === 0x49 && b[i + 3] === 0x4D) return true;
-  return false;
+/* Work out what a file really is from its first bytes, not its name: "GIFs" saved from Discord, Tenor or Giphy
+   are often really WebP or MP4 files with a .gif name. Animated files are kept exactly as they are so they keep moving. */
+const MIME = {gif:'image/gif', png:'image/png', jpeg:'image/jpeg', webp:'image/webp', mp4:'video/mp4', webm:'video/webm'};
+const hasBytes = (b, s, from = 0, to = b.length) => { const c = [...s].map(ch => ch.charCodeAt(0));
+  outer: for (let i = from; i <= Math.min(to, b.length) - c.length; i++) { for (let j = 0; j < c.length; j++) if (b[i + j] !== c[j]) continue outer; return true; } return false; };
+async function inspectMedia(file) {
+  const b = new Uint8Array(await file.slice(0, 16 * 1048576).arrayBuffer()), at = (i, s) => hasBytes(b, s, i, i + s.length);
+  let kind = '';
+  if (at(0, 'GIF8')) kind = 'gif';
+  else if (b[0] === 0x89 && at(1, 'PNG')) kind = 'png';
+  else if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) kind = 'jpeg';
+  else if (at(0, 'RIFF') && at(8, 'WEBP')) kind = 'webp';
+  else if (at(4, 'ftyp')) kind = 'mp4';
+  else if (b[0] === 0x1A && b[1] === 0x45 && b[2] === 0xDF && b[3] === 0xA3) kind = 'webm';
+  let live = false;
+  if (kind === 'gif') { let frames = 0; for (let i = 0; i < b.length - 2 && frames < 2; i++) if (b[i] === 0x21 && b[i + 1] === 0xF9 && b[i + 2] === 0x04) frames++;
+    live = frames > 1 || hasBytes(b, 'NETSCAPE2.0') || hasBytes(b, 'ANIMEXTS1.0'); }
+  else if (kind === 'png') live = hasBytes(b, 'acTL', 8, 65536); // animated PNG
+  else if (kind === 'webp') live = (at(12, 'VP8X') && (b[20] & 0x02) !== 0) || hasBytes(b, 'ANIM', 12, 65536);
+  else if (kind === 'mp4' || kind === 'webm') live = true;
+  return {kind, mime:MIME[kind] || '', live, video:kind === 'mp4' || kind === 'webm'};
 }
 async function prepImage(file, kind) { // still images are resized to save space; animated ones are kept as they are so they keep moving
-  const L = {pfp:{max:8, w:320, h:320, crop:true}, banner:{max:15, w:1800, h:600}, emoji:{max:2, w:128, h:128}}[kind];
-  if (!file || !/^image\/(png|jpeg|gif|webp)$/.test(file.type)) throw new Error('Use a PNG, JPG, WebP or GIF image.');
+  const L = {pfp:{max:8, w:320, h:320, crop:true, video:true}, banner:{max:15, w:1800, h:600, video:true}, emoji:{max:2, w:128, h:128}}[kind];
+  if (!file) throw new Error('Choose a file first.');
   if (file.size > L.max * 1048576) throw new Error(`That file is too big. The limit is ${L.max} MB.`);
-  if (await isAnimated(file)) return {blob:file, live:true};
+  const a = await inspectMedia(file);
+  if (!a.kind || (a.video && !L.video)) throw new Error(L.video ? 'Use a PNG, JPG, WebP, GIF, MP4 or WebM file.' : 'Use a PNG, JPG, WebP or GIF image.');
+  if (a.live || a.kind === 'gif') return {blob:new Blob([file], {type:a.mime}), live:a.live, video:a.video, gif:a.kind === 'gif'};
   const img = await createImageBitmap(file);
   let sw = img.width, sh = img.height, sx = 0, sy = 0;
   if (L.crop) { const sq = Math.min(sw, sh); sx = (sw - sq) / 2; sy = (sh - sq) / 2; sw = sh = sq; }
@@ -220,7 +239,8 @@ async function prepImage(file, kind) { // still images are resized to save space
 }
 // escape text, then turn :name: into the owner's custom emoji
 const emo = s => { const h = esc(s); return M.emoji.size ? h.replace(/:([a-z0-9_]{2,24}):/g, (m, n) => M.emoji.has(n) ? `<img class="emoji" src="${M.emoji.get(n)}" alt=":${n}:" title=":${n}:">` : m) : h; };
-const avatarInner = () => M.pfp ? `<img src="${M.pfp}" alt="">` : esc(displayName().trim().charAt(0).toUpperCase());
+const pic = (src, vid) => vid ? `<video src="${src}" autoplay muted loop playsinline disablepictureinpicture aria-hidden="true"></video>` : `<img src="${src}" alt="">`;
+const avatarInner = () => M.pfp ? pic(M.pfp, M.pfpVid) : esc(displayName().trim().charAt(0).toUpperCase());
 
 /* ---------- state ---------- */
 const DEFAULT = {
@@ -733,7 +753,7 @@ VIEWS.badges = () => {
   const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner || isAdmin ? 1 : 0), tops = st.filter(([, x]) => x.tier === TOP).length, elites = st.filter(([, x]) => x.tier >= ELITE_FROM).length;
   const total = BADGES.length + (isOwner || isAdmin ? 1 : 0);
   return `<div class="grid">
-  ${card('c12', '', `${(isOwner || isAdmin) && M.banner ? `<div class="pc-banner"><img src="${M.banner}" alt=""></div>` : ''}<div class="pc">
+  ${card('c12', '', `${(isOwner || isAdmin) && M.banner ? `<div class="pc-banner">${pic(M.banner, M.bannerVid)}</div>` : ''}<div class="pc">
     <span class="avatar big${isOwner ? ' gold' : isAdmin ? ' blue' : ''}">${avatarInner()}</span>
     <div class="grow"><div class="row" style="gap:10px"><h2>${emo(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : isAdmin ? `<span class="tag adm">${icon('shield')}Admin</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
       <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${elites} Elite · ${tops} Challenger</p>
@@ -755,14 +775,16 @@ VIEWS.badges = () => {
   </div>`;
 };
 const emojiMax = () => isOwner ? 100 : 25;
-const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp';
+const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,.png,.jpg,.jpeg,.gif,.webp';
+const MEDIA_ACCEPT = IMG_ACCEPT + ',video/mp4,video/webm,.mp4,.webm';
+const liveTag = on => on ? '<span class="tag p">Live</span>' : '';
 function studioCards() {
   if (!isOwner && !isAdmin) return ''; // owner and admins only: nobody else gets these controls
   return `${card('c6', 'Customize profile', `
-    <div class="studio-row"><span class="avatar big ${isOwner ? 'gold' : 'blue'}">${avatarInner()}</span><div class="grow"><b>Profile picture</b><p class="muted small">PNG, JPG, WebP or an animated GIF. Up to 8 MB.</p>
-      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upPfp" accept="${IMG_ACCEPT}" hidden></label>${M.pfp ? '<button class="btn sm" id="rmPfp">Remove</button>' : ''}</div></div></div>
-    <div class="studio-row"><div class="banner-thumb">${M.banner ? `<img src="${M.banner}" alt="">` : '<span class="muted small">No banner</span>'}</div><div class="grow"><b>Banner</b><p class="muted small">A picture or an animated GIF. Wide images (3:1) look best. Up to 15 MB.</p>
-      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upBanner" accept="${IMG_ACCEPT}" hidden></label>${M.banner ? '<button class="btn sm" id="rmBanner">Remove</button>' : ''}</div></div></div>
+    <div class="studio-row"><span class="avatar big ${isOwner ? 'gold' : 'blue'}">${avatarInner()}</span><div class="grow"><div class="row" style="gap:8px"><b>Profile picture</b>${liveTag(M.pfp && M.pfpLive)}</div><p class="muted small">A picture, an animated GIF/WebP, or a short MP4/WebM clip. Up to 8 MB.</p>
+      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upPfp" accept="${MEDIA_ACCEPT}" hidden></label>${M.pfp ? '<button class="btn sm" id="rmPfp">Remove</button>' : ''}</div></div></div>
+    <div class="studio-row"><div class="banner-thumb">${M.banner ? pic(M.banner, M.bannerVid) : '<span class="muted small">No banner</span>'}</div><div class="grow"><div class="row" style="gap:8px"><b>Banner</b>${liveTag(M.banner && M.bannerLive)}</div><p class="muted small">A picture, an animated GIF/WebP, or a short MP4/WebM clip. Wide (3:1) looks best. Up to 15 MB.</p>
+      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upBanner" accept="${MEDIA_ACCEPT}" hidden></label>${M.banner ? '<button class="btn sm" id="rmBanner">Remove</button>' : ''}</div></div></div>
     <p class="err" id="studioErr" role="alert"></p>`, isOwner ? `<span class="tag owner">${icon('crown')}Owner only</span>` : `<span class="tag adm">${icon('shield')}Admin perk</span>`)}
   ${card('c6', 'Custom emoji', `<form class="row" id="emoForm"><input id="emoName" maxlength="26" placeholder="Name, e.g. gg" aria-label="Emoji name"><label class="btn primary">${icon('upload')}Choose image<input type="file" id="emoFile" accept="${IMG_ACCEPT}" hidden></label></form>
     <p class="muted small">Still images and animated GIFs both work (up to 2 MB). Type <b>:name:</b> in tasks, game, series or video titles to use one. Click an emoji to copy its code.</p>
@@ -777,7 +799,8 @@ BIND.badges = m => {
   const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); };
   const upload = (sel, kind, done) => { const inp = $(sel); inp.onchange = async () => {
     const f = inp.files[0]; inp.value = ''; if (!f) return; $('#studioErr').textContent = '';
-    try { const {blob} = await prepImage(f, kind); await mediaPut(kind, blob); await refresh(); toast(done); }
+    try { const {blob, live, gif} = await prepImage(f, kind); await mediaPut(kind, blob); await refresh();
+      toast(live ? `${done} (animated)` : gif ? `${done}. This GIF has only one frame, so it can't move.` : done); }
     catch (e) { $('#studioErr').textContent = e && e.message ? e.message : 'Could not save that image in this browser.'; } }; };
   upload('#upPfp', 'pfp', 'Profile picture updated'); upload('#upBanner', 'banner', 'Banner updated');
   const remove = (sel, kind) => { const b = $(sel); if (b) b.onclick = async () => { await mediaDel(kind).catch(() => {}); await refresh(); }; };
