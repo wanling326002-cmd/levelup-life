@@ -964,9 +964,9 @@ const canUnmute = by => isOwner || by === 'admin';
 function paintChat() {
   const list = $('#chatList'); if (!list) return;
   const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
-  list.innerHTML = C.msgs.map(m => { const p = m.pv ? PL.by.get(m.u) : null, link = p ? ` data-player="${m.u}"` : '';
-    return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><${p ? 'button type="button"' : 'span'} class="thumb"${link} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}"${p ? ` aria-label="Open ${esc(m.n)}'s profile"` : ''}>${p && p.pf ? `<img src="${p.pf}" alt="">` : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</${p ? 'button' : 'span'}>
-    <div class="grow"><div class="msg-h">${p ? `<button type="button" class="name-btn"${link} title="View profile"><b>${esc(m.n)}</b></button>` : `<b>${esc(m.n)}</b>`}${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
+  list.innerHTML = C.msgs.map(m => { const p = chatPlayer(m), cm = ` data-cm="${esc(m.id)}"`; // every name opens a profile card (with Add friend)
+    return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? `<img src="${p.pf}" alt="">` : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
+    <div class="grow"><div class="msg-h"><button type="button" class="name-btn"${cm} title="View profile · add friend"><b>${esc(m.n)}</b></button>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
     ${canMod() && (canHide(m) || canMute(m)) ? `<span class="msg-tools">${canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}</span>` : ''}</div>
     <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
@@ -1065,7 +1065,7 @@ const PLAYERS = 'Players', USER_OK = /^[a-z0-9_]{3,20}$/, DATA_IMG = /^data:imag
 const pid = u => 'p-' + u;
 const PL = {list:[], by:new Map(), at:0, loading:null, hidden:new Map(), packs:{owner:new Map(), admin:new Map()}, packAt:0, keys:new Map(), status:'', tab:'all', q:'', timer:null};
 const TH = {key:'', pf:'', bn:''};
-let pubBusy = false, openU = '';
+let pubBusy = false, openU = '', openNote = '', openName = '';
 const myU = () => me() ? me().username.toLowerCase() : '';
 const signText = async (key, text) => b64(await crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, key, enc.encode(text)));
 async function verifyWith(jwk, sig, text) {
@@ -1192,7 +1192,7 @@ async function loadPlayers(force) {
       for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (!m) continue;
         for (const u of arr(m.hidden)) { const p = by.get(u); if (!p || p.role === 'owner') continue; if (m.role === 'owner') hidden.set(u, 'owner'); else if (!p.role && !hidden.has(u)) hidden.set(u, 'admin'); } }
       list.sort((a, b) => b.lv - a.lv || b.xp - a.xp || a.n.localeCompare(b.n));
-      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''});
+      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot();
     } catch { PL.status = 'offline'; if (!PL.at) PL.at = 0; }
     finally { PL.loading = null; }
     return PL.list;
@@ -1210,13 +1210,21 @@ const friendRequests = () => { const m = myU(); return m ? PL.list.filter(p => p
 const canHidePlayer = p => !!p && p.u !== myU() && (isOwner ? p.role !== 'owner' : isAdminOnly() && !p.role);
 async function changeFriend(u, act) {
   if (!me()) return openAuth('signup');
+  const wentPublic = act === 'pubadd' && !S.pub; // the button said "Go public & ...", so this is the user's choice
+  if (act === 'pubadd') { S.pub = true; PL.status = ''; act = 'add'; }
   if (!S.pub && (act === 'add')) return toast('Make your profile public first (Players page or Settings), so others can see your request.');
   if (act === 'add') { if (!S.friends.includes(u)) S.friends.push(u); S.ignored = S.ignored.filter(x => x !== u); }
   if (act === 'remove') S.friends = S.friends.filter(x => x !== u);
   if (act === 'ignore') { if (!S.ignored.includes(u)) S.ignored.push(u); S.ignored = S.ignored.slice(-200); }
   save(); repaintSocial();
-  if (act !== 'ignore') { const ok = await publishProfile(true); toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (friendState(u) === 'friends' ? `You and ${u} are now friends!` : `Friend request sent to ${u}`) : `Removed ${u}`); }
-  repaintSocial();
+  if (act !== 'ignore') { const ok = await publishProfile(true); if (!S.pub) { repaintSocial(); return; } // the name was taken
+    if (ok && wentPublic) await loadPlayers(true);
+    toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (friendState(u) === 'friends' ? `You and ${u} are now friends!` : `Friend request sent to ${u}${wentPublic ? ' · your profile is now public' : ''}`) : `Removed ${u}`); }
+  repaintSocial(); reqDot(); if (wentPublic && current === 'players') rerender();
+}
+function reqDot() { // a dot on the Players menu item when someone sent you a friend request
+  const n = me() ? friendRequests().length : 0;
+  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${n} friend request${n === 1 ? '' : 's'}` : 'Players'; });
 }
 async function setHidden(u, hide) {
   const st = await staffKey(); if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
@@ -1289,12 +1297,17 @@ function friendButtons(u, sm = '') {
   if (s === 'self') return `<a class="btn ${sm}" href="#badges" data-close-pm>Edit my profile</a>`;
   if (s === 'friends') return `<span class="tag g">${icon('check')}Friends</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Remove</button>`;
   if (s === 'sent') return `<span class="tag">Request sent</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Cancel</button>`;
-  if (s === 'incoming') return `<button type="button" class="btn primary ${sm}" data-fr="add" data-u="${u}">${icon('check')}Accept</button><button type="button" class="btn ${sm}" data-fr="ignore" data-u="${u}">Decline</button>`;
-  return `<button type="button" class="btn primary ${sm}" data-fr="add" data-u="${u}">${icon('userplus')}Add friend</button>`;
+  const add = me() && !S.pub ? 'pubadd' : 'add'; // a private player is asked to go public in the same click
+  if (s === 'incoming') return `<button type="button" class="btn primary ${sm}" data-fr="${add}" data-u="${u}">${icon('check')}${add === 'pubadd' ? 'Go public & accept' : 'Accept'}</button><button type="button" class="btn ${sm}" data-fr="ignore" data-u="${u}">Decline</button>`;
+  return `<button type="button" class="btn primary ${sm}" data-fr="${add}" data-u="${u}">${icon('userplus')}${add === 'pubadd' ? 'Go public & add friend' : 'Add friend'}</button>`;
 }
+const privateCardHTML = (u, name) => `<div class="pm-body"><div class="row" style="gap:14px;flex-wrap:nowrap"><span class="avatar big" style="background:${hue(u)}">${esc(name.charAt(0).toUpperCase())}</span><div style="min-width:0"><h2>${esc(name)}</h2><p class="muted small" style="margin:2px 0 0">@${esc(u)} · no public profile yet</p></div></div>
+  <p class="muted" style="margin:0">${u === myU() ? 'This is you. Make your profile public on the Players page so others can open it and add you.' : `${esc(name)} hasn't made their profile public, so there are no stats to show yet. You can still send a friend request: they'll see it on their Players page and can accept it there.`}</p>
+  ${me() && !S.pub && u !== myU() ? `<p class="muted small" style="margin:0">${SHARED_INFO}</p>` : ''}
+  <div class="row">${friendButtons(u)}</div></div>`;
 function profileHTML(u) {
   const p = PL.by.get(u);
-  if (!p) return `<div class="pm-body"><h2>${esc(u)}</h2><p class="muted">${PL.status === 'offline' ? "Can't reach the leaderboard right now. Try again in a moment." : "This player doesn't have a public profile."}</p></div>`;
+  if (!p) return PL.status === 'offline' && !PL.list.length ? `<div class="pm-body"><h2>${esc(u)}</h2><p class="muted">Can't reach the leaderboard right now. Try again in a moment.</p></div>` : privateCardHTML(u, openName || u);
   const vis = visiblePlayers(), pos = vis.indexOf(p) + 1, L = p.role === 'owner' || p.lv >= MAX_LEVEL ? null : levelOf(p.xp), hid = PL.hidden.get(u);
   return `<div class="pm-banner">${p.bn ? `<img src="${p.bn}" alt="">` : ''}</div>
   <div class="pm-head">${plAvatar(p, true)}<div class="grow"><div class="row" style="gap:8px"><h2>${esc(p.n)}</h2>${roleTag(p)}${u === myU() ? '<span class="tag">You</span>' : ''}</div>
@@ -1306,6 +1319,7 @@ function profileHTML(u) {
     <div class="mini-badges">${BADGES.map((b, i) => { const r = RANKS[p.rk[i]]; return `<div class="mini-badge${r ? '' : ' locked'}"${r ? ` style="--tc:${r.color}"` : ''}>${icon(b.icon)}<span><b>${b.name}</b><br><span class="muted">${r ? r.name : 'Locked'}</span></span></div>`; }).join('')}</div>
     <div class="row">${friendButtons(u)}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}</div>
     ${hid && u === myU() ? `<p class="err">A moderator hid you from the leaderboard.</p>` : ''}
+    ${openNote ? `<p class="muted small" style="margin:0">${esc(openNote)}</p>` : ''}
   </div>`;
 }
 function ensureProfileModal() {
@@ -1318,13 +1332,28 @@ function ensureProfileModal() {
   });
   document.body.append(m); return m;
 }
-async function openProfile(u) {
+async function openProfile(u, note = '', name = '') {
   if (!USER_OK.test(u)) return;
-  const m = ensureProfileModal(); openU = u; m.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
+  const m = ensureProfileModal(); openU = u; openNote = note; openName = name; m.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
   await loadPlayers(); if (openU === u) $('#pmBody').innerHTML = profileHTML(u);
   const c = m.querySelector('.pm-close'); if (c) c.focus();
 }
-function closeProfile() { const m = $('#playerModal'); if (m) m.hidden = true; openU = ''; }
+function closeProfile() { const m = $('#playerModal'); if (m) m.hidden = true; openU = ''; openNote = ''; openName = ''; }
+const chatPlayer = m => { // the verified profile behind a chat message, if there is one
+  if (m.pv) return PL.by.get(m.u) || null;
+  if (m.owner || m.admin) { const p = PL.by.get(m.n.toLowerCase()); if (p && p.role === (m.owner ? 'owner' : 'admin')) return p; } // signed by the owner/admin key
+  return null;
+};
+async function openChatPerson(id) { // clicking a name or picture in chat
+  const m = C.msgs.find(x => x.id === id); if (!m) return;
+  const mo = ensureProfileModal(); openU = ''; mo.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
+  await loadPlayers();
+  if (m.u && m.ps && m.pv === undefined && PL.by.has(m.u)) { m.pv = await verifyWith(PL.by.get(m.u), m.ps, sigText(m) + '|' + m.u); C.pv.set(m.id, m.pv); }
+  const p = chatPlayer(m); if (p) return openProfile(p.u);
+  const u = m.n.trim().toLowerCase();
+  if (!USER_OK.test(u)) { $('#pmBody').innerHTML = `<div class="pm-body"><h2>${esc(m.n)}</h2><p class="muted" style="margin:0">${esc(m.n)} is chatting as a guest (no account), so they can't be added as a friend yet. Ask them to make an account.</p></div>`; return; }
+  openProfile(u, PL.by.has(u) ? `Heads up: this chat message wasn't signed by @${u}'s profile, so it could be someone else using the same name.` : '', m.n);
+}
 function repaintSocial() {
   if (openU && $('#playerModal') && !$('#playerModal').hidden) $('#pmBody').innerHTML = profileHTML(openU);
   if (current === 'players') paintPlayers();
@@ -1332,6 +1361,7 @@ function repaintSocial() {
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-player]'); if (b) { e.preventDefault(); openProfile(b.dataset.player); return; }
+  const c = e.target.closest('[data-cm]'); if (c) { e.preventDefault(); openChatPerson(c.dataset.cm); return; }
   const f = e.target.closest('[data-fr]'); if (f) changeFriend(f.dataset.u, f.dataset.fr);
 });
 
@@ -1739,6 +1769,7 @@ function resetTimers() {
 }
 function init() {
   applyTheme(); paintPlayer(); route();
+  if (me() && (S.pub || S.friends.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
   if (ACC.current) $('#consent').hidden = true; else openAuth('signup');
 }
 buildNav(); events();
