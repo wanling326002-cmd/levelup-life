@@ -967,7 +967,7 @@ function paintChat() {
   const list = $('#chatList'); if (!list) return;
   const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   list.innerHTML = C.msgs.map(m => { const p = chatPlayer(m), cm = ` data-cm="${esc(m.id)}"`; // every name opens a profile card (with Add friend)
-    return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? `<img src="${p.pf}" alt="">` : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
+    return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? shared(p.pf) : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
     <div class="grow"><div class="msg-h"><button type="button" class="name-btn"${cm} title="View profile · add friend"><b>${esc(m.n)}</b></button>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
     ${canMod() && (canHide(m) || canMute(m)) ? `<span class="msg-tools">${canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}</span>` : ''}</div>
     <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
@@ -1064,6 +1064,8 @@ BIND.chat = () => {
    profile without the change being rejected. Owner/admin status is proven with the owner/admin signing key. There is no
    server, so level and XP are self-reported: the owner and admins can hide cheaters from the leaderboard. */
 const PLAYERS = 'Players', USER_OK = /^[a-z0-9_]{3,20}$/, DATA_IMG = /^data:image\/(webp|png|jpeg|gif);base64,[A-Za-z0-9+/=]+$/;
+const DATA_MEDIA = /^data:(image\/(webp|png|jpeg|gif)|video\/webm);base64,[A-Za-z0-9+/=]+$/;
+const shared = src => src.startsWith('data:video/') ? `<video src="${src}" autoplay muted loop playsinline disablepictureinpicture aria-hidden="true"></video>` : `<img src="${src}" alt="">`;
 const pid = u => 'p-' + u;
 const PL = {list:[], by:new Map(), at:0, loading:null, hidden:new Map(), packs:{owner:new Map(), admin:new Map()}, packAt:0, keys:new Map(), status:'', tab:'all', q:'', timer:null};
 const TH = {key:'', pf:'', bn:''};
@@ -1096,11 +1098,49 @@ async function frameOf(blob) { // the first frame of a picture or a video clip
   try { await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(rej, 6000); }); return v; }
   finally { setTimeout(() => URL.revokeObjectURL(v.src), 2000); }
 }
-async function thumb(blob, w, h, mode, keepMax = 0) { // a small copy for sharing; small animations stay animated
+/* Shrink an animation (GIF, animated WebP/PNG, MP4, WebM) into a small looping WebM clip, so a big animated
+   profile picture or banner still moves for other players. Returns a data: URL, or '' if this browser can't. */
+async function shrinkClip(blob, a, w, h, maxBytes) {
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return '';
+  const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)); if (!type) return '';
+  let draw, dur, iw, ih, cleanup = () => {};
+  if (a.video) {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.loop = true; v.src = URL.createObjectURL(blob);
+    await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(rej, 8000); });
+    await v.play().catch(() => {});
+    iw = v.videoWidth; ih = v.videoHeight; dur = Math.min(Math.max(v.duration || 3, 1), 6) * 1000;
+    draw = (ctx, sx, sy, sw, sh) => ctx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
+    cleanup = () => { v.pause(); URL.revokeObjectURL(v.src); };
+  } else if (window.ImageDecoder) {
+    const dec = new window.ImageDecoder({data:await blob.arrayBuffer(), type:a.mime}); await dec.tracks.ready;
+    const n = Math.min(dec.tracks.selectedTrack.frameCount || 1, 150), frames = []; let t = 0;
+    for (let i = 0; i < n && t < 6000; i++) { const {image} = await dec.decode({frameIndex:i}); const d = Math.max(20, (image.duration || 100000) / 1000); frames.push({image, at:t}); t += d; }
+    if (frames.length < 2) { frames.forEach(f => f.image.close()); dec.close(); return ''; }
+    iw = frames[0].image.displayWidth; ih = frames[0].image.displayHeight; dur = Math.min(Math.max(t, 500), 6000);
+    draw = (ctx, sx, sy, sw, sh, ms) => { let f = frames[0]; for (const x of frames) { if (x.at <= ms % t) f = x; else break; } ctx.drawImage(f.image, sx, sy, sw, sh, 0, 0, w, h); };
+    cleanup = () => { frames.forEach(f => f.image.close()); dec.close(); };
+  } else return '';
+  try {
+    let sx = 0, sy = 0, sw = iw, sh = ih; const r = w / h; // cover-crop to w:h
+    if (iw / ih > r) { sw = ih * r; sx = (iw - sw) / 2; } else { sh = iw / r; sy = (ih - sh) / 2; }
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
+    draw(ctx, sx, sy, sw, sh, 0);
+    const rec = new MediaRecorder(c.captureStream(24), {mimeType:type, videoBitsPerSecond:Math.max(60000, Math.floor(maxBytes * 8 * 0.7 / (dur / 1000)))});
+    const parts = []; rec.ondataavailable = e => e.data.size && parts.push(e.data);
+    const done = new Promise(res => { rec.onstop = res; });
+    const t0 = performance.now(); rec.start();
+    const iv = setInterval(() => { const ms = performance.now() - t0; draw(ctx, sx, sy, sw, sh, ms); if (ms >= dur) { clearInterval(iv); rec.stop(); } }, 1000 / 24);
+    await done;
+    const out = new Blob(parts, {type:'video/webm'});
+    return out.size > 0 && out.size <= maxBytes ? await blobToDataUrl(out) : '';
+  } finally { cleanup(); }
+}
+async function thumb(blob, w, h, mode, keepMax = 0, clip = false) { // a small copy for sharing; animations stay animated when they can
   if (!blob) return '';
   try {
     const a = await inspectMedia(blob);
     if (a.live && !a.video && blob.size <= keepMax) return await blobToDataUrl(new Blob([blob], {type:a.mime}));
+    if (a.live && clip) { const c = await shrinkClip(blob, a, w, h, keepMax).catch(() => ''); if (c) return c; }
     const img = await frameOf(blob), iw = img.videoWidth || img.width, ih = img.videoHeight || img.height;
     let sx = 0, sy = 0, sw = iw, sh = ih, cw = w, ch = h;
     if (mode === 'fit') { const s = Math.min(1, w / iw, h / ih); cw = Math.max(1, Math.round(iw * s)); ch = Math.max(1, Math.round(ih * s)); }
@@ -1122,7 +1162,7 @@ async function readProfile(item) { // a verified public profile, or null
     if (p.gone) return {u:p.u, gone:true, x:p.x, y:p.y};
     let role = '';
     if ((p.role === 'owner' || p.role === 'admin') && typeof p.rs === 'string' && await verifyWith(p.role === 'owner' ? OWNER_PUB : ADMIN_PUB, p.rs, `role|${p.role}|${p.u}|${p.x}`)) role = p.role;
-    const img = v => typeof v === 'string' && DATA_IMG.test(v) ? v : '';
+    const img = v => typeof v === 'string' && DATA_MEDIA.test(v) ? v : '';
     return {u:p.u, n:str(p.n, 24) || p.u, lv:role === 'owner' ? MAX_LEVEL : num(p.lv, 1, 1, MAX_LEVEL), xp:num(p.xp, 0, 0, 1e9),
       rk:BADGES.map((_, i) => role === 'owner' ? TOP : num(arr(p.rk)[i], -1, -1, TOP)),
       fr:[...new Set(arr(p.fr).filter(f => typeof f === 'string' && USER_OK.test(f) && f !== p.u))].slice(0, 200),
@@ -1138,6 +1178,14 @@ async function readStaff(item, prefix) { // an item signed with the owner or adm
     return await verifyWith(p.role === 'owner' ? OWNER_PUB : ADMIN_PUB, w.s, w.d) ? p : null;
   } catch { return null; }
 }
+async function sharedCopy(kind, w, h, max) { // the small public copy of my picture or banner, cached on this device
+  const b = await mediaGet(kind); if (!b) return '';
+  const sig = b.size + '|' + b.type + '|' + (await sha256(b64(await b.slice(0, 65536).arrayBuffer())));
+  try { const c = await mediaGet('shared:' + kind); if (c && c.sig === sig && typeof c.data === 'string') return c.data; } catch {}
+  const data = await thumb(b, w, h, 'cover', max, true);
+  if (data) try { await mediaPut('shared:' + kind, {sig, data}); } catch {}
+  return data;
+}
 async function buildProfile() {
   const u = me(), L = level(), k = await profileKey();
   const p = {v:1, u:u.username.toLowerCase(), n:u.username.slice(0, 24), lv:L.lv, xp:isOwner ? 1e9 : S.xp, rk:BADGES.map(b => badgeState(b).tier),
@@ -1147,8 +1195,8 @@ async function buildProfile() {
     p.role = st[0]; p.rs = await signText(st[1], `role|${p.role}|${p.u}|${p.x}`);
     const tk = M.pfp + '|' + M.banner;
     if (TH.key !== tk) { TH.key = tk;
-      TH.pf = M.pfp ? await thumb(await mediaGet('pfp'), 128, 128, 'cover', 60e3) : '';
-      TH.bn = M.banner ? await thumb(await mediaGet('banner'), 720, 240, 'cover', 160e3) : ''; }
+      TH.pf = M.pfp ? await sharedCopy('pfp', 160, 160, 100e3) : '';
+      TH.bn = M.banner ? await sharedCopy('banner', 720, 240, 220e3) : ''; }
     p.pf = TH.pf; p.bn = TH.bn;
   }
   return {p, k};
@@ -1306,7 +1354,7 @@ async function linkChat() { // a name in chat links to a profile only when the m
 
 /* profile window */
 const roleTag = p => p.role === 'owner' ? `<span class="tag owner">${icon('crown')}Owner</span>` : p.role === 'admin' ? `<span class="tag adm">${icon('shield')}Admin</span>` : '';
-const plAvatar = (p, big) => `<span class="avatar${big ? ' big' : ''}${p.role === 'owner' ? ' gold' : p.role === 'admin' ? ' blue' : ''}" style="background:${p.pf ? 'var(--card2)' : hue(p.u)}">${p.pf ? `<img src="${p.pf}" alt="">` : esc(p.n.charAt(0).toUpperCase())}</span>`;
+const plAvatar = (p, big) => `<span class="avatar${big ? ' big' : ''}${p.role === 'owner' ? ' gold' : p.role === 'admin' ? ' blue' : ''}" style="background:${p.pf ? 'var(--card2)' : hue(p.u)}">${p.pf ? shared(p.pf) : esc(p.n.charAt(0).toUpperCase())}</span>`;
 const bestRank = p => { const t = Math.max(-1, ...p.rk); return t < 0 ? 'No badges yet' : `Best rank: ${RANKS[t].name}`; };
 const pairFriends = (a, b) => (a.fr.includes(b.u) && (b.fr.includes(a.u) || canForce(a.role, b.role))) || (b.fr.includes(a.u) && canForce(b.role, a.role));
 const mutualCount = p => PL.list.filter(q => q !== p && pairFriends(p, q)).length;
@@ -1328,7 +1376,7 @@ function profileHTML(u) {
   const p = PL.by.get(u);
   if (!p) return PL.status === 'offline' && !PL.list.length ? `<div class="pm-body"><h2>${esc(u)}</h2><p class="muted">Can't reach the leaderboard right now. Try again in a moment.</p></div>` : privateCardHTML(u, openName || u);
   const vis = visiblePlayers(), pos = vis.indexOf(p) + 1, L = p.role === 'owner' || p.lv >= MAX_LEVEL ? null : levelOf(p.xp), hid = PL.hidden.get(u);
-  return `<div class="pm-banner">${p.bn ? `<img src="${p.bn}" alt="">` : ''}</div>
+  return `<div class="pm-banner">${p.bn ? shared(p.bn) : ''}</div>
   <div class="pm-head">${plAvatar(p, true)}<div class="grow"><div class="row" style="gap:8px"><h2>${esc(p.n)}</h2>${roleTag(p)}${u === myU() ? '<span class="tag">You</span>' : ''}</div>
     <p class="muted small" style="margin:2px 0 0">@${esc(p.u)}${p.j ? ` · joined ${esc(p.j)}` : ''}</p></div></div>
   <div class="pm-body">
@@ -1497,9 +1545,9 @@ VIEWS.options = () => `<div class="grid">
     <p class="muted small" style="margin:0">${SHARED_INFO}</p></div>`)}
   ${card('c6', 'Profile & look', `<div class="form">
     <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
-    <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-checked="${S.theme==='dark'}"><i></i></button></div>
-    <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-checked="${S.thumbs}"><i></i></button></div>
-    <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-checked="${S.notify}"><i></i></button></div>
+    <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-label="Dark mode" aria-checked="${S.theme==='dark'}"><i></i></button></div>
+    <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-label="Show YouTube thumbnails" aria-checked="${S.thumbs}"><i></i></button></div>
+    <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-label="Desktop notifications" aria-checked="${S.notify}"><i></i></button></div>
     <p class="muted small">Level ${level().lv} · ${S.xp} total XP</p></div>`)}
   ${card('c6', 'Healthy habits', `<div class="form">
     <label class="field"><span>Gaming break reminder every (minutes, 0 = off)</span><input type="number" min="0" max="600" id="stBreak" value="${S.breakEvery}"></label>
