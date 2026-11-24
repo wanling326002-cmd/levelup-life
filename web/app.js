@@ -672,7 +672,17 @@ VIEWS.impact = () => {
 BIND.impact = m => m.querySelectorAll('[data-q]').forEach(c => c.onchange = () => doQuest(+c.dataset.q));
 
 /* badges */
-const TIERS = [['Bronze', '#c98a5a'], ['Silver', '#b9bfcc'], ['Gold', '#f2c46d'], ['Diamond', '#7fe3ff']];
+// 24 ranks, lowest to highest. Bronze and Silver are "Regular"; Gold and above are "Elite".
+const RANK_FAMILIES = [['Bronze', '#c98a5a', ['III', 'II', 'I']], ['Silver', '#b9bfcc', ['V', 'IV', 'III', 'II', 'I']], ['Gold', '#f2c46d', ['V', 'IV', 'III', 'II', 'I']],
+  ['Platinum', '#45d3b0', ['IV', 'III', 'II', 'I']], ['Master', '#b57bff', ['IV', 'III', 'II', 'I']], ['Champion', '#6f8dff', ['II', 'I']], ['Challenger', '#ff6b6b', ['']]];
+const RANKS = RANK_FAMILIES.flatMap(([fam, color, nums]) => nums.map(num => ({name:num ? `${fam} ${num}` : fam, fam, num, color})));
+const TOP = RANKS.length - 1, ELITE_FROM = RANKS.findIndex(r => r.fam === 'Gold');
+const rankGroup = i => i >= ELITE_FROM ? 'Elite' : 'Regular';
+function ladder(start, max, curve = 2) { // the amount needed for each of the 24 ranks
+  const t = [];
+  for (let i = 0; i <= TOP; i++) { let v = Math.round(start + (max - start) * Math.pow(i / TOP, curve)); if (i && v <= t[i - 1]) v = t[i - 1] + 1; t.push(v); }
+  return t;
+}
 const LESSON_TOTAL = Object.values(TRACKS).reduce((a, t) => a + t.modules.reduce((b, m) => b + m.l.length, 0), 0);
 function bestStreak() {
   const days = new Set(S.log.filter(x => x.cat === 'learn' && x.m > 0).map(x => x.d));
@@ -683,44 +693,46 @@ function bestStreak() {
 }
 function goalDays() { const by = {}; S.log.forEach(x => { if (x.cat === 'learn') by[x.d] = (by[x.d] || 0) + x.m; }); return Object.values(by).filter(m => m >= Math.max(1, S.goals.learn)).length; }
 const BADGES = [
-  {name:'Focus Master', icon:'focus', unit:'focus sessions', t:[1, 10, 50, 200], v:() => S.focus.count},
-  {name:'Scholar', icon:'study', unit:'lessons', t:[1, 10, 25, LESSON_TOTAL], v:() => Object.keys(S.lessons).length},
-  {name:'Goal Getter', icon:'star', unit:'days at your learning goal', t:[1, 7, 30, 100], v:goalDays},
-  {name:'On Fire', icon:'balance', unit:'day best streak', t:[3, 7, 30, 100], v:bestStreak},
-  {name:'World Helper', icon:'impact', unit:'good deeds', t:[1, 10, 50, 200], v:() => S.questsTotal},
-  {name:'Gamer', icon:'gaming', unit:'hours played', t:[1, 10, 50, 200], v:() => Math.floor(S.log.filter(x => x.cat === 'play').reduce((a, x) => a + x.m, 0) / 60)},
-  {name:'Completionist', icon:'play', unit:'games finished', t:[1, 5, 15, 30], v:() => S.backlog.filter(b => b.status === 'finished').length},
-  {name:'Series Buff', icon:'series', unit:'episodes', t:[1, 25, 100, 500], v:() => S.stats.episodes},
-  {name:'Video Learner', icon:'youtube', unit:'learning videos', t:[1, 10, 50, 150], v:() => S.yt.filter(y => y.watched && y.kind === 'learn').length},
-  {name:'Level Up', icon:'badge', unit:'level', t:[5, 10, 25, MAX_LEVEL], v:() => level().lv},
+  {name:'Focus Master', icon:'focus', unit:'focus sessions', t:ladder(1, 500), v:() => S.focus.count},
+  {name:'Scholar', icon:'study', unit:'lessons', t:ladder(1, LESSON_TOTAL, 1), v:() => Object.keys(S.lessons).length},
+  {name:'Goal Getter', icon:'star', unit:'days at your learning goal', t:ladder(1, 365), v:goalDays},
+  {name:'On Fire', icon:'balance', unit:'day best streak', t:ladder(2, 365), v:bestStreak},
+  {name:'World Helper', icon:'impact', unit:'good deeds', t:ladder(1, 500), v:() => S.questsTotal},
+  {name:'Gamer', icon:'gaming', unit:'hours played', t:ladder(1, 1000), v:() => Math.floor(S.log.filter(x => x.cat === 'play').reduce((a, x) => a + x.m, 0) / 60)},
+  {name:'Completionist', icon:'play', unit:'games finished', t:ladder(1, 60), v:() => S.backlog.filter(b => b.status === 'finished').length},
+  {name:'Series Buff', icon:'series', unit:'episodes', t:ladder(1, 1500), v:() => S.stats.episodes},
+  {name:'Video Learner', icon:'youtube', unit:'learning videos', t:ladder(1, 300), v:() => S.yt.filter(y => y.watched && y.kind === 'learn').length},
+  {name:'Level Up', icon:'badge', unit:'level', t:ladder(2, MAX_LEVEL, 1), v:() => level().lv},
 ];
 function badgeState(b) {
-  if (isOwner) return {tier:3, val:b.unit === 'level' ? OWNER_LEVEL : b.t[3], next:null};
+  if (isOwner) return {tier:TOP, val:b.unit === 'level' ? OWNER_LEVEL : b.t[TOP], next:null};
   const val = b.v(); let tier = -1; b.t.forEach((x, i) => { if (val >= x) tier = i; });
-  return {tier, val, next:tier < 3 ? b.t[tier + 1] : null};
+  return {tier, val, next:tier < TOP ? b.t[tier + 1] : null};
 }
 VIEWS.badges = () => {
   const L = level(), u = me(), st = BADGES.map(b => [b, badgeState(b)]);
-  const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner ? 1 : 0), diamonds = st.filter(([, x]) => x.tier === 3).length;
+  const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner ? 1 : 0), tops = st.filter(([, x]) => x.tier === TOP).length, elites = st.filter(([, x]) => x.tier >= ELITE_FROM).length;
   const total = BADGES.length + (isOwner ? 1 : 0);
   return `<div class="grid">
   ${card('c12', '', `${isOwner && M.banner ? `<div class="pc-banner"><img src="${M.banner}" alt=""></div>` : ''}<div class="pc">
     <span class="avatar big${isOwner ? ' gold' : ''}">${avatarInner()}</span>
     <div class="grow"><div class="row" style="gap:10px"><h2>${emo(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
-      <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${diamonds} Diamond</p>
+      <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${elites} Elite · ${tops} Challenger</p>
       <div class="meter" style="max-width:440px"><i style="width:${L.max ? 100 : L.xp / L.need * 100}%"></i></div>
       <p class="muted small" style="margin:6px 0 0">${L.max ? 'Max level reached. Legendary.' : `${L.xp} / ${L.need} XP to level ${L.lv + 1}`}</p></div>
     ${u ? '' : '<button class="btn primary" data-open-auth="signup">Create account</button>'}</div>`)}
   ${studioCards()}
   ${card('c12', 'Badges', `<div class="badges">
     ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : ''}
-    ${st.map(([b, x]) => `<div class="badge-tile ${x.tier < 0 ? 'locked' : 'tier-' + x.tier}"${x.tier >= 0 ? ` style="--tc:${TIERS[x.tier][1]}"` : ''}>
-      <span class="medal">${icon(b.icon)}</span><b>${b.name}</b><span class="tier">${x.tier < 0 ? 'Locked' : TIERS[x.tier][0]}</span>
-      <p class="muted small">${b.unit === 'level' ? (x.next == null ? `Top tier · Level ${x.val}` : `Level ${x.val} of ${x.next} for ${TIERS[x.tier + 1][0]}`) : x.next == null ? `Top tier · ${x.val} ${b.unit}` : `${Math.min(x.val, x.next)} / ${x.next} ${b.unit} for ${TIERS[x.tier + 1][0]}`}</p>
-      ${x.next == null ? '' : `<div class="meter"><i style="width:${Math.min(100, x.val / x.next * 100)}%"></i></div>`}</div>`).join('')}
-  </div>`, `<span class="tag p">${diamonds}/${BADGES.length} Diamond</span>`)}
-  ${card('c12', 'How badges work', `<div class="legend">${TIERS.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}</div>
-    <p class="muted small" style="margin:10px 0 0">Every badge has four tiers. Study, focus, play, watch and help others to climb them. Level ${isOwner ? OWNER_LEVEL : MAX_LEVEL} is the max level.</p>`)}
+    ${st.map(([b, x]) => { const r = RANKS[x.tier], nx = RANKS[x.tier + 1];
+      return `<div class="badge-tile ${x.tier < 0 ? 'locked' : `rank${x.tier >= ELITE_FROM ? ' elite' : ''}${x.tier === TOP ? ' top' : ''}`}"${r ? ` style="--tc:${r.color}"` : ''}>
+      <span class="medal">${icon(b.icon)}${r && r.num ? `<i class="num">${r.num}</i>` : ''}</span><b>${b.name}</b><span class="tier">${r ? `${r.name} · ${rankGroup(x.tier)}` : 'Locked'}</span>
+      <p class="muted small">${b.unit === 'level' ? (x.next == null ? `Top rank · Level ${x.val}` : `Level ${x.val} of ${x.next} for ${nx.name}`) : x.next == null ? `Top rank · ${x.val} ${b.unit}` : `${Math.min(x.val, x.next)} / ${x.next} ${b.unit} for ${nx.name}`}</p>
+      ${x.next == null ? '' : `<div class="meter"><i style="width:${Math.min(100, x.val / x.next * 100)}%"></i></div>`}</div>`; }).join('')}
+  </div>`, `<span class="tag p">${tops}/${BADGES.length} Challenger</span>`)}
+  ${card('c12', 'How ranks work', `<div class="rank-ladder"><div><b>Regular</b><div class="legend">${RANK_FAMILIES.slice(0, 2).map(([n, c, ns]) => `<span><i style="background:${c}"></i>${n} ${ns[0]}–${ns[ns.length - 1]}</span>`).join('')}</div></div>
+    <div><b>Elite</b><div class="legend">${RANK_FAMILIES.slice(2).map(([n, c, ns]) => `<span><i style="background:${c}"></i>${ns.length > 1 ? `${n} ${ns[0]}–${ns[ns.length - 1]}` : n}</span>`).join('')}</div></div></div>
+    <p class="muted small" style="margin:12px 0 0">Every badge climbs ${RANKS.length} ranks, from Bronze III up to Challenger. Numbers count down as you climb: Gold V comes before Gold I. Study, focus, play, watch and help others to rank up. Level ${isOwner ? OWNER_LEVEL : MAX_LEVEL} is the max level.</p>`)}
   </div>`;
 };
 const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp';
@@ -951,7 +963,7 @@ function accountCard() {
 }
 function ownerCard() {
   return card('c6', 'Owner', isOwner
-    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level 100, every badge at Diamond, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
+    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level 100, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
     : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock level 100, every badge and the owner extras.</p>
       <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
 }
@@ -1029,7 +1041,7 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Check Balance</b> to see how your week splits between learning, playing and watching.</li>
     <li><b style="color:var(--text)">Do daily quests</b> in Help the World — good deeds earn XP too.</li>
     <li><b style="color:var(--text)">Chat</b> with friends in the Chat tab using an invite code from the owner.</li>
-    <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one has Bronze, Silver, Gold and Diamond tiers.</li>
+    <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one climbs 24 ranks, from Bronze III to Challenger.</li>
     <li><b style="color:var(--text)">Make an account</b> with a username and password so everyone on this device has their own progress. Email is optional.</li>
     <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is ever uploaded.</li></ol>`)}
   ${card('c5', 'Keyboard shortcuts', `<div class="keys">

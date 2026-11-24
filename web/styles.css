@@ -363,6 +363,15 @@ input:disabled{opacity:.65}
 .badge-tile .meter{width:100%;margin-top:6px}
 .badge-tile.locked .medal{background:var(--soft2);color:var(--dim);box-shadow:none}
 .badge-tile.locked .tier{color:var(--dim)}
-.badge-tile.tier-3{border-color:color-mix(in srgb,var(--tc) 45%,transparent)}
+.badge-tile .medal{position:relative}
+.badge-tile .medal .num{position:absolute;right:-6px;bottom:-4px;min-width:24px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-family:inherit;font-size:.68rem;font-weight:700;line-height:1;font-style:normal;letter-spacing:.02em;color:#17141f;background:var(--tc);border:2px solid var(--card)}
+.badge-tile.elite{border-color:color-mix(in srgb,var(--tc) 40%,transparent)}
+.badge-tile.top{border-color:rgba(255,107,107,.55);background:linear-gradient(180deg,rgba(255,107,107,.10),var(--soft))}
+.badge-tile.top .medal{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),transparent 45%),conic-gradient(from 210deg,#ff6b6b,#f2c46d,#ff9a5b,#ff5b8a,#ff6b6b);box-shadow:0 0 0 4px rgba(255,107,107,.22),0 8px 28px rgba(255,107,107,.38)}
+.badge-tile.top .tier{color:#ff8a7a}
+.rank-ladder{display:grid;grid-template-columns:auto 1fr;gap:12px 24px}
+.rank-ladder>div{display:contents}
+.rank-ladder b{font-weight:500}
+@media (max-width:640px){.rank-ladder{grid-template-columns:1fr}.rank-ladder>div{display:block}.rank-ladder b{display:block;margin-bottom:6px}}
 .badge-tile.tier-owner{--tc:#f2c46d;border-color:rgba(242,196,109,.55);background:linear-gradient(180deg,rgba(242,196,109,.12),var(--soft))}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
