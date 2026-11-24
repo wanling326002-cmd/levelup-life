@@ -1,0 +1,42 @@
+{
+  "name": "levelup-life",
+  "productName": "LevelUp Life",
+  "version": "1.0.0",
+  "description": "Balance gaming, series and YouTube with learning, focus and doing good.",
+  "main": "main.js",
+  "author": "LevelUp Life",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win dir --x64",
+    "icon": "node scripts/set-icon.mjs",
+    "installer": "makensis -V2 build/installer.nsi",
+    "dist": "npm run pack && npm run icon && npm run installer"
+  },
+  "build": {
+    "appId": "app.levelup.life",
+    "productName": "LevelUp Life",
+    "files": [
+      "main.js",
+      "web/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "pe-library": "^1.0.1",
+    "png-to-ico": "^2.1.8",
+    "resedit": "^2.0.3"
+  }
+}

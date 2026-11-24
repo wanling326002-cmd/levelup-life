@@ -1,0 +1,12 @@
+LevelUp Life - Terms & Privacy (summary)
+
+PRIVACY
+- Everything you enter is stored only on this computer.
+- No account, no analytics, no tracking, no ads.
+- Optional: YouTube thumbnails load from YouTube; links open external websites.
+- Export or delete all your data anytime in Settings.
+The full Privacy Terms are inside the app (Privacy Terms tab).
+
+LICENSE (MIT)
+The software is provided "as is", without warranty of any kind. Break reminders
+and balance scores are friendly suggestions, not medical advice.

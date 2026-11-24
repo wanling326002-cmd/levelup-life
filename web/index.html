@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LevelUp Life</title>
+<meta name="description" content="Balance gaming, series and YouTube with learning, focus and doing good. All data stays on your device.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="space" aria-hidden="true"><i class="orbit o1"></i><i class="orbit o2"></i><i class="orbit o3"></i></div>
+
+<div class="frame">
+  <header class="topbar">
+    <nav class="pillnav" id="nav" aria-label="Main navigation"></nav>
+    <button class="round" id="searchBtn" aria-label="Search and jump (Ctrl+K)" title="Search (Ctrl+K)">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <button class="switch" id="themeBtn" role="switch" aria-checked="true" aria-label="Dark mode"><i></i></button>
+    <a class="profile" href="#options" title="Your profile">
+      <span class="avatar" id="avatar">P</span>
+      <span class="lv">Lv <b id="lvl">1</b></span>
+      <span class="xpbar" title="XP"><i id="xpBar"></i></span>
+    </a>
+    <a class="round" href="#options" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </a>
+  </header>
+
+  <div class="pagehead">
+    <h1 id="pageTitle">Home</h1>
+    <p id="pageSub" class="muted"></p>
+  </div>
+
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<footer class="foot">
+  <span class="trust"><span class="dot"></span>Private by design · no account · no tracking</span>
+  <span class="links"><a href="#privacy">Privacy Terms</a><a href="#help">Help &amp; Shortcuts</a></span>
+</footer>
+
+<nav class="bottomnav" id="bottomnav" aria-label="Quick navigation"></nav>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette-box glass" role="dialog" aria-label="Search">
+    <input id="paletteInput" placeholder="Jump to a tab or action…  (Esc to close)" autocomplete="off">
+    <ul id="paletteList"></ul>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-box glass"><div class="sheet-grid" id="sheetGrid"></div></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="modal" id="consent" hidden>
+  <div class="modal-box glass">
+    <div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h2>Welcome to LevelUp Life</h2>
+    <p>Track your games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
+    <p class="muted small">Everything you enter is stored <b>only on this device</b>. No account, no tracking, no ads. By continuing you agree to the <a href="#privacy" id="consentPrivacy">Privacy Terms</a>.</p>
+    <label class="field"><span>What should we call you?</span><input id="consentName" maxlength="24" placeholder="Your gamer tag"></label>
+    <button class="btn primary wide" id="consentOk">Agree &amp; start</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
