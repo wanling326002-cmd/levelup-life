@@ -38,6 +38,7 @@ const P = {
   more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>', upload:'<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
@@ -151,16 +152,27 @@ async function checkPassword(u, pw) { return !!(u && u.salt && u.hash) && safeEq
 const OWNER_CHECK = '22c14d7502ee76c4cebd42bd61044ac94f3666f80082df1364e4ffe140d1fb17';
 const OWNER_SALT = '6c6576656c75702d6f776e65722d7631'; // "levelup-owner-v1"
 const normKey = k => String(k).toUpperCase().replace(/[^A-Z0-9]/g, '');
-let isOwner = false;
-async function verifyOwner() {
-  let ok = false;
+/* Admin: a second key the owner can give to a trusted friend. Fewer powers than the owner; the full list is in ownerCard(). */
+const ADMIN_CHECK = 'ef9bc3e4cc48760b188f2519758f3d018ff3c043ee123dcba58d700dc55f9f80';
+const ADMIN_SALT = '6c6576656c75702d61646d696e2d7631'; // "levelup-admin-v1"
+const ADMIN_LEVEL_BOOST = 100; // admins get a one-time boost to this level
+let isOwner = false, isAdmin = false;
+const isAdminOnly = () => isAdmin && !isOwner;
+async function verifyOwner() { // checks both roles
+  let ok = false, adm = false;
   try { ok = !!S.ownerProof && safeEq(await sha256(S.ownerProof), OWNER_CHECK); } catch {}
-  if (ok !== isOwner) { isOwner = ok; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube'].includes(current)) rerender(); }
+  try { adm = !!S.adminProof && safeEq(await sha256(S.adminProof), ADMIN_CHECK); } catch {}
+  if (ok !== isOwner || adm !== isAdmin) { isOwner = ok; isAdmin = adm; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube', 'chat'].includes(current)) rerender(); }
 }
-async function claimOwner(key) {
-  const proof = await pbkdf2(normKey(key), OWNER_SALT, 200000);
-  if (!safeEq(await sha256(proof), OWNER_CHECK)) return false;
-  S.ownerProof = proof; save(); await unlockSignKey(key); await verifyOwner(); return true;
+async function claimOwner(key) { // returns 'owner', 'admin' or false
+  const n = normKey(key);
+  const proof = await pbkdf2(n, OWNER_SALT, 200000);
+  if (safeEq(await sha256(proof), OWNER_CHECK)) { S.ownerProof = proof; save(); await unlockSignKey(key); await verifyOwner(); return 'owner'; }
+  const aproof = await pbkdf2(n, ADMIN_SALT, 200000);
+  if (!safeEq(await sha256(aproof), ADMIN_CHECK)) return false;
+  S.adminProof = aproof;
+  if (!S.adminBoost) { S.adminBoost = true; let need = 0; for (let l = 1; l < ADMIN_LEVEL_BOOST; l++) need += xpForNext(l); S.xp = Math.max(S.xp, need); }
+  save(); await unlockAdminSignKey(key); await verifyOwner(); return 'admin';
 }
 
 /* ---------- owner media (profile picture, banner, custom emoji) ----------
@@ -179,7 +191,7 @@ async function mediaWipe() { try { const ks = await mediaOp('readonly', s => s.g
 const M = {pfp:'', banner:'', emoji:new Map()};
 function clearMedia() { [M.pfp, M.banner, ...M.emoji.values()].forEach(u => u && URL.revokeObjectURL(u)); M.pfp = M.banner = ''; M.emoji = new Map(); }
 async function loadMedia() {
-  clearMedia(); if (!isOwner || !window.indexedDB) return;
+  clearMedia(); if (!(isOwner || isAdmin) || !window.indexedDB) return;
   try {
     const url = b => b ? URL.createObjectURL(b) : '';
     M.pfp = url(await mediaGet('pfp')); M.banner = url(await mediaGet('banner'));
@@ -226,6 +238,8 @@ const DEFAULT = {
   run:{},                         // running timers, so a reload does not lose them
   stats:{episodes:0},
   ownerProof:'',
+  adminProof:'',
+  adminBoost:false,
   chatCode:'',
   emoji:[],                       // owner's custom emoji: {id, name, live}; the images live in IndexedDB
 };
@@ -259,6 +273,8 @@ function clean(raw) {
   d.stats = {episodes:num((s.stats || {}).episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6)};
   const seen = new Set(); d.emoji = arr(s.emoji).filter(x => x && typeof x.name === 'string' && /^[a-z0-9_]{2,24}$/.test(x.name) && !seen.has(x.name) && seen.add(x.name)).slice(0, 100).map(x => ({id:okId(x.id), name:x.name, live:x.live === true}));
   d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
+  d.adminProof = typeof s.adminProof === 'string' && /^[0-9a-f]{64}$/.test(s.adminProof) ? s.adminProof : '';
+  d.adminBoost = s.adminBoost === true;
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
   if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
@@ -282,8 +298,9 @@ const level = () => {
 };
 const displayName = () => (me() && me().username) || S.name || 'Player';
 const gainXP = (n, why) => {
+  if (isAdminOnly()) n *= 2; // admin perk: double XP (both ways, so unticking still balances out)
   const before = level().lv; S.xp = Math.max(0, S.xp + n); save(); paintPlayer();
-  if (n > 0) toast(level().lv > before ? `🎉 Level up! You are now level ${level().lv}` : `+${n} XP · ${why}`);
+  if (n > 0) toast(level().lv > before ? `🎉 Level up! You are now level ${level().lv}` : `+${n} XP${isAdminOnly() ? ' (2× admin)' : ''} · ${why}`);
 };
 const streak = () => { let n = 0; for (let i = 0; i < 365; i++) { if (minsOn(dayOffset(i), 'learn') > 0 || (S.quests[dayOffset(i)] || []).length) n++; else if (i > 0) break; } return n; };
 
@@ -300,6 +317,7 @@ function paintPlayer() {
   $('.profile').title = `${displayName()}${me() ? '' : ' (guest)'} · ${max ? 'Max level' : `${xp}/${need} XP to level ${lv + 1}`}`;
   $('#avatar').innerHTML = avatarInner();
   $('.profile').classList.toggle('owner', isOwner);
+  $('.profile').classList.toggle('admin', isAdminOnly());
 }
 function applyTheme() {
   document.documentElement.dataset.theme = S.theme;
@@ -712,19 +730,19 @@ function badgeState(b) {
 }
 VIEWS.badges = () => {
   const L = level(), u = me(), st = BADGES.map(b => [b, badgeState(b)]);
-  const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner ? 1 : 0), tops = st.filter(([, x]) => x.tier === TOP).length, elites = st.filter(([, x]) => x.tier >= ELITE_FROM).length;
-  const total = BADGES.length + (isOwner ? 1 : 0);
+  const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner || isAdmin ? 1 : 0), tops = st.filter(([, x]) => x.tier === TOP).length, elites = st.filter(([, x]) => x.tier >= ELITE_FROM).length;
+  const total = BADGES.length + (isOwner || isAdmin ? 1 : 0);
   return `<div class="grid">
-  ${card('c12', '', `${isOwner && M.banner ? `<div class="pc-banner"><img src="${M.banner}" alt=""></div>` : ''}<div class="pc">
-    <span class="avatar big${isOwner ? ' gold' : ''}">${avatarInner()}</span>
-    <div class="grow"><div class="row" style="gap:10px"><h2>${emo(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
+  ${card('c12', '', `${(isOwner || isAdmin) && M.banner ? `<div class="pc-banner"><img src="${M.banner}" alt=""></div>` : ''}<div class="pc">
+    <span class="avatar big${isOwner ? ' gold' : isAdmin ? ' blue' : ''}">${avatarInner()}</span>
+    <div class="grow"><div class="row" style="gap:10px"><h2>${emo(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : isAdmin ? `<span class="tag adm">${icon('shield')}Admin</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
       <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${elites} Elite · ${tops} Challenger</p>
       <div class="meter" style="max-width:440px"><i style="width:${L.max ? 100 : L.xp / L.need * 100}%"></i></div>
       <p class="muted small" style="margin:6px 0 0">${L.max ? 'Max level reached. Legendary.' : `${L.xp} / ${L.need} XP to level ${L.lv + 1}`}</p></div>
     ${u ? '' : '<button class="btn primary" data-open-auth="signup">Create account</button>'}</div>`)}
   ${studioCards()}
   ${card('c12', 'Badges', `<div class="badges">
-    ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : ''}
+    ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : isAdmin ? `<div class="badge-tile tier-admin"><span class="medal">${icon('shield')}</span><b>Admin</b><span class="tier">Given by the owner</span><p class="muted small">Trusted helper of LevelUp Life.</p></div>` : ''}
     ${st.map(([b, x]) => { const r = RANKS[x.tier], nx = RANKS[x.tier + 1];
       return `<div class="badge-tile ${x.tier < 0 ? 'locked' : `rank${x.tier >= ELITE_FROM ? ' elite' : ''}${x.tier === TOP ? ' top' : ''}`}"${r ? ` style="--tc:${r.color}"` : ''}>
       <span class="medal">${icon(b.icon)}${r && r.num ? `<i class="num">${r.num}</i>` : ''}</span><b>${b.name}</b><span class="tier">${r ? `${r.name} · ${rankGroup(x.tier)}` : 'Locked'}</span>
@@ -736,25 +754,26 @@ VIEWS.badges = () => {
     <p class="muted small" style="margin:12px 0 0">Every badge climbs ${RANKS.length} ranks, from Bronze III up to Challenger. Numbers count down as you climb: Gold V comes before Gold I. Study, focus, play, watch and help others to rank up. Level ${isOwner ? OWNER_LEVEL : MAX_LEVEL} is the max level.</p>`)}
   </div>`;
 };
+const emojiMax = () => isOwner ? 100 : 25;
 const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp';
 function studioCards() {
-  if (!isOwner) return ''; // owner only: nobody else gets these controls
+  if (!isOwner && !isAdmin) return ''; // owner and admins only: nobody else gets these controls
   return `${card('c6', 'Customize profile', `
-    <div class="studio-row"><span class="avatar big gold">${avatarInner()}</span><div class="grow"><b>Profile picture</b><p class="muted small">PNG, JPG, WebP or an animated GIF. Up to 8 MB.</p>
+    <div class="studio-row"><span class="avatar big ${isOwner ? 'gold' : 'blue'}">${avatarInner()}</span><div class="grow"><b>Profile picture</b><p class="muted small">PNG, JPG, WebP or an animated GIF. Up to 8 MB.</p>
       <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upPfp" accept="${IMG_ACCEPT}" hidden></label>${M.pfp ? '<button class="btn sm" id="rmPfp">Remove</button>' : ''}</div></div></div>
     <div class="studio-row"><div class="banner-thumb">${M.banner ? `<img src="${M.banner}" alt="">` : '<span class="muted small">No banner</span>'}</div><div class="grow"><b>Banner</b><p class="muted small">A picture or an animated GIF. Wide images (3:1) look best. Up to 15 MB.</p>
       <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upBanner" accept="${IMG_ACCEPT}" hidden></label>${M.banner ? '<button class="btn sm" id="rmBanner">Remove</button>' : ''}</div></div></div>
-    <p class="err" id="studioErr" role="alert"></p>`, `<span class="tag owner">${icon('crown')}Owner only</span>`)}
+    <p class="err" id="studioErr" role="alert"></p>`, isOwner ? `<span class="tag owner">${icon('crown')}Owner only</span>` : `<span class="tag adm">${icon('shield')}Admin perk</span>`)}
   ${card('c6', 'Custom emoji', `<form class="row" id="emoForm"><input id="emoName" maxlength="26" placeholder="Name, e.g. gg" aria-label="Emoji name"><label class="btn primary">${icon('upload')}Choose image<input type="file" id="emoFile" accept="${IMG_ACCEPT}" hidden></label></form>
     <p class="muted small">Still images and animated GIFs both work (up to 2 MB). Type <b>:name:</b> in tasks, game, series or video titles to use one. Click an emoji to copy its code.</p>
     <p class="err" id="emoErr" role="alert"></p>
     <div class="emoji-grid">${S.emoji.filter(e => M.emoji.has(e.name)).map(e => `<div class="emo-tile"><button type="button" class="emo-copy" data-copy=":${e.name}:" title="Copy :${e.name}:"><img src="${M.emoji.get(e.name)}" alt=":${e.name}:"></button>
       <span class="small">:${e.name}:</span><span class="tag ${e.live ? 'p' : ''}">${e.live ? 'Live' : 'Still'}</span><button class="iconbtn" data-emodel="${e.id}" aria-label="Delete :${e.name}:">${icon('trash')}</button></div>`).join('') || empty('No emoji yet. Type a name, then choose an image.')}</div>`,
-    `<span class="tag p">${S.emoji.length}/100</span>`)}`;
+    `<span class="tag p">${S.emoji.length}/${emojiMax()}</span>`)}`;
 }
 BIND.badges = m => {
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
-  if (!isOwner) return;
+  if (!isOwner && !isAdmin) return;
   const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); };
   const upload = (sel, kind, done) => { const inp = $(sel); inp.onchange = async () => {
     const f = inp.files[0]; inp.value = ''; if (!f) return; $('#studioErr').textContent = '';
@@ -769,7 +788,7 @@ BIND.badges = m => {
     const name = $('#emoName').value.trim().toLowerCase().replace(/^:+|:+$/g, '');
     if (!/^[a-z0-9_]{2,24}$/.test(name)) return err.textContent = 'Type a name first: 2–24 letters, numbers or _.';
     if (S.emoji.some(x => x.name === name)) return err.textContent = `:${name}: already exists. Pick another name.`;
-    if (S.emoji.length >= 100) return err.textContent = 'You have 100 emoji, the limit. Delete one first.';
+    if (S.emoji.length >= emojiMax()) return err.textContent = `You have ${emojiMax()} emoji, the limit. Delete one first.`;
     try { const {blob, live} = await prepImage(f, 'emoji'); const id = uid(); await mediaPut('emoji:' + id, blob); S.emoji.push({id, name, live}); save(); await refresh(); toast(`:${name}: added`); }
     catch (e) { err.textContent = e && e.message ? e.message : 'Could not save that image in this browser.'; }
   };
@@ -783,10 +802,12 @@ BIND.badges = m => {
    Owner messages and moderation commands carry an ECDSA signature that only the owner key can unlock. */
 const CLIENT_ID = '71e92457-9a77-4b96-8d3c-a3281c3bff9d', WIXAPI = 'https://www.wixapis.com', CHAT_COLLECTION = 'ChatMessages';
 const OWNER_PUB = {kty:'EC', crv:'P-256', x:'ma-DToNSntWdY15Mzs0SiekvTY7ZksgqcQ-bzmmUeac', y:'ZNbj3BV7ZhJ5AOiQ5Fo4vq1kBxXgQx4agmWm1iJXaxk'};
+const ADMIN_PUB = {kty:'EC', crv:'P-256', x:'Hhfg94hdlSzMIq-q5QPja6-g4QABpyyGG8YIkC-L_q8', y:'y0OKsbfvv52pjvdLZjDUo7RpcCoHqGZigaJUyO9XNB0'};
+const ADMIN_SIGN = {iv:'j2EetQUY69XI2nW8', ct:'/xNJjFunfcYfKWcdf0dRusOvJDGxruea9LvY/zr+qWSQiEy60TOBEjQb3Ai+NvQ5piQ7Yoao8KV4Bnc='}; // admin signing key, encrypted with the admin key
 const OWNER_SIGN = {iv:'BRZCj5rnw4C7weNb', ct:'+2C9W2x1RbaVVtMoK1LZmSmDqSVmx6tLonfZgtV/jSY4tBQlntUllBOL+N2o4ZnSd5S3djR1z1Tnia0='}; // the owner's private signing key, encrypted with the owner key
 const b64 = u => { let s = ''; for (const b of new Uint8Array(u)) s += String.fromCharCode(b); return btoa(s); };
 const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
-const C = {room:'', key:null, timer:null, msgs:[], token:'', tokenExp:0, signKey:null, pubKey:null, lastSend:0, status:'', loading:false, muted:new Set(), autoTried:false};
+const C = {room:'', key:null, timer:null, msgs:[], token:'', tokenExp:0, signKey:null, adminSignKey:null, pubKey:null, adminPubKey:null, lastSend:0, status:'', loading:false, muted:new Map(), autoTried:false};
 const normCode = c => String(c).trim().toLowerCase().replace(/\s+/g, ' ');
 async function unlockSignKey(key) {
   try {
@@ -795,6 +816,16 @@ async function unlockSignKey(key) {
     const d = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(OWNER_SIGN.iv)}, aes, unb64(OWNER_SIGN.ct)));
     const k = await crypto.subtle.importKey('jwk', {...OWNER_PUB, d}, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
     C.signKey = k; try { await mediaPut('signkey', k); } catch {}
+    return true;
+  } catch { return false; }
+}
+async function unlockAdminSignKey(key) {
+  try {
+    const base = await crypto.subtle.importKey('raw', enc.encode(normKey(key)), 'PBKDF2', false, ['deriveKey']);
+    const aes = await crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-admin-sign-v1'), iterations:200000}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    const d = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(ADMIN_SIGN.iv)}, aes, unb64(ADMIN_SIGN.ct)));
+    const k = await crypto.subtle.importKey('jwk', {...ADMIN_PUB, d}, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
+    C.adminSignKey = k; try { await mediaPut('adminsignkey', k); } catch {}
     return true;
   } catch { return false; }
 }
@@ -818,12 +849,13 @@ async function joinRoom(code) {
   C.room = (await sha256('levelup-room-v1|' + n)).slice(0, 40);
   const base = await crypto.subtle.importKey('raw', enc.encode(n), 'PBKDF2', false, ['deriveKey']);
   C.key = await crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-chat-v1'), iterations:100000}, base, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
-  C.msgs = []; C.status = 'Loading messages…'; C.muted = new Set();
+  C.msgs = []; C.status = 'Loading messages…'; C.muted = new Map();
 }
 function leaveRoom() { stopChat(); C.room = ''; C.key = null; C.msgs = []; }
 const sigText = m => [C.room, m.k, m.n, m.t, m.ref || '', m.ts].join('|');
 async function sealMsg(m) {
   if (isOwner && C.signKey) m.sig = b64(await crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, C.signKey, enc.encode(sigText(m))));
+  else if (isAdmin && C.adminSignKey) m.asig = b64(await crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, C.adminSignKey, enc.encode(sigText(m))));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   return b64(iv) + '.' + b64(await crypto.subtle.encrypt({name:'AES-GCM', iv}, C.key, enc.encode(JSON.stringify(m))));
 }
@@ -840,6 +872,11 @@ async function openMsg(item) {
     C.pubKey ||= await crypto.subtle.importKey('jwk', OWNER_PUB, {name:'ECDSA', namedCurve:'P-256'}, false, ['verify']);
     v.owner = await crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, C.pubKey, unb64(m.sig), enc.encode(sigText({...v, ref:v.ref})));
   } catch {}
+  v.admin = false;
+  if (!v.owner && typeof m.asig === 'string') try {
+    C.adminPubKey ||= await crypto.subtle.importKey('jwk', ADMIN_PUB, {name:'ECDSA', namedCurve:'P-256'}, false, ['verify']);
+    v.admin = await crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, C.adminPubKey, unb64(m.asig), enc.encode(sigText(v)));
+  } catch {}
   return v;
 }
 async function pullChat() {
@@ -849,15 +886,24 @@ async function pullChat() {
     const all = [];
     for (const it of j.dataItems || []) { try { const m = await openMsg(it); if (m) all.push(m); } catch {} }
     all.sort((a, b) => a.at - b.at);
-    const hidden = new Set(), muted = new Set(), ownerNames = new Set();
-    for (const m of all) if (m.owner) { // only signed owner commands count
-      ownerNames.add(m.n.toLowerCase());
-      if (m.k === 'hide') hidden.add(m.ref);
-      if (m.k === 'mute') muted.add(m.ref.toLowerCase());
-      if (m.k === 'unmute') muted.delete(m.ref.toLowerCase());
+    // only signed commands count. Owner commands apply to anyone; admin commands only to regular members.
+    const ownerNames = new Set(all.filter(m => m.owner).map(m => m.n.toLowerCase()));
+    const adminNames = new Set(all.filter(m => m.admin).map(m => m.n.toLowerCase()));
+    const staff = n => ownerNames.has(n) || adminNames.has(n);
+    const byId = new Map(all.map(m => [m.id, m]));
+    const hidden = new Set(), muted = new Map(); // name -> 'owner' | 'admin' (who muted them)
+    for (const m of all) {
+      if (!m.owner && !m.admin) continue;
+      const ref = m.ref.toLowerCase(), target = byId.get(m.ref);
+      if (m.k === 'hide' && (m.owner || (target && !target.owner && !target.admin))) hidden.add(m.ref);
+      if (m.k === 'mute') { if (m.owner) muted.set(ref, 'owner'); else if (!staff(ref) && muted.get(ref) !== 'owner') muted.set(ref, 'admin'); }
+      if (m.k === 'unmute' && (m.owner || muted.get(ref) === 'admin')) muted.delete(ref);
     }
     C.muted = muted;
-    C.msgs = all.filter(m => m.k === 'msg' && !hidden.has(m.id) && (m.owner || (!muted.has(m.n.toLowerCase()) && !ownerNames.has(m.n.toLowerCase()) && !/owner|admin/i.test(m.n))));
+    C.msgs = all.filter(m => { if (m.k !== 'msg' || hidden.has(m.id)) return false; const n = m.n.toLowerCase();
+      if (m.owner) return true;
+      if (m.admin) return muted.get(n) !== 'owner';
+      return !muted.has(n) && !staff(n) && !/owner|admin/i.test(n); });
     C.status = '';
   } catch { C.status = "Can't reach the chat right now. Trying again…"; }
   C.loading = false; paintChat();
@@ -870,24 +916,27 @@ async function postChat(m) {
 function startChat() { stopChat(); pullChat(); C.timer = setInterval(() => { if (document.visibilityState === 'visible') pullChat(); }, 4000); }
 function stopChat() { clearInterval(C.timer); C.timer = null; }
 const fmtTime = t => { if (!t) return ''; const d = new Date(t); const time = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); return today(d) === today() ? time : `${d.toLocaleDateString([], {month:'short', day:'numeric'})} ${time}`; };
-const canMod = () => isOwner && !!C.signKey;
+const canMod = () => (isOwner && !!C.signKey) || (isAdminOnly() && !!C.adminSignKey);
+const canHide = m => isOwner ? true : !m.owner && !m.admin;
+const canMute = m => !m.owner && (isOwner || !m.admin);
+const canUnmute = by => isOwner || by === 'admin';
 function paintChat() {
   const list = $('#chatList'); if (!list) return;
   const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
-  list.innerHTML = C.msgs.map(m => `<li class="msg${m.owner ? ' own' : ''}"><span class="thumb" style="--h:${m.owner ? '#f2c46d' : hue(m.n)}">${m.owner ? icon('crown') : esc(m.n.charAt(0).toUpperCase())}</span>
-    <div class="grow"><div class="msg-h"><b>${esc(m.n)}</b>${m.owner ? '<span class="tag owner">Owner</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
-    ${canMod() ? `<span class="msg-tools"><button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>${m.owner ? '' : `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>`}</span>` : ''}</div>
+  list.innerHTML = C.msgs.map(m => `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><span class="thumb" style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}">${m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</span>
+    <div class="grow"><div class="msg-h"><b>${esc(m.n)}</b>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
+    ${canMod() && (canHide(m) || canMute(m)) ? `<span class="msg-tools">${canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}</span>` : ''}</div>
     <div class="msg-t">${emo(m.t)}</div></div></li>`).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
   $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
   const ml = $('#mutedList');
-  if (ml) ml.innerHTML = [...C.muted].map(n => `<button type="button" class="chip" data-unmute="${esc(n)}" title="Unmute">${esc(n)} ×</button>`).join('') || '<span class="muted small">Nobody is muted.</span>';
+  if (ml) ml.innerHTML = [...C.muted].map(([n, by]) => canUnmute(by) ? `<button type="button" class="chip" data-unmute="${esc(n)}" title="Unmute">${esc(n)} ×</button>` : `<span class="chip" title="Muted by the owner">${esc(n)}</span>`).join('') || '<span class="muted small">Nobody is muted.</span>';
 }
 const CHAT_RULES = `<ul class="tips">
   <li>Be kind. No bullying, hate or spam.</li>
   <li>Never share personal info: your real name, address, school, phone number or passwords.</li>
   <li>Don't click links from people you don't know.</li>
-  <li>The owner can hide messages and mute names for everyone.</li>
+  <li>The owner and admins can hide messages and mute names for everyone.</li>
   <li>Names with "owner" or "admin" in them can't post.</li></ul>`;
 VIEWS.chat = () => {
   if (!C.room) return `<div class="grid">
@@ -900,7 +949,8 @@ VIEWS.chat = () => {
   ${card('c8', 'Global chat', `<ul class="chat-list" id="chatList" aria-live="polite"></ul>
     <form class="row chat-send" id="chatForm"><input id="chatIn" maxlength="500" autocomplete="off" placeholder="Message as ${esc(displayName())}" aria-label="Message"><button class="btn primary">Send</button></form>
     <p class="muted small" id="chatStatus"></p>
-    ${isOwner && !C.signKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn">Enable my crown</button></form><p class="muted small">Enter your owner key once on this device so your messages get the crown and you can hide and mute.</p>` : ''}`,
+    ${isOwner && !C.signKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn">Enable my crown</button></form><p class="muted small">Enter your owner key once on this device so your messages get the crown and you can hide and mute.</p>` : ''}
+    ${isAdminOnly() && !C.adminSignKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Admin key" aria-label="Admin key"><button class="btn">Enable my admin tag</button></form><p class="muted small">Enter your admin key once on this device so your messages get the Admin tag and you can hide and mute.</p>` : ''}`,
     `<span class="tag p">Encrypted</span>`)}
   <div class="c4" style="display:grid;gap:22px;align-content:start">
   ${card('', 'Room', `<p class="muted small" style="margin-top:-6px">Everyone with the same invite code is in this room.</p>
@@ -921,12 +971,13 @@ BIND.chat = () => {
     return;
   }
   if (isOwner && !C.signKey) mediaGet('signkey').then(k => { if (k && !C.signKey) { C.signKey = k; rerender(); } }).catch(() => {});
+  if (isAdminOnly() && !C.adminSignKey) mediaGet('adminsignkey').then(k => { if (k && !C.adminSignKey) { C.adminSignKey = k; rerender(); } }).catch(() => {});
   paintChat(); startChat();
   $('#chatForm').onsubmit = async e => {
     e.preventDefault(); const inp = $('#chatIn');
     const t = inp.value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 500); if (!t) return;
     const n = displayName().slice(0, 24);
-    if (!isOwner && /owner|admin/i.test(n)) return toast('Names with "owner" or "admin" can\'t post. Change your nickname in Settings.');
+    if (!isOwner && !(isAdmin && C.adminSignKey) && /owner|admin/i.test(n)) return toast('Names with "owner" or "admin" can\'t post. Change your nickname in Settings.');
     if (Date.now() - C.lastSend < 2500) return toast('Slow down a little.');
     C.lastSend = Date.now(); inp.value = '';
     try { await postChat({k:'msg', n, t, ts:Date.now()}); } catch { inp.value = t; toast("Couldn't send. Check your connection and try again."); }
@@ -944,7 +995,8 @@ BIND.chat = () => {
   $('#copyCode').onclick = () => { try { navigator.clipboard.writeText(S.chatCode).then(() => toast('Invite code copied'), () => toast(`Code: ${S.chatCode}`)); } catch { toast(`Code: ${S.chatCode}`); } };
   $('#leaveChat').onclick = () => { leaveRoom(); S.chatCode = ''; save(); rerender(); };
   const sf = $('#signForm'); if (sf) sf.onsubmit = async e => { e.preventDefault(); toast('Checking key…');
-    if (await unlockSignKey($('#signKeyIn').value)) { toast('Crown enabled'); rerender(); } else toast('That owner key is not right.'); };
+    const ok = isOwner ? await unlockSignKey($('#signKeyIn').value) : await unlockAdminSignKey($('#signKeyIn').value);
+    if (ok) { toast(isOwner ? 'Crown enabled' : 'Admin tag enabled'); rerender(); } else toast('That key is not right.'); };
 };
 
 /* settings */
@@ -963,10 +1015,13 @@ function accountCard() {
     <div class="row"><button class="btn" id="acLogout">${icon('logout')}Log out</button><button class="btn danger" id="acDelete">${icon('trash')}Delete account</button></div></div>`);
 }
 function ownerCard() {
-  return card('c6', 'Owner', isOwner
+  if (isAdminOnly()) return card('c6', 'Admin', `<p class="muted" style="margin-top:-6px">Admin status is on for this ${me() ? 'account' : 'profile'}. Your perks:</p>
+    <ul class="tips"><li>Free boost to level ${ADMIN_LEVEL_BOOST} (once), then double XP on everything</li><li>Profile picture, banner and up to 25 custom emoji (still or animated) on the Badges page</li><li>The Admin badge, and a blue Admin tag in chat that can't be faked</li><li>In chat: hide messages and mute regular members</li></ul>
+    <button class="btn" id="admOff" style="margin-top:14px">Turn off admin status</button>`, `<span class="tag adm">${icon('shield')}Admin</span>`);
+  return card('c6', isOwner ? 'Owner' : 'Owner or admin key', isOwner
     ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level ${OWNER_LEVEL}, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
-    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock level ${OWNER_LEVEL}, every badge and the owner extras.</p>
-      <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
+    : `<p class="muted" style="margin-top:-6px">Got an owner or admin key? Enter it to unlock its perks on this ${me() ? 'account' : 'profile'}.</p>
+      <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner or admin key" aria-label="Owner or admin key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
 }
 VIEWS.options = () => `<div class="grid">
   ${accountCard()}
@@ -1010,11 +1065,14 @@ BIND.options = m => {
     };
   }
   if (isOwner) $('#ownOff').onclick = () => { S.ownerProof = ''; save(); verifyOwner(); toast('Owner status turned off'); };
+  else if (isAdmin) $('#admOff').onclick = () => { S.adminProof = ''; save(); verifyOwner(); toast('Admin status turned off'); };
   else $('#ownForm').onsubmit = async e => {
     e.preventDefault(); const k = $('#ownKey').value; if (!k.trim()) return;
     $('#ownErr').textContent = ''; toast('Checking key…');
-    if (await claimOwner(k)) { toast('Owner unlocked: max level and every badge'); location.hash = '#badges'; }
-    else $('#ownErr').textContent = 'That owner key is not right.';
+    const role = await claimOwner(k);
+    if (role === 'owner') { toast('Owner unlocked: max level and every badge'); location.hash = '#badges'; }
+    else if (role === 'admin') { toast(`Admin unlocked: level ${Math.max(level().lv, ADMIN_LEVEL_BOOST)}, double XP and admin perks`); location.hash = '#badges'; }
+    else $('#ownErr').textContent = 'That key is not right.';
   };
   $('#stName').onchange = e => { S.name = e.target.value.trim(); save(); paintPlayer(); toast('Name saved'); };
   const sw = (id, fn) => $(id).onclick = () => { fn(); save(); rerender(); };
@@ -1174,7 +1232,7 @@ function openAuth(t = 'signup') {
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);
-  resetTimers(); leaveRoom(); C.autoTried = false; C.signKey = null; S = clean(loadJSON(KEY, {})); isOwner = false; clearMedia();
+  resetTimers(); leaveRoom(); C.autoTried = false; C.signKey = null; C.adminSignKey = null; S = clean(loadJSON(KEY, {})); isOwner = false; isAdmin = false; clearMedia();
   resumeFocus(); if (S.run.game) startGame(S.run.game.game, S.run.game.start);
   init(); verifyOwner();
 }

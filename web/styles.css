@@ -346,6 +346,11 @@ input::-ms-reveal,input::-ms-clear{display:none}
 details.pw summary{list-style:none;display:inline-flex;cursor:pointer;width:max-content}
 details.pw summary::-webkit-details-marker{display:none}
 input:disabled{opacity:.65}
+.profile.admin .avatar,.avatar.blue{box-shadow:0 0 0 2px var(--frame),0 0 0 4px #6f8dff,0 0 18px rgba(111,141,255,.45)}
+.tag.adm{display:inline-flex;align-items:center;gap:6px;background:rgba(111,141,255,.16);color:#9db0ff;padding:3px 10px}
+.tag.adm svg{width:14px;height:14px}
+.msg.adm{background:rgba(111,141,255,.07)}
+.badge-tile.tier-admin{--tc:#6f8dff;border-color:rgba(111,141,255,.55);background:linear-gradient(180deg,rgba(111,141,255,.12),var(--soft))}
 .profile.owner .avatar,.avatar.gold{box-shadow:0 0 0 2px var(--frame),0 0 0 4px #f2c46d,0 0 18px rgba(242,196,109,.45)}
 .tag.owner{display:inline-flex;align-items:center;gap:6px;background:rgba(242,196,109,.16);color:#f2c46d;padding:3px 10px}
 .tag.owner svg{width:14px;height:14px}
