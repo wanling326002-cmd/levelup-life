@@ -39,6 +39,10 @@ const P = {
   chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  players:'<path d="M8 21h8M12 16v5M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>',
+  userplus:'<circle cx="9" cy="8" r="4"/><path d="M2 21c1.2-3.6 3.8-6 7-6s5.8 2.4 7 6M19 8v6M16 11h6"/>',
+  check:'<path d="m5 12 5 5L20 7"/>', x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0M9 9.5h.01M15 9.5h.01"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>', upload:'<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
@@ -56,6 +60,7 @@ const ROUTES = [
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
   {id:'impact', name:'Help the World', short:'Impact', sub:'Small daily quests that make things better.', key:'8', main:true},
   {id:'chat', name:'Chat', sub:'Talk with everyone who has your invite code.', main:true},
+  {id:'players', name:'Players', sub:'Leaderboard, friends and player profiles.', main:true},
   {id:'badges', name:'Badges', sub:'Your level, rank and achievements.', key:'9'},
   {id:'options', name:'Settings', sub:'Your account, preferences and data.', key:'0'},
   {id:'help', name:'Help', sub:'How to use LevelUp Life, and keyboard shortcuts.'},
@@ -162,7 +167,8 @@ async function verifyOwner() { // checks both roles
   let ok = false, adm = false;
   try { ok = !!S.ownerProof && safeEq(await sha256(S.ownerProof), OWNER_CHECK); } catch {}
   try { adm = !!S.adminProof && safeEq(await sha256(S.adminProof), ADMIN_CHECK); } catch {}
-  if (ok !== isOwner || adm !== isAdmin) { isOwner = ok; isAdmin = adm; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube', 'chat'].includes(current)) rerender(); }
+  if (ok !== isOwner || adm !== isAdmin) { isOwner = ok; isAdmin = adm; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube', 'chat', 'players'].includes(current)) rerender(); }
+  if (S.pub) schedulePublish(4000); // keep the public profile up to date (it skips the upload when nothing changed)
 }
 async function claimOwner(key) { // returns 'owner', 'admin' or false
   const n = normKey(key);
@@ -187,7 +193,7 @@ const mk = k => KEY + '|' + k;
 const mediaGet = k => mediaOp('readonly', s => s.get(mk(k)));
 const mediaPut = (k, v) => mediaOp('readwrite', s => s.put(v, mk(k)));
 const mediaDel = k => mediaOp('readwrite', s => s.delete(mk(k)));
-async function mediaWipe() { try { const ks = await mediaOp('readonly', s => s.getAllKeys()); for (const k of ks) if (String(k).startsWith(KEY + '|')) await mediaOp('readwrite', s => s.delete(k)); } catch {} }
+async function mediaWipe() { const pre = KEY + '|'; try { const ks = await mediaOp('readonly', s => s.getAllKeys()); for (const k of ks) if (String(k).startsWith(pre)) await mediaOp('readwrite', s => s.delete(k)); } catch {} }
 const M = {pfp:'', banner:'', pfpVid:false, bannerVid:false, pfpLive:false, bannerLive:false, emoji:new Map()};
 function clearMedia() { [M.pfp, M.banner, ...M.emoji.values()].forEach(u => u && URL.revokeObjectURL(u)); M.pfp = M.banner = ''; M.pfpVid = M.bannerVid = M.pfpLive = M.bannerLive = false; M.emoji = new Map(); }
 async function loadMedia() {
@@ -262,6 +268,12 @@ const DEFAULT = {
   adminBoost:false,
   chatCode:'',
   emoji:[],                       // owner's custom emoji: {id, name, live}; the images live in IndexedDB
+  pub:false,                      // public profile on the leaderboard (opt-in)
+  pubHash:'', pubAt:0,            // what was last published, and when
+  friends:[],                     // usernames I added as friends
+  ignored:[],                     // friend requests I declined
+  modHidden:[],                   // owner/admin: players hidden from the leaderboard
+  packHash:'',                    // owner/admin: last published chat emoji pack
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -295,6 +307,10 @@ function clean(raw) {
   d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
   d.adminProof = typeof s.adminProof === 'string' && /^[0-9a-f]{64}$/.test(s.adminProof) ? s.adminProof : '';
   d.adminBoost = s.adminBoost === true;
+  const names = (v, max) => [...new Set(arr(v).filter(x => typeof x === 'string' && /^[a-z0-9_]{3,20}$/.test(x)))].slice(-max);
+  d.pub = s.pub === true; d.pubHash = /^[0-9a-f]{64}$/.test(s.pubHash || '') ? s.pubHash : ''; d.pubAt = num(s.pubAt, 0, 0, 1e15);
+  d.friends = names(s.friends, 200); d.ignored = names(s.ignored, 200); d.modHidden = names(s.modHidden, 500);
+  d.packHash = /^[0-9a-f]{64}$/.test(s.packHash || '') ? s.packHash : '';
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
   if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
@@ -303,7 +319,7 @@ function clean(raw) {
 let S;
 try { S = clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
 catch { S = clean({}); }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); };
 
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
@@ -364,7 +380,7 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { if (current !== 'chat') stopChat(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+function render() { if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
 
 /* show / hide buttons on every password box, so people can check what they typed */
 function addPeek(root = document) {
@@ -796,7 +812,7 @@ function studioCards() {
 BIND.badges = m => {
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
   if (!isOwner && !isAdmin) return;
-  const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); };
+  const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); if (S.pub) schedulePublish(3000); };
   const upload = (sel, kind, done) => { const inp = $(sel); inp.onchange = async () => {
     const f = inp.files[0]; inp.value = ''; if (!f) return; $('#studioErr').textContent = '';
     try { const {blob, live, gif} = await prepImage(f, kind); await mediaPut(kind, blob); await refresh();
@@ -812,10 +828,10 @@ BIND.badges = m => {
     if (!/^[a-z0-9_]{2,24}$/.test(name)) return err.textContent = 'Type a name first: 2–24 letters, numbers or _.';
     if (S.emoji.some(x => x.name === name)) return err.textContent = `:${name}: already exists. Pick another name.`;
     if (S.emoji.length >= emojiMax()) return err.textContent = `You have ${emojiMax()} emoji, the limit. Delete one first.`;
-    try { const {blob, live} = await prepImage(f, 'emoji'); const id = uid(); await mediaPut('emoji:' + id, blob); S.emoji.push({id, name, live}); save(); await refresh(); toast(`:${name}: added`); }
+    try { const {blob, live} = await prepImage(f, 'emoji'); const id = uid(); await mediaPut('emoji:' + id, blob); S.emoji.push({id, name, live}); save(); await refresh(); toast(`:${name}: added`); publishPack(); }
     catch (e) { err.textContent = e && e.message ? e.message : 'Could not save that image in this browser.'; }
   };
-  m.querySelectorAll('[data-emodel]').forEach(b => b.onclick = async () => { const id = b.dataset.emodel; await mediaDel('emoji:' + id).catch(() => {}); S.emoji = S.emoji.filter(x => x.id !== id); save(); await refresh(); });
+  m.querySelectorAll('[data-emodel]').forEach(b => b.onclick = async () => { const id = b.dataset.emodel; await mediaDel('emoji:' + id).catch(() => {}); S.emoji = S.emoji.filter(x => x.id !== id); save(); await refresh(); publishPack(); });
   m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; try { navigator.clipboard.writeText(t).then(() => toast(`Copied ${t}`), () => toast(`Type ${t} to use it`)); } catch { toast(`Type ${t} to use it`); } });
 };
 
@@ -830,7 +846,7 @@ const ADMIN_SIGN = {iv:'j2EetQUY69XI2nW8', ct:'/xNJjFunfcYfKWcdf0dRusOvJDGxruea9
 const OWNER_SIGN = {iv:'BRZCj5rnw4C7weNb', ct:'+2C9W2x1RbaVVtMoK1LZmSmDqSVmx6tLonfZgtV/jSY4tBQlntUllBOL+N2o4ZnSd5S3djR1z1Tnia0='}; // the owner's private signing key, encrypted with the owner key
 const b64 = u => { let s = ''; for (const b of new Uint8Array(u)) s += String.fromCharCode(b); return btoa(s); };
 const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
-const C = {room:'', key:null, timer:null, msgs:[], token:'', tokenExp:0, signKey:null, adminSignKey:null, pubKey:null, adminPubKey:null, lastSend:0, status:'', loading:false, muted:new Map(), autoTried:false};
+const C = {room:'', key:null, timer:null, msgs:[], token:'', tokenExp:0, signKey:null, adminSignKey:null, pubKey:null, adminPubKey:null, lastSend:0, status:'', loading:false, muted:new Map(), autoTried:false, pv:new Map()};
 const normCode = c => String(c).trim().toLowerCase().replace(/\s+/g, ' ');
 async function unlockSignKey(key) {
   try {
@@ -889,6 +905,7 @@ async function openMsg(item) {
   const m = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(iv)}, C.key, unb64(ct))));
   if (!m || typeof m.n !== 'string' || typeof m.t !== 'string') return null;
   const v = {k:['msg', 'hide', 'mute', 'unmute'].includes(m.k) ? m.k : 'msg', n:m.n.slice(0, 24), t:m.t.slice(0, 500), ref:typeof m.ref === 'string' ? m.ref.slice(0, 64) : '', ts:m.ts, id:String(item.id || d._id || '')};
+  if (typeof m.u === 'string' && /^[a-z0-9_]{3,20}$/.test(m.u) && typeof m.ps === 'string' && m.ps.length < 200) { v.u = m.u; v.ps = m.ps; if (C.pv.has(v.id)) v.pv = C.pv.get(v.id); }
   v.at = Date.parse((d._createdDate && d._createdDate.$date) || '') || 0;
   v.owner = false;
   if (typeof m.sig === 'string') try {
@@ -930,6 +947,7 @@ async function pullChat() {
     C.status = '';
   } catch { C.status = "Can't reach the chat right now. Trying again…"; }
   C.loading = false; paintChat();
+  linkChat(); loadPacks();
 }
 async function postChat(m) {
   const payload = await sealMsg(m);
@@ -946,10 +964,11 @@ const canUnmute = by => isOwner || by === 'admin';
 function paintChat() {
   const list = $('#chatList'); if (!list) return;
   const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
-  list.innerHTML = C.msgs.map(m => `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><span class="thumb" style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}">${m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</span>
-    <div class="grow"><div class="msg-h"><b>${esc(m.n)}</b>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
+  list.innerHTML = C.msgs.map(m => { const p = m.pv ? PL.by.get(m.u) : null, link = p ? ` data-player="${m.u}"` : '';
+    return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><${p ? 'button type="button"' : 'span'} class="thumb"${link} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}"${p ? ` aria-label="Open ${esc(m.n)}'s profile"` : ''}>${p && p.pf ? `<img src="${p.pf}" alt="">` : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</${p ? 'button' : 'span'}>
+    <div class="grow"><div class="msg-h">${p ? `<button type="button" class="name-btn"${link} title="View profile"><b>${esc(m.n)}</b></button>` : `<b>${esc(m.n)}</b>`}${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
     ${canMod() && (canHide(m) || canMute(m)) ? `<span class="msg-tools">${canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}</span>` : ''}</div>
-    <div class="msg-t">${emo(m.t)}</div></div></li>`).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
+    <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
   $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
   const ml = $('#mutedList');
@@ -960,6 +979,7 @@ const CHAT_RULES = `<ul class="tips">
   <li>Never share personal info: your real name, address, school, phone number or passwords.</li>
   <li>Don't click links from people you don't know.</li>
   <li>The owner and admins can hide messages and mute names for everyone.</li>
+  <li>Click a name to open that player's profile (players with a public profile).</li>
   <li>Names with "owner" or "admin" in them can't post.</li></ul>`;
 VIEWS.chat = () => {
   if (!C.room) return `<div class="grid">
@@ -970,7 +990,7 @@ VIEWS.chat = () => {
   ${card('c5', 'Chat rules', CHAT_RULES)}</div>`;
   return `<div class="grid">
   ${card('c8', 'Global chat', `<ul class="chat-list" id="chatList" aria-live="polite"></ul>
-    <form class="row chat-send" id="chatForm"><input id="chatIn" maxlength="500" autocomplete="off" placeholder="Message as ${esc(displayName())}" aria-label="Message"><button class="btn primary">Send</button></form>
+    <form class="row chat-send" id="chatForm">${emojiPicker()}<button type="button" class="iconbtn" id="emoBtn" aria-label="Emoji" aria-expanded="false" title="Emoji">${icon('smile')}</button><input id="chatIn" maxlength="500" autocomplete="off" placeholder="Message as ${esc(displayName())}" aria-label="Message"><button class="btn primary">Send</button></form>
     <p class="muted small" id="chatStatus"></p>
     ${isOwner && !C.signKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn">Enable my crown</button></form><p class="muted small">Enter your owner key once on this device so your messages get the crown and you can hide and mute.</p>` : ''}
     ${isAdminOnly() && !C.adminSignKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Admin key" aria-label="Admin key"><button class="btn">Enable my admin tag</button></form><p class="muted small">Enter your admin key once on this device so your messages get the Admin tag and you can hide and mute.</p>` : ''}`,
@@ -1002,9 +1022,23 @@ BIND.chat = () => {
     const n = displayName().slice(0, 24);
     if (!isOwner && !(isAdmin && C.adminSignKey) && /owner|admin/i.test(n)) return toast('Names with "owner" or "admin" can\'t post. Change your nickname in Settings.');
     if (Date.now() - C.lastSend < 2500) return toast('Slow down a little.');
-    C.lastSend = Date.now(); inp.value = '';
-    try { await postChat({k:'msg', n, t, ts:Date.now()}); } catch { inp.value = t; toast("Couldn't send. Check your connection and try again."); }
+    C.lastSend = Date.now(); inp.value = ''; $('#emoPick').hidden = true;
+    try {
+      const m = {k:'msg', n, t, ts:Date.now()};
+      if (S.pub && me()) { m.u = myU(); m.ps = await signText((await profileKey()).priv, sigText(m) + '|' + m.u); } // links your name to your profile
+      await postChat(m);
+    } catch { inp.value = t; toast("Couldn't send. Check your connection and try again."); }
   };
+  const pick = $('#emoPick'), eb = $('#emoBtn');
+  eb.onclick = () => { pick.hidden = !pick.hidden; eb.setAttribute('aria-expanded', String(!pick.hidden)); };
+  pick.onclick = e => { const b = e.target.closest('[data-ins]'); if (!b) return; const inp = $('#chatIn'), s = b.dataset.ins;
+    const a = inp.selectionStart ?? inp.value.length, z = inp.selectionEnd ?? a, sp = s.startsWith(':') && a && inp.value[a - 1] !== ' ' ? ' ' : '';
+    const v = inp.value.slice(0, a) + sp + s + inp.value.slice(z); if (v.length > 500) return toast('Message is too long');
+    inp.value = v; const c = a + sp.length + s.length; inp.focus(); inp.setSelectionRange(c, c); };
+  document.addEventListener('click', function closePick(e) { if (!document.body.contains(pick)) return document.removeEventListener('click', closePick);
+    if (!pick.hidden && !e.target.closest('#emoPick') && !e.target.closest('#emoBtn')) { pick.hidden = true; eb.setAttribute('aria-expanded', 'false'); } });
+  if (isOwner || isAdmin) staffKey().then(k => { if (k) publishPack(); });
+  loadPacks(true);
   $('#chatList').onclick = async e => {
     if (!canMod()) return;
     const h = e.target.closest('[data-hide]'), mu = e.target.closest('[data-mute]');
@@ -1020,6 +1054,365 @@ BIND.chat = () => {
   const sf = $('#signForm'); if (sf) sf.onsubmit = async e => { e.preventDefault(); toast('Checking key…');
     const ok = isOwner ? await unlockSignKey($('#signKeyIn').value) : await unlockAdminSignKey($('#signKeyIn').value);
     if (ok) { toast(isOwner ? 'Crown enabled' : 'Admin tag enabled'); rerender(); } else toast('That key is not right.'); };
+};
+
+/* ---------- players: public profiles, leaderboard and friends ----------
+   Opt-in. Each public player has ONE item in the site's "Players" CMS collection (id "p-<username>") that they update in place.
+   It is signed with a key made on the player's own device (the private half never leaves it), so nobody else can change a
+   profile without the change being rejected. Owner/admin status is proven with the owner/admin signing key. There is no
+   server, so level and XP are self-reported: the owner and admins can hide cheaters from the leaderboard. */
+const PLAYERS = 'Players', USER_OK = /^[a-z0-9_]{3,20}$/, DATA_IMG = /^data:image\/(webp|png|jpeg|gif);base64,[A-Za-z0-9+/=]+$/;
+const pid = u => 'p-' + u;
+const PL = {list:[], by:new Map(), at:0, loading:null, hidden:new Map(), packs:{owner:new Map(), admin:new Map()}, packAt:0, keys:new Map(), status:'', tab:'all', q:'', timer:null};
+const TH = {key:'', pf:'', bn:''};
+let pubBusy = false, openU = '';
+const myU = () => me() ? me().username.toLowerCase() : '';
+const signText = async (key, text) => b64(await crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, key, enc.encode(text)));
+async function verifyWith(jwk, sig, text) {
+  try {
+    const id = jwk.x + jwk.y; let k = PL.keys.get(id);
+    if (!k) { k = await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:jwk.x, y:jwk.y}, {name:'ECDSA', namedCurve:'P-256'}, false, ['verify']); PL.keys.set(id, k); }
+    return await crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, k, unb64(sig), enc.encode(text));
+  } catch { return false; }
+}
+async function profileKey() { // made once per account on this device; the private key can't be exported
+  let k = null; try { k = await mediaGet('profilekey'); } catch {}
+  if (k && k.priv && k.x) return k;
+  const pair = await crypto.subtle.generateKey({name:'ECDSA', namedCurve:'P-256'}, false, ['sign', 'verify']);
+  const pub = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  k = {priv:pair.privateKey, x:pub.x, y:pub.y}; await mediaPut('profilekey', k); return k;
+}
+async function staffKey() { // ['owner'|'admin', signing key] once the key was entered on this device
+  if (isOwner) { if (!C.signKey) try { C.signKey = await mediaGet('signkey') || null; } catch {} return C.signKey ? ['owner', C.signKey] : null; }
+  if (isAdmin) { if (!C.adminSignKey) try { C.adminSignKey = await mediaGet('adminsignkey') || null; } catch {} return C.adminSignKey ? ['admin', C.adminSignKey] : null; }
+  return null;
+}
+const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+async function frameOf(blob) { // the first frame of a picture or a video clip
+  if (!blob.type.startsWith('video/')) return createImageBitmap(blob);
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(blob);
+  try { await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; setTimeout(rej, 6000); }); return v; }
+  finally { setTimeout(() => URL.revokeObjectURL(v.src), 2000); }
+}
+async function thumb(blob, w, h, mode, keepMax = 0) { // a small copy for sharing; small animations stay animated
+  if (!blob) return '';
+  try {
+    const a = await inspectMedia(blob);
+    if (a.live && !a.video && blob.size <= keepMax) return await blobToDataUrl(new Blob([blob], {type:a.mime}));
+    const img = await frameOf(blob), iw = img.videoWidth || img.width, ih = img.videoHeight || img.height;
+    let sx = 0, sy = 0, sw = iw, sh = ih, cw = w, ch = h;
+    if (mode === 'fit') { const s = Math.min(1, w / iw, h / ih); cw = Math.max(1, Math.round(iw * s)); ch = Math.max(1, Math.round(ih * s)); }
+    else { const r = w / h; if (iw / ih > r) { sw = ih * r; sx = (iw - sw) / 2; } else { sh = iw / r; sy = (ih - sh) / 2; } }
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch; c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+    const out = c.toDataURL('image/webp', .8); return out.startsWith('data:image/webp') ? out : c.toDataURL('image/png');
+  } catch { return ''; }
+}
+const sealed = (d, s) => JSON.stringify({d, s});
+const saveItem = (id, kind, payload) => chatApi('/wix-data/v2/items/save', {dataCollectionId:PLAYERS, dataItem:{id, data:{kind, payload}}});
+const queryItems = (filter, limit = 100, offset = 0) => chatApi('/wix-data/v2/items/query', {dataCollectionId:PLAYERS, query:{filter, paging:{limit, offset}}}).then(j => j.dataItems || []);
+async function readProfile(item) { // a verified public profile, or null
+  try {
+    const d = item.data || {}, w = JSON.parse(String(d.payload || ''));
+    if (typeof w.d !== 'string' || w.d.length > 480000 || typeof w.s !== 'string') return null;
+    const p = JSON.parse(w.d);
+    if (!p || p.v !== 1 || !USER_OK.test(p.u) || String(item.id || d._id) !== pid(p.u) || typeof p.x !== 'string' || typeof p.y !== 'string') return null;
+    if (!(await verifyWith(p, w.s, w.d))) return null;
+    if (p.gone) return {u:p.u, gone:true, x:p.x, y:p.y};
+    let role = '';
+    if ((p.role === 'owner' || p.role === 'admin') && typeof p.rs === 'string' && await verifyWith(p.role === 'owner' ? OWNER_PUB : ADMIN_PUB, p.rs, `role|${p.role}|${p.u}|${p.x}`)) role = p.role;
+    const img = v => typeof v === 'string' && DATA_IMG.test(v) ? v : '';
+    return {u:p.u, n:str(p.n, 24) || p.u, lv:role === 'owner' ? MAX_LEVEL : num(p.lv, 1, 1, MAX_LEVEL), xp:num(p.xp, 0, 0, 1e9),
+      rk:BADGES.map((_, i) => role === 'owner' ? TOP : num(arr(p.rk)[i], -1, -1, TOP)),
+      fr:[...new Set(arr(p.fr).filter(f => typeof f === 'string' && USER_OK.test(f) && f !== p.u))].slice(0, 200),
+      j:isDay(p.j) ? p.j : '', x:p.x, y:p.y, role, pf:role ? img(p.pf) : '', bn:role ? img(p.bn) : ''};
+  } catch { return null; }
+}
+async function readStaff(item, prefix) { // an item signed with the owner or admin key
+  try {
+    const d = item.data || {}, w = JSON.parse(String(d.payload || ''));
+    if (typeof w.d !== 'string' || w.d.length > 480000 || typeof w.s !== 'string') return null;
+    const p = JSON.parse(w.d);
+    if (!p || p.v !== 1 || !['owner', 'admin'].includes(p.role) || String(item.id || d._id) !== `${prefix}-${p.role}`) return null;
+    return await verifyWith(p.role === 'owner' ? OWNER_PUB : ADMIN_PUB, w.s, w.d) ? p : null;
+  } catch { return null; }
+}
+async function buildProfile() {
+  const u = me(), L = level(), k = await profileKey();
+  const p = {v:1, u:u.username.toLowerCase(), n:u.username.slice(0, 24), lv:L.lv, xp:isOwner ? 1e9 : S.xp, rk:BADGES.map(b => badgeState(b).tier),
+    fr:S.friends.slice(0, 200), j:u.created || '', x:k.x, y:k.y, role:'', rs:'', pf:'', bn:''};
+  const st = isOwner || isAdmin ? await staffKey() : null;
+  if (st) {
+    p.role = st[0]; p.rs = await signText(st[1], `role|${p.role}|${p.u}|${p.x}`);
+    const tk = M.pfp + '|' + M.banner;
+    if (TH.key !== tk) { TH.key = tk;
+      TH.pf = M.pfp ? await thumb(await mediaGet('pfp'), 128, 128, 'cover', 60e3) : '';
+      TH.bn = M.banner ? await thumb(await mediaGet('banner'), 720, 240, 'cover', 160e3) : ''; }
+    p.pf = TH.pf; p.bn = TH.bn;
+  }
+  return {p, k};
+}
+function schedulePublish(ms = 15000) { // called from save(); a function declaration so it is ready before anything else runs
+  if (!S.pub || !me() || schedulePublish.t) return;
+  schedulePublish.t = setTimeout(() => { schedulePublish.t = null; publishProfile(); }, ms);
+}
+async function publishProfile(force) {
+  clearTimeout(schedulePublish.t); schedulePublish.t = null;
+  if (!S.pub || !me() || pubBusy) return false; pubBusy = true;
+  try {
+    const {p, k} = await buildProfile(), h = await sha256(JSON.stringify(p));
+    if (!force && h === S.pubHash && Date.now() - S.pubAt < 6 * 3600e3) return true;
+    const cur = (await queryItems({_id:pid(p.u)}, 1))[0], old = cur && await readProfile(cur);
+    if (old && !old.gone && old.x !== p.x) { // somebody else already uses this username on the leaderboard
+      S.pub = false; save(); PL.status = 'taken'; toast(`Another player already uses the name ${me().username} on the leaderboard.`); repaintSocial(); return false;
+    }
+    p.ts = Date.now(); const d = JSON.stringify(p);
+    await saveItem(pid(p.u), 'player', sealed(d, await signText(k.priv, d)));
+    S.pubHash = h; S.pubAt = Date.now(); PL.status = ''; PL.at = 0; save(); return true;
+  } catch { PL.status = 'offline'; return false; }
+  finally { pubBusy = false; }
+}
+async function unpublishProfile() { // leaves a signed "gone" note, because visitors can't delete items
+  if (!me()) return;
+  const k = await profileKey(), u = myU(), cur = (await queryItems({_id:pid(u)}, 1))[0], old = cur && await readProfile(cur);
+  if (!old || old.x !== k.x) return;
+  const d = JSON.stringify({v:1, u, x:k.x, y:k.y, gone:true, ts:Date.now()});
+  await saveItem(pid(u), 'player', sealed(d, await signText(k.priv, d)));
+  S.pubHash = ''; S.pubAt = 0; save(); PL.at = 0;
+}
+async function loadPlayers(force) {
+  if (!force && PL.at && Date.now() - PL.at < 30000) return PL.list;
+  if (PL.loading) return PL.loading;
+  PL.loading = (async () => {
+    try {
+      const items = [];
+      for (let off = 0; off < 1000; off += 100) { const got = await queryItems({kind:'player'}, 100, off); items.push(...got); if (got.length < 100) break; }
+      const list = [];
+      for (const it of items) { const p = await readProfile(it); if (p && !p.gone) list.push(p); }
+      const by = new Map(list.map(p => [p.u, p])), hidden = new Map();
+      for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (!m) continue;
+        for (const u of arr(m.hidden)) { const p = by.get(u); if (!p || p.role === 'owner') continue; if (m.role === 'owner') hidden.set(u, 'owner'); else if (!p.role && !hidden.has(u)) hidden.set(u, 'admin'); } }
+      list.sort((a, b) => b.lv - a.lv || b.xp - a.xp || a.n.localeCompare(b.n));
+      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''});
+    } catch { PL.status = 'offline'; if (!PL.at) PL.at = 0; }
+    finally { PL.loading = null; }
+    return PL.list;
+  })();
+  return PL.loading;
+}
+const visiblePlayers = () => PL.list.filter(p => !PL.hidden.has(p.u) || p.u === myU());
+const levelOf = xp => { let lv = 1, need = xpForNext(1); while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = xpForNext(lv); } return {lv, xp, need}; };
+function friendState(u) {
+  const me_ = myU(); if (!me_ || u === me_) return 'self';
+  const mine = S.friends.includes(u), theirs = !!(PL.by.get(u) || {fr:[]}).fr.includes(me_);
+  return mine && theirs ? 'friends' : mine ? 'sent' : theirs ? 'incoming' : 'none';
+}
+const friendRequests = () => { const m = myU(); return m ? PL.list.filter(p => p.fr.includes(m) && !S.friends.includes(p.u) && !S.ignored.includes(p.u) && !PL.hidden.has(p.u)) : []; };
+const canHidePlayer = p => !!p && p.u !== myU() && (isOwner ? p.role !== 'owner' : isAdminOnly() && !p.role);
+async function changeFriend(u, act) {
+  if (!me()) return openAuth('signup');
+  if (!S.pub && (act === 'add')) return toast('Make your profile public first (Players page or Settings), so others can see your request.');
+  if (act === 'add') { if (!S.friends.includes(u)) S.friends.push(u); S.ignored = S.ignored.filter(x => x !== u); }
+  if (act === 'remove') S.friends = S.friends.filter(x => x !== u);
+  if (act === 'ignore') { if (!S.ignored.includes(u)) S.ignored.push(u); S.ignored = S.ignored.slice(-200); }
+  save(); repaintSocial();
+  if (act !== 'ignore') { const ok = await publishProfile(true); toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (friendState(u) === 'friends' ? `You and ${u} are now friends!` : `Friend request sent to ${u}`) : `Removed ${u}`); }
+  repaintSocial();
+}
+async function setHidden(u, hide) {
+  const st = await staffKey(); if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
+  const [role, key] = st, cur = new Set(S.modHidden);
+  try {
+    for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (m && m.role === role) arr(m.hidden).forEach(x => USER_OK.test(x) && cur.add(x)); }
+    hide ? cur.add(u) : cur.delete(u); S.modHidden = [...cur].slice(-500); save();
+    const d = JSON.stringify({v:1, role, hidden:S.modHidden, ts:Date.now()});
+    await saveItem('mod-' + role, 'mod', sealed(d, await signText(key, d)));
+    await loadPlayers(true); toast(hide ? `${u} is hidden from the leaderboard` : `${u} is back on the leaderboard`);
+  } catch { toast("Couldn't reach the leaderboard. Try again."); }
+  repaintSocial();
+}
+
+/* custom emoji the owner and admins can use in chat: published as one signed item each, so everyone in the room sees them */
+async function publishPack() {
+  const st = await staffKey(); if (!st) return;
+  try {
+    const list = []; let budget = 420e3;
+    for (const e of S.emoji) {
+      const b = await mediaGet('emoji:' + e.id).catch(() => null); if (!b) continue;
+      const src = e.live && b.size <= 48e3 ? await thumb(b, 64, 64, 'fit', 48e3) : await thumb(b, 64, 64, 'fit');
+      if (!src || src.length > budget) continue; budget -= src.length; list.push({n:e.name, src});
+    }
+    const h = await sha256(st[0] + JSON.stringify(list)); if (h === S.packHash) return;
+    const d = JSON.stringify({v:1, role:st[0], list, ts:Date.now()});
+    await saveItem('emo-' + st[0], 'emoji', sealed(d, await signText(st[1], d)));
+    S.packHash = h; save(); PL.packAt = 0;
+  } catch {}
+}
+async function loadPacks(force) {
+  if (!force && Date.now() - PL.packAt < 60000) return; PL.packAt = Date.now();
+  try {
+    for (const it of await queryItems({kind:'emoji'}, 10)) { const p = await readStaff(it, 'emo'); if (!p) continue;
+      const m = new Map(); for (const e of arr(p.list)) if (e && /^[a-z0-9_]{2,24}$/.test(e.n) && typeof e.src === 'string' && DATA_IMG.test(e.src)) m.set(e.n, e.src);
+      PL.packs[p.role] = m; }
+    paintChat();
+  } catch { PL.packAt = 0; }
+}
+const EMOJI = [['Faces', '😀 😁 😂 🤣 😊 😍 😎 🤩 🥳 😇 🙂 😉 😜 🤔 🤨 😐 😴 😮 😱 😭 😡 🤯 🥶 🥵 😈 💀 👻 🤖 👽 🙈'],
+  ['Hands', '👍 👎 👏 🙌 🙏 💪 👋 🤝 ✌️ 🤞 👌 🫡 🫶 👀'],
+  ['Gaming', '🎮 🕹️ 👾 🏆 🥇 🥈 🥉 🎯 ⚔️ 🛡️ 🏹 💣 🧩 🎲 ♟️ 🚀 ⭐ 🌟 ✨ 💎 👑 🔥 ⚡ 💥 💯 ✅ ❌ ❓'],
+  ['Hearts', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 💖'],
+  ['Things', '📚 💻 📱 🎧 🎬 📺 🍿 🍕 🍔 🥤 ☕ 🎉 🎂 🎁 🌍 🌱 🐱 🐶 🦊 🐉']];
+const emoWith = (s, map) => { const h = esc(s); return map && map.size ? h.replace(/:([a-z0-9_]{2,24}):/g, (m, n) => map.has(n) ? `<img class="emoji" src="${map.get(n)}" alt=":${n}:" title=":${n}:">` : m) : h; };
+const EMO_ONLY = /^(?:\s*(?::[a-z0-9_]{2,24}:|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)\s*){1,3}$/u;
+const chatEmoji = m => m.owner ? (isOwner && M.emoji.size ? M.emoji : PL.packs.owner) : m.admin ? (isAdminOnly() && M.emoji.size ? M.emoji : PL.packs.admin) : null;
+function emojiPicker() {
+  const mine = (isOwner || isAdmin) ? S.emoji.filter(e => M.emoji.has(e.name)) : [];
+  return `<div class="emo-pick" id="emoPick" hidden role="dialog" aria-label="Emoji">
+    ${mine.length ? `<h4>Your emoji</h4><div class="emo-grid">${mine.map(e => `<button type="button" data-ins=":${e.name}:" title=":${e.name}:"><img src="${M.emoji.get(e.name)}" alt=":${e.name}:"></button>`).join('')}</div>` : ''}
+    ${EMOJI.map(([h, list]) => `<h4>${h}</h4><div class="emo-grid">${list.split(' ').map(e => `<button type="button" data-ins="${e}" aria-label="${e}">${e}</button>`).join('')}</div>`).join('')}</div>`;
+}
+async function linkChat() { // a name in chat links to a profile only when the message was signed by that player's key
+  const todo = C.msgs.filter(m => m.u && m.ps && m.pv === undefined); if (!todo.length) return;
+  await loadPlayers().catch(() => {});
+  let changed = false;
+  for (const m of todo) { const p = PL.by.get(m.u); if (!p) continue;
+    m.pv = await verifyWith(p, m.ps, sigText(m) + '|' + m.u); C.pv.set(m.id, m.pv); changed = true; }
+  if (changed) paintChat();
+}
+
+/* profile window */
+const roleTag = p => p.role === 'owner' ? `<span class="tag owner">${icon('crown')}Owner</span>` : p.role === 'admin' ? `<span class="tag adm">${icon('shield')}Admin</span>` : '';
+const plAvatar = (p, big) => `<span class="avatar${big ? ' big' : ''}${p.role === 'owner' ? ' gold' : p.role === 'admin' ? ' blue' : ''}" style="background:${p.pf ? 'var(--card2)' : hue(p.u)}">${p.pf ? `<img src="${p.pf}" alt="">` : esc(p.n.charAt(0).toUpperCase())}</span>`;
+const bestRank = p => { const t = Math.max(-1, ...p.rk); return t < 0 ? 'No badges yet' : `Best rank: ${RANKS[t].name}`; };
+const mutualCount = p => PL.list.filter(q => p.fr.includes(q.u) && q.fr.includes(p.u)).length;
+function friendButtons(u, sm = '') {
+  const s = friendState(u);
+  if (s === 'self') return `<a class="btn ${sm}" href="#badges" data-close-pm>Edit my profile</a>`;
+  if (s === 'friends') return `<span class="tag g">${icon('check')}Friends</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Remove</button>`;
+  if (s === 'sent') return `<span class="tag">Request sent</span><button type="button" class="btn ${sm}" data-fr="remove" data-u="${u}">Cancel</button>`;
+  if (s === 'incoming') return `<button type="button" class="btn primary ${sm}" data-fr="add" data-u="${u}">${icon('check')}Accept</button><button type="button" class="btn ${sm}" data-fr="ignore" data-u="${u}">Decline</button>`;
+  return `<button type="button" class="btn primary ${sm}" data-fr="add" data-u="${u}">${icon('userplus')}Add friend</button>`;
+}
+function profileHTML(u) {
+  const p = PL.by.get(u);
+  if (!p) return `<div class="pm-body"><h2>${esc(u)}</h2><p class="muted">${PL.status === 'offline' ? "Can't reach the leaderboard right now. Try again in a moment." : "This player doesn't have a public profile."}</p></div>`;
+  const vis = visiblePlayers(), pos = vis.indexOf(p) + 1, L = p.role === 'owner' || p.lv >= MAX_LEVEL ? null : levelOf(p.xp), hid = PL.hidden.get(u);
+  return `<div class="pm-banner">${p.bn ? `<img src="${p.bn}" alt="">` : ''}</div>
+  <div class="pm-head">${plAvatar(p, true)}<div class="grow"><div class="row" style="gap:8px"><h2>${esc(p.n)}</h2>${roleTag(p)}${u === myU() ? '<span class="tag">You</span>' : ''}</div>
+    <p class="muted small" style="margin:2px 0 0">@${esc(p.u)}${p.j ? ` · joined ${esc(p.j)}` : ''}</p></div></div>
+  <div class="pm-body">
+    <div class="statrow" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><span class="k">Level</span><span class="v">${p.lv}${L ? '' : ' MAX'}</span></div>
+      <div class="stat"><span class="k">Leaderboard</span><span class="v">${hid ? 'Hidden' : pos ? '#' + pos : '–'}</span></div><div class="stat"><span class="k">Friends</span><span class="v">${mutualCount(p)}</span></div></div>
+    ${L && L.lv === p.lv ? `<div><div class="meter"><i style="width:${L.xp / L.need * 100}%"></i></div><p class="muted small" style="margin:6px 0 0">${L.xp} / ${L.need} XP to level ${p.lv + 1}</p></div>` : ''}
+    <div class="mini-badges">${BADGES.map((b, i) => { const r = RANKS[p.rk[i]]; return `<div class="mini-badge${r ? '' : ' locked'}"${r ? ` style="--tc:${r.color}"` : ''}>${icon(b.icon)}<span><b>${b.name}</b><br><span class="muted">${r ? r.name : 'Locked'}</span></span></div>`; }).join('')}</div>
+    <div class="row">${friendButtons(u)}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}</div>
+    ${hid && u === myU() ? `<p class="err">A moderator hid you from the leaderboard.</p>` : ''}
+  </div>`;
+}
+function ensureProfileModal() {
+  let m = $('#playerModal'); if (m) return m;
+  m = document.createElement('div'); m.className = 'modal'; m.id = 'playerModal'; m.hidden = true;
+  m.innerHTML = `<div class="modal-box glass player-box" role="dialog" aria-modal="true" aria-label="Player profile"><button type="button" class="iconbtn pm-close" aria-label="Close">${icon('x')}</button><div id="pmBody"></div></div>`;
+  m.addEventListener('click', e => {
+    if (e.target === m || e.target.closest('.pm-close') || e.target.closest('[data-close-pm]')) return closeProfile();
+    const h = e.target.closest('[data-hidep]'); if (h) setHidden(h.dataset.u, h.dataset.hidep === 'hide');
+  });
+  document.body.append(m); return m;
+}
+async function openProfile(u) {
+  if (!USER_OK.test(u)) return;
+  const m = ensureProfileModal(); openU = u; m.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
+  await loadPlayers(); if (openU === u) $('#pmBody').innerHTML = profileHTML(u);
+  const c = m.querySelector('.pm-close'); if (c) c.focus();
+}
+function closeProfile() { const m = $('#playerModal'); if (m) m.hidden = true; openU = ''; }
+function repaintSocial() {
+  if (openU && $('#playerModal') && !$('#playerModal').hidden) $('#pmBody').innerHTML = profileHTML(openU);
+  if (current === 'players') paintPlayers();
+  if (current === 'options') { const b = $('#pubStatus'); if (b) b.innerHTML = pubStatusHTML(); const sw = $('#stPublic'); if (sw) sw.setAttribute('aria-checked', S.pub); }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-player]'); if (b) { e.preventDefault(); openProfile(b.dataset.player); return; }
+  const f = e.target.closest('[data-fr]'); if (f) changeFriend(f.dataset.u, f.dataset.fr);
+});
+
+/* players page */
+const pubStatusHTML = () => !me() ? 'Make an account to get a public profile.' : PL.status === 'taken' ? `<span class="err">Another player already uses the name ${esc(me().username)} on the leaderboard.</span>`
+  : S.pub ? `You're public as <b>${esc(me().username)}</b>.${S.pubAt ? ` Last synced ${fmtTime(S.pubAt)}.` : ' Syncing…'} <button type="button" class="linkbtn" data-player="${myU()}">View my profile</button>` : 'Your profile is private. Only you can see your progress.';
+const SHARED_INFO = 'Shared: your username, level, XP, badge ranks, friends list and join date. Never your tasks, games, series, videos, email or password.';
+async function goPublic() {
+  if (!me()) return openAuth('signup');
+  S.pub = true; PL.status = ''; save(); toast('Joining the leaderboard…');
+  const ok = await publishProfile(true);
+  if (ok) { toast("You're on the leaderboard!"); await loadPlayers(true); }
+  else if (S.pub) toast("Couldn't reach the leaderboard. It will try again later.");
+  rerender();
+}
+async function goPrivate() {
+  S.pub = false; save(); repaintSocial();
+  try { await unpublishProfile(); toast('Your public profile was removed'); } catch { toast("Couldn't reach the leaderboard to remove your profile. Try again later."); }
+  await loadPlayers(true); rerender();
+}
+function lbRow(p, i) {
+  const s = friendState(p.u);
+  return `<li><button type="button" class="lb-row${p.u === myU() ? ' me' : ''}" data-player="${p.u}"><span class="lb-pos${i < 3 ? ' g' + (i + 1) : ''}">#${i + 1}</span>${plAvatar(p)}
+    <span class="grow lb-name"><span class="row" style="gap:6px"><b>${esc(p.n)}</b>${roleTag(p)}${p.u === myU() ? '<span class="tag">You</span>' : s === 'friends' ? '<span class="tag g">Friend</span>' : ''}</span>
+    <span class="muted small">${bestRank(p)}</span></span><span class="lb-lv">Lv ${p.lv}</span></button></li>`;
+}
+function paintPlayers() {
+  const box = $('#lbList'); if (!box) return;
+  const all = visiblePlayers(), q = PL.q.trim().toLowerCase();
+  let list = all.map((p, i) => [p, i]);
+  if (PL.tab === 'friends') list = list.filter(([p]) => p.u === myU() || friendState(p.u) === 'friends');
+  if (q) list = list.filter(([p]) => p.u.includes(q) || p.n.toLowerCase().includes(q));
+  box.innerHTML = !PL.at && PL.loading ? `<li class="empty">Loading players…</li>` : PL.status === 'offline' && !PL.list.length ? `<li class="empty">Can't reach the leaderboard right now.</li>`
+    : list.slice(0, 200).map(([p, i]) => lbRow(p, i)).join('') || `<li class="empty">${PL.tab === 'friends' ? 'No friends yet. Open a player and press Add friend.' : q ? 'Nobody matches that name.' : 'No public players yet. Be the first!'}</li>`;
+  $('#lbCount').textContent = `${all.length} player${all.length === 1 ? '' : 's'}`;
+  const fb = $('#friendsBox'); if (fb) {
+    const reqs = friendRequests(), mine = S.friends.map(u => PL.by.get(u) || {u, n:u, role:'', pf:'', fr:[], rk:[], lv:0});
+    const friends = mine.filter(p => friendState(p.u) === 'friends'), sent = mine.filter(p => friendState(p.u) === 'sent');
+    const row = (p, btns) => `<div class="friend-row"><button type="button" class="friend-who" data-player="${p.u}">${plAvatar(p)}<span><b>${esc(p.n)}</b>${p.lv ? `<br><span class="muted small">Lv ${p.lv}</span>` : ''}</span></button><span class="row" style="gap:6px">${btns}</span></div>`;
+    fb.innerHTML = `${reqs.length ? `<p class="small" style="margin:0 0 6px"><b>Friend requests</b> <span class="tag p">${reqs.length}</span></p>${reqs.map(p => row(p, friendButtons(p.u, 'sm'))).join('')}` : ''}
+      <p class="small" style="margin:${reqs.length ? 14 : 0}px 0 6px"><b>Friends</b> <span class="muted">${friends.length}</span></p>${friends.map(p => row(p, `<button type="button" class="iconbtn" data-fr="remove" data-u="${p.u}" aria-label="Remove ${esc(p.n)}" title="Remove">${icon('x')}</button>`)).join('') || '<p class="muted small" style="margin:0">No friends yet.</p>'}
+      ${sent.length ? `<p class="small" style="margin:14px 0 6px"><b>Sent requests</b></p>${sent.map(p => row(p, `<button type="button" class="btn sm" data-fr="remove" data-u="${p.u}">Cancel</button>`)).join('')}` : ''}`;
+  }
+  const hb = $('#hiddenBox'); if (hb) {
+    const hid = PL.list.filter(p => PL.hidden.has(p.u));
+    hb.innerHTML = hid.map(p => `<div class="friend-row"><button type="button" class="friend-who" data-player="${p.u}">${plAvatar(p)}<span><b>${esc(p.n)}</b><br><span class="muted small">Hidden by ${PL.hidden.get(p.u)}</span></span></button>${canHidePlayer(p) && (isOwner || PL.hidden.get(p.u) === 'admin') ? `<button type="button" class="btn sm" data-hidep2="${p.u}">Show</button>` : ''}</div>`).join('') || '<p class="muted small" style="margin:0">Nobody is hidden.</p>';
+  }
+  const rc = $('#reqCount'); if (rc) { const n = friendRequests().length; rc.textContent = n; rc.hidden = !n; }
+}
+VIEWS.players = () => {
+  const u = me();
+  return `<div class="grid">
+  ${!S.pub ? card('c12', 'Join the leaderboard', `<p class="muted" style="margin-top:-6px">${u ? `Make your profile public to show up on the leaderboard, let people click your name, and add friends. ${SHARED_INFO} You can turn it off any time in Settings.` : 'Create an account to join the leaderboard, get a profile other players can open, and add friends.'}</p>
+    ${u && PL.status === 'taken' ? `<p class="err">Another player already uses the name ${esc(u.username)} on the leaderboard. Make a new account with a different username to join.</p>` : ''}
+    <div class="row">${u ? `<button type="button" class="btn primary" id="goPublic">${icon('globe')}Make my profile public</button>` : `<button type="button" class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button type="button" class="btn" data-open-auth="login">Log in</button>`}</div>`) : ''}
+  ${card('c8', 'Leaderboard', `<div class="row lb-tools"><div class="seg" role="tablist"><button type="button" role="tab" data-lbtab="all" class="${PL.tab === 'all' ? 'on' : ''}" aria-selected="${PL.tab === 'all'}">Everyone</button><button type="button" role="tab" data-lbtab="friends" class="${PL.tab === 'friends' ? 'on' : ''}" aria-selected="${PL.tab === 'friends'}">Friends</button></div>
+      <input id="lbSearch" class="grow" placeholder="Find a player" aria-label="Find a player" value="${esc(PL.q)}" maxlength="24"><button type="button" class="iconbtn" id="lbRefresh" aria-label="Refresh" title="Refresh">${icon('reset')}</button></div>
+    <ol class="lb" id="lbList"></ol>
+    <p class="muted small" style="margin:12px 0 0">Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player's own app, so moderators can hide cheaters.</p>`, `<span class="tag p" id="lbCount"></span>`)}
+  <div class="c4" style="display:grid;gap:22px;align-content:start">
+  ${card('', 'Friends', u ? `<form class="row" id="addFriendForm"><input id="addFriendIn" class="grow" placeholder="Username" maxlength="20" aria-label="Friend's username" autocomplete="off"><button class="btn">${icon('userplus')}Add</button></form>
+    <div id="friendsBox" style="margin-top:14px"></div>` : '<p class="muted" style="margin-top:-6px">Make an account to add friends.</p>', '<span class="tag p" id="reqCount" hidden></span>')}
+  ${isOwner || isAdmin ? card('', 'Hidden players', '<div id="hiddenBox"></div>', isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : `<span class="tag adm">${icon('shield')}Admin</span>`) : ''}
+  </div></div>`;
+};
+function stopPlayers() { clearInterval(PL.timer); PL.timer = null; }
+BIND.players = m => {
+  m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  const gp = $('#goPublic'); if (gp) gp.onclick = goPublic;
+  m.querySelectorAll('[data-lbtab]').forEach(b => b.onclick = () => { PL.tab = b.dataset.lbtab; m.querySelectorAll('[data-lbtab]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); paintPlayers(); });
+  $('#lbSearch').oninput = e => { PL.q = e.target.value; paintPlayers(); };
+  $('#lbRefresh').onclick = async () => { await loadPlayers(true); paintPlayers(); toast('Leaderboard updated'); };
+  const af = $('#addFriendForm'); if (af) af.onsubmit = async e => { e.preventDefault(); const v = $('#addFriendIn').value.trim().toLowerCase();
+    if (!USER_OK.test(v)) return toast('Usernames are 3–20 letters, numbers or underscores.');
+    if (v === myU()) return toast("That's you!");
+    await loadPlayers(); if (!PL.by.has(v)) return toast(`No public player called ${v}.`);
+    $('#addFriendIn').value = ''; changeFriend(v, 'add'); };
+  const hb = $('#hiddenBox'); if (hb) hb.onclick = e => { const b = e.target.closest('[data-hidep2]'); if (b) setHidden(b.dataset.hidep2, false); };
+  paintPlayers();
+  loadPlayers(true).then(paintPlayers);
+  stopPlayers(); PL.timer = setInterval(() => { if (document.visibilityState === 'visible' && current === 'players') loadPlayers(true).then(paintPlayers); }, 30000);
 };
 
 /* settings */
@@ -1049,6 +1442,10 @@ function ownerCard() {
 VIEWS.options = () => `<div class="grid">
   ${accountCard()}
   ${ownerCard()}
+  ${card('c6', 'Public profile', `<div class="form">
+    <div class="row" style="justify-content:space-between"><span>Show me on the leaderboard<br><span class="muted small">Lets others open your profile and add you as a friend</span></span>${me() ? `<button class="switch" id="stPublic" role="switch" aria-checked="${S.pub}" aria-label="Public profile"><i></i></button>` : '<button class="btn sm" data-open-auth="signup">Create account</button>'}</div>
+    <p class="muted small" id="pubStatus" style="margin:0">${pubStatusHTML()}</p>
+    <p class="muted small" style="margin:0">${SHARED_INFO}</p></div>`)}
   ${card('c6', 'Profile & look', `<div class="form">
     <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
     <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-checked="${S.theme==='dark'}"><i></i></button></div>
@@ -1068,6 +1465,7 @@ VIEWS.options = () => `<div class="grid">
 </div>`;
 BIND.options = m => {
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  const sp = $('#stPublic'); if (sp) sp.onclick = () => S.pub ? goPrivate() : goPublic();
   const u = me();
   if (u) {
     $('#acEmail').onchange = e => { const v = e.target.value.trim(); if (v && !EMAIL_RE.test(v)) return toast('That email does not look right'); u.email = v; saveAcc(); toast(v ? 'Email saved' : 'Email removed'); };
@@ -1080,10 +1478,11 @@ BIND.options = m => {
     };
     $('#acLogout').onclick = logout;
     let armedDel = false;
-    $('#acDelete').onclick = () => {
+    $('#acDelete').onclick = async () => {
       if (!armedDel) { armedDel = true; $('#acDelete').innerHTML = `${icon('trash')}Click again to delete account`; setTimeout(() => { armedDel = false; const b = $('#acDelete'); if (b) b.innerHTML = `${icon('trash')}Delete account`; }, 5000); return; }
+      if (S.pub) { $('#acDelete').disabled = true; S.pub = false; await Promise.race([unpublishProfile().catch(() => {}), new Promise(r => setTimeout(r, 8000))]); } // take the public profile down too
       try { localStorage.removeItem(keyFor(u.username)); } catch {}
-      mediaWipe();
+      await mediaWipe();
       delete ACC.users[u.username.toLowerCase()]; switchTo(null); toast('Account deleted');
     };
   }
@@ -1107,9 +1506,10 @@ BIND.options = m => {
   $('#stExport').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
   $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
   let armed = false;
-  $('#stWipe').onclick = () => {
+  $('#stWipe').onclick = async () => {
     if (!armed) { armed = true; $('#stWipe').innerHTML = `${icon('trash')}Click again to delete everything`; setTimeout(() => { armed = false; const b = $('#stWipe'); if (b) b.innerHTML = `${icon('trash')}Delete all my data`; }, 5000); return; }
-    try { localStorage.removeItem(KEY); } catch {} mediaWipe(); S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
+    if (S.pub) { $('#stWipe').disabled = true; S.pub = false; await Promise.race([unpublishProfile().catch(() => {}), new Promise(r => setTimeout(r, 8000))]); } // the public profile goes too
+    try { localStorage.removeItem(KEY); } catch {} await mediaWipe(); S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
   $('#stCopy').onclick = () => { const t = JSON.stringify(S); const fb = () => { const a = $('#stBackupText'); a.hidden = false; a.value = t; a.select(); toast('Select all and copy the text below'); };
     try { navigator.clipboard.writeText(t).then(() => toast('Backup copied — paste it into a text file to keep it'), fb); } catch { fb(); } };
 };
@@ -1139,7 +1539,7 @@ VIEWS.help = () => `<div class="grid">
 
 /* privacy */
 VIEWS.privacy = () => card('c12', '', `<div class="prose">
-  <p class="dim small">Last updated: 24 November 2026 (accounts added)</p>
+  <p class="dim small">Last updated: 24 November 2026 (public profiles, leaderboard and friends added)</p>
   <h2>1. The short version</h2>
   <p>LevelUp Life is a local-first app. <b>Everything you type stays on your own device.</b> We do not have servers that store your data, we do not require an account, and we do not use analytics, trackers, cookies for advertising, or sell anything about you.</p>
   <h2>2. What data the app stores</h2>
@@ -1149,6 +1549,9 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <ul><li>Email is optional. If you add one, it stays on this device and is never sent anywhere or used to contact you.</li><li>No phone number, location or contacts.</li><li>No usage analytics or crash tracking.</li><li>No advertising IDs. No ads at all.</li></ul>
   <h2>4. Global chat (optional)</h2>
   <p>The chat is the one feature that sends data off your device. If you join a chat room, each message you send (with your display name and the time) is stored on the website host's database (Wix), encrypted with the room's invite code. Anyone who has the invite code can read the room. The owner can hide messages and mute names, and can delete stored messages. Don't share personal information in the chat.</p>
+  <h2>4a. Public profile, leaderboard and friends (optional, off by default)</h2>
+  <p>If you turn on "Show me on the leaderboard", the app publishes a small public profile to the website host's database (Wix) that <b>anyone can see</b>: your username, level, XP, badge ranks, the usernames you added as friends, and the date you made your account. The owner's and admins' profile picture and banner are shared too. Your tasks, games, series, videos, notes, email and password are <b>never</b> shared.</p>
+  <p>Your profile is signed with a key made on your device, so nobody else can edit it. If chat is on, messages you send while public carry your username so others can open your profile. Levels are reported by your own app; the owner and admins can hide a profile from the leaderboard. Turning the setting off, deleting your account or deleting all your data replaces your public profile with an empty "removed" note.</p>
   <h2>4b. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
@@ -1215,7 +1618,7 @@ function events() {
     else if (e.key === 'Enter') runPal(palSel);
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closePalette(); $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
+    if (e.key === 'Escape') { closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;
     if (typing || e.ctrlKey || e.metaKey) return;
@@ -1255,7 +1658,8 @@ function openAuth(t = 'signup') {
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);
-  resetTimers(); leaveRoom(); C.autoTried = false; C.signKey = null; C.adminSignKey = null; S = clean(loadJSON(KEY, {})); isOwner = false; isAdmin = false; clearMedia();
+  resetTimers(); leaveRoom(); C.autoTried = false; C.signKey = null; C.adminSignKey = null; clearTimeout(schedulePublish.t); schedulePublish.t = null; closeProfile(); PL.at = 0; PL.status = ''; TH.key = '';
+  S = clean(loadJSON(KEY, {})); isOwner = false; isAdmin = false; clearMedia();
   resumeFocus(); if (S.run.game) startGame(S.run.game.game, S.run.game.start);
   init(); verifyOwner();
 }
