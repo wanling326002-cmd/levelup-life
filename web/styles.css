@@ -251,7 +251,8 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 .bottomnav{display:none}
 
 /* responsive */
-@media (max-width:1360px){.pillnav a{padding:10px 12px}.pillnav a svg{display:none}}
+@media (max-width:1560px){.pillnav a svg{display:none}}
+@media (max-width:1360px){.pillnav a{padding:10px 12px}}
 @media (max-width:1200px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}.statrow{grid-template-columns:repeat(2,1fr)}.tiles.cols-4{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:860px){
   body{padding-block:12px 100px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -274,6 +275,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
   .bottomnav .active{color:var(--text);background:rgba(111,78,246,.2)}
   .foot{justify-content:center;text-align:center}
   .card>.pc-banner{margin:-18px -18px 16px;height:120px}
+  .chat-list{height:min(44vh,480px)}
 }
 @media (max-width:640px){
   .item{flex-wrap:wrap}
@@ -284,6 +286,20 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
   .card-h{flex-wrap:wrap}
 }
 @media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.switch{display:none}}
+/* chat */
+.chat-list{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:6px;height:min(56vh,560px);overflow-y:auto;border:1px solid var(--line);border-radius:18px;background:var(--soft)}
+.chat-list .empty{margin:auto}
+.msg{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:14px}
+.msg:hover{background:var(--soft)}
+.msg .thumb{width:36px;height:36px;font-size:.9rem}
+.msg .thumb svg{width:18px;height:18px}
+.msg.own{background:rgba(242,196,109,.07)}
+.msg .grow{flex:1;min-width:0}
+.msg-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.msg-t{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
+.msg-tools{margin-left:auto;display:flex;gap:2px}
+.msg-tools .linkbtn{padding:2px 6px}
+.chat-send{margin-top:12px}
 /* owner extras: profile picture, banner, emoji */
 .avatar{overflow:hidden}
 .avatar img{width:100%;height:100%;object-fit:cover;display:block}

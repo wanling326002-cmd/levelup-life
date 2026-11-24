@@ -36,6 +36,7 @@ const P = {
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
   globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
@@ -53,6 +54,7 @@ const ROUTES = [
   {id:'youtube', name:'YouTube', sub:'Save videos to learn from — or just enjoy.', key:'6', main:true},
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
   {id:'impact', name:'Help the World', short:'Impact', sub:'Small daily quests that make things better.', key:'8', main:true},
+  {id:'chat', name:'Chat', sub:'Talk with everyone who has your invite code.', main:true},
   {id:'badges', name:'Badges', sub:'Your level, rank and achievements.', key:'9'},
   {id:'options', name:'Settings', sub:'Your account, preferences and data.', key:'0'},
   {id:'help', name:'Help', sub:'How to use LevelUp Life, and keyboard shortcuts.'},
@@ -158,7 +160,7 @@ async function verifyOwner() {
 async function claimOwner(key) {
   const proof = await pbkdf2(normKey(key), OWNER_SALT, 200000);
   if (!safeEq(await sha256(proof), OWNER_CHECK)) return false;
-  S.ownerProof = proof; save(); await verifyOwner(); return true;
+  S.ownerProof = proof; save(); await unlockSignKey(key); await verifyOwner(); return true;
 }
 
 /* ---------- owner media (profile picture, banner, custom emoji) ----------
@@ -224,6 +226,7 @@ const DEFAULT = {
   run:{},                         // running timers, so a reload does not lose them
   stats:{episodes:0},
   ownerProof:'',
+  chatCode:'',
   emoji:[],                       // owner's custom emoji: {id, name, live}; the images live in IndexedDB
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
@@ -252,6 +255,7 @@ function clean(raw) {
     kind:x.kind === 'fun' ? 'fun' : 'learn', mins:num(x.mins, 10, 1, 1440), watched:x.watched === true}));
   for (const [k, v] of Object.entries(s.quests || {})) if (isDay(k)) d.quests[k] = [...new Set(arr(v).map(i => num(i, 0, 0, QUESTS.length - 1)))];
   d.questsTotal = num(s.questsTotal, 0);
+  d.chatCode = str(s.chatCode, 64);
   d.stats = {episodes:num((s.stats || {}).episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6)};
   const seen = new Set(); d.emoji = arr(s.emoji).filter(x => x && typeof x.name === 'string' && /^[a-z0-9_]{2,24}$/.test(x.name) && !seen.has(x.name) && seen.add(x.name)).slice(0, 100).map(x => ({id:okId(x.id), name:x.name, live:x.live === true}));
   d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
@@ -301,7 +305,7 @@ function applyTheme() {
   $('#themeBtn').setAttribute('aria-checked', S.theme === 'dark');
 }
 function buildNav() {
-  $('#nav').innerHTML = ROUTES.filter(r => r.main).map(r => `<a href="#${r.id}" data-route="${r.id}" title="${r.name} (${r.key})">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
+  $('#nav').innerHTML = ROUTES.filter(r => r.main).map(r => `<a href="#${r.id}" data-route="${r.id}" title="${r.name}${r.key ? ` (${r.key})` : ''}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
   $('#bottomnav').innerHTML = ['home','study','focus','gaming'].map(id => { const r = ROUTES.find(x => x.id === id);
     return `<a href="#${id}" data-route="${id}">${iconFor(id)}${r.short || r.name}</a>`; }).join('') + `<button id="moreBtn">${icon('more')}More</button>`;
   $('#sheetGrid').innerHTML = ROUTES.map(r => `<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
@@ -321,7 +325,7 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+function render() { if (current !== 'chat') stopChat(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
 
 /* show / hide buttons on every password box, so people can check what they typed */
 function addPeek(root = document) {
@@ -760,6 +764,176 @@ BIND.badges = m => {
   m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; try { navigator.clipboard.writeText(t).then(() => toast(`Copied ${t}`), () => toast(`Type ${t} to use it`)); } catch { toast(`Type ${t} to use it`); } });
 };
 
+/* ---------- global chat ----------
+   Messages live in the site's "ChatMessages" CMS collection. Each one is encrypted (AES-GCM) with a key made from
+   the invite code, and the room id is a hash of the code, so people without the code can't read anything.
+   Owner messages and moderation commands carry an ECDSA signature that only the owner key can unlock. */
+const CLIENT_ID = '71e92457-9a77-4b96-8d3c-a3281c3bff9d', WIXAPI = 'https://www.wixapis.com', CHAT_COLLECTION = 'ChatMessages';
+const OWNER_PUB = {kty:'EC', crv:'P-256', x:'ma-DToNSntWdY15Mzs0SiekvTY7ZksgqcQ-bzmmUeac', y:'ZNbj3BV7ZhJ5AOiQ5Fo4vq1kBxXgQx4agmWm1iJXaxk'};
+const OWNER_SIGN = {iv:'BRZCj5rnw4C7weNb', ct:'+2C9W2x1RbaVVtMoK1LZmSmDqSVmx6tLonfZgtV/jSY4tBQlntUllBOL+N2o4ZnSd5S3djR1z1Tnia0='}; // the owner's private signing key, encrypted with the owner key
+const b64 = u => { let s = ''; for (const b of new Uint8Array(u)) s += String.fromCharCode(b); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
+const C = {room:'', key:null, timer:null, msgs:[], token:'', tokenExp:0, signKey:null, pubKey:null, lastSend:0, status:'', loading:false, muted:new Set(), autoTried:false};
+const normCode = c => String(c).trim().toLowerCase().replace(/\s+/g, ' ');
+async function unlockSignKey(key) {
+  try {
+    const base = await crypto.subtle.importKey('raw', enc.encode(normKey(key)), 'PBKDF2', false, ['deriveKey']);
+    const aes = await crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-sign-v1'), iterations:200000}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    const d = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(OWNER_SIGN.iv)}, aes, unb64(OWNER_SIGN.ct)));
+    const k = await crypto.subtle.importKey('jwk', {...OWNER_PUB, d}, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
+    C.signKey = k; try { await mediaPut('signkey', k); } catch {}
+    return true;
+  } catch { return false; }
+}
+async function chatToken(force) {
+  if (!force && C.token && Date.now() < C.tokenExp) return C.token;
+  const r = await fetch(WIXAPI + '/oauth2/token', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({clientId:CLIENT_ID, grantType:'anonymous'})});
+  if (!r.ok) throw new Error('token ' + r.status);
+  const j = await r.json(); C.token = j.access_token; C.tokenExp = Date.now() + ((j.expires_in || 3600) - 60) * 1000;
+  return C.token;
+}
+async function chatApi(path, body) {
+  for (let i = 0; i < 2; i++) {
+    const r = await fetch(WIXAPI + path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:await chatToken(i > 0)}, body:JSON.stringify(body)});
+    if (r.ok) return r.json();
+    if (r.status !== 401 && r.status !== 403) throw new Error('chat ' + r.status);
+  }
+  throw new Error('chat auth');
+}
+async function joinRoom(code) {
+  const n = normCode(code);
+  C.room = (await sha256('levelup-room-v1|' + n)).slice(0, 40);
+  const base = await crypto.subtle.importKey('raw', enc.encode(n), 'PBKDF2', false, ['deriveKey']);
+  C.key = await crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-chat-v1'), iterations:100000}, base, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+  C.msgs = []; C.status = 'Loading messages…'; C.muted = new Set();
+}
+function leaveRoom() { stopChat(); C.room = ''; C.key = null; C.msgs = []; }
+const sigText = m => [C.room, m.k, m.n, m.t, m.ref || '', m.ts].join('|');
+async function sealMsg(m) {
+  if (isOwner && C.signKey) m.sig = b64(await crypto.subtle.sign({name:'ECDSA', hash:'SHA-256'}, C.signKey, enc.encode(sigText(m))));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  return b64(iv) + '.' + b64(await crypto.subtle.encrypt({name:'AES-GCM', iv}, C.key, enc.encode(JSON.stringify(m))));
+}
+async function openMsg(item) {
+  const d = item.data || {}, p = String(d.payload || '');
+  if (p.length > 8000 || !p.includes('.')) return null;
+  const [iv, ct] = p.split('.');
+  const m = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(iv)}, C.key, unb64(ct))));
+  if (!m || typeof m.n !== 'string' || typeof m.t !== 'string') return null;
+  const v = {k:['msg', 'hide', 'mute', 'unmute'].includes(m.k) ? m.k : 'msg', n:m.n.slice(0, 24), t:m.t.slice(0, 500), ref:typeof m.ref === 'string' ? m.ref.slice(0, 64) : '', ts:m.ts, id:String(item.id || d._id || '')};
+  v.at = Date.parse((d._createdDate && d._createdDate.$date) || '') || 0;
+  v.owner = false;
+  if (typeof m.sig === 'string') try {
+    C.pubKey ||= await crypto.subtle.importKey('jwk', OWNER_PUB, {name:'ECDSA', namedCurve:'P-256'}, false, ['verify']);
+    v.owner = await crypto.subtle.verify({name:'ECDSA', hash:'SHA-256'}, C.pubKey, unb64(m.sig), enc.encode(sigText({...v, ref:v.ref})));
+  } catch {}
+  return v;
+}
+async function pullChat() {
+  if (!C.room || C.loading) return; C.loading = true;
+  try {
+    const j = await chatApi('/wix-data/v2/items/query', {dataCollectionId:CHAT_COLLECTION, query:{filter:{room:C.room}, sort:[{fieldName:'_createdDate', order:'DESC'}], paging:{limit:100}}});
+    const all = [];
+    for (const it of j.dataItems || []) { try { const m = await openMsg(it); if (m) all.push(m); } catch {} }
+    all.sort((a, b) => a.at - b.at);
+    const hidden = new Set(), muted = new Set(), ownerNames = new Set();
+    for (const m of all) if (m.owner) { // only signed owner commands count
+      ownerNames.add(m.n.toLowerCase());
+      if (m.k === 'hide') hidden.add(m.ref);
+      if (m.k === 'mute') muted.add(m.ref.toLowerCase());
+      if (m.k === 'unmute') muted.delete(m.ref.toLowerCase());
+    }
+    C.muted = muted;
+    C.msgs = all.filter(m => m.k === 'msg' && !hidden.has(m.id) && (m.owner || (!muted.has(m.n.toLowerCase()) && !ownerNames.has(m.n.toLowerCase()) && !/owner|admin/i.test(m.n))));
+    C.status = '';
+  } catch { C.status = "Can't reach the chat right now. Trying again…"; }
+  C.loading = false; paintChat();
+}
+async function postChat(m) {
+  const payload = await sealMsg(m);
+  await chatApi('/wix-data/v2/items', {dataCollectionId:CHAT_COLLECTION, dataItem:{data:{room:C.room, payload}}});
+  await pullChat();
+}
+function startChat() { stopChat(); pullChat(); C.timer = setInterval(() => { if (document.visibilityState === 'visible') pullChat(); }, 4000); }
+function stopChat() { clearInterval(C.timer); C.timer = null; }
+const fmtTime = t => { if (!t) return ''; const d = new Date(t); const time = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); return today(d) === today() ? time : `${d.toLocaleDateString([], {month:'short', day:'numeric'})} ${time}`; };
+const canMod = () => isOwner && !!C.signKey;
+function paintChat() {
+  const list = $('#chatList'); if (!list) return;
+  const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  list.innerHTML = C.msgs.map(m => `<li class="msg${m.owner ? ' own' : ''}"><span class="thumb" style="--h:${m.owner ? '#f2c46d' : hue(m.n)}">${m.owner ? icon('crown') : esc(m.n.charAt(0).toUpperCase())}</span>
+    <div class="grow"><div class="msg-h"><b>${esc(m.n)}</b>${m.owner ? '<span class="tag owner">Owner</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
+    ${canMod() ? `<span class="msg-tools"><button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>${m.owner ? '' : `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>`}</span>` : ''}</div>
+    <div class="msg-t">${emo(m.t)}</div></div></li>`).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
+  if (near) list.scrollTop = list.scrollHeight;
+  $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
+  const ml = $('#mutedList');
+  if (ml) ml.innerHTML = [...C.muted].map(n => `<button type="button" class="chip" data-unmute="${esc(n)}" title="Unmute">${esc(n)} ×</button>`).join('') || '<span class="muted small">Nobody is muted.</span>';
+}
+const CHAT_RULES = `<ul class="tips">
+  <li>Be kind. No bullying, hate or spam.</li>
+  <li>Never share personal info: your real name, address, school, phone number or passwords.</li>
+  <li>Don't click links from people you don't know.</li>
+  <li>The owner can hide messages and mute names for everyone.</li>
+  <li>Names with "owner" or "admin" in them can't post.</li></ul>`;
+VIEWS.chat = () => {
+  if (!C.room) return `<div class="grid">
+  ${card('c7', 'Join the chat', `<p class="muted" style="margin-top:-6px">The chat is private. Enter the invite code you got from the owner. Messages are encrypted with the code, so only people who have it can read them.</p>
+    <form class="row" id="joinForm"><input id="joinCode" type="password" maxlength="64" autocomplete="off" placeholder="Invite code" aria-label="Invite code"><button class="btn primary">Join</button></form>
+    <p class="err" id="joinErr" role="alert"></p>
+    ${isOwner ? `<p class="muted small">You're the owner: make a code, join with it, then share it only with people you trust. A new code opens a new, empty room.</p><button type="button" class="btn" id="newCode">${icon('plus')}Make an invite code</button>` : ''}`)}
+  ${card('c5', 'Chat rules', CHAT_RULES)}</div>`;
+  return `<div class="grid">
+  ${card('c8', 'Global chat', `<ul class="chat-list" id="chatList" aria-live="polite"></ul>
+    <form class="row chat-send" id="chatForm"><input id="chatIn" maxlength="500" autocomplete="off" placeholder="Message as ${esc(displayName())}" aria-label="Message"><button class="btn primary">Send</button></form>
+    <p class="muted small" id="chatStatus"></p>
+    ${isOwner && !C.signKey ? `<form class="row" id="signForm"><input id="signKeyIn" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn">Enable my crown</button></form><p class="muted small">Enter your owner key once on this device so your messages get the crown and you can hide and mute.</p>` : ''}`,
+    `<span class="tag p">Encrypted</span>`)}
+  <div class="c4" style="display:grid;gap:22px;align-content:start">
+  ${card('', 'Room', `<p class="muted small" style="margin-top:-6px">Everyone with the same invite code is in this room.</p>
+    <div class="row"><button type="button" class="btn sm" id="copyCode">Copy invite code</button><button type="button" class="btn sm" id="leaveChat">Leave</button></div>
+    ${canMod() ? `<p class="small" style="margin:16px 0 8px"><b>Muted names</b></p><div class="row" id="mutedList"></div>` : ''}`)}
+  ${card('', 'Chat rules', CHAT_RULES)}
+  </div></div>`;
+};
+BIND.chat = () => {
+  if (!C.room) {
+    $('#joinForm').onsubmit = async e => {
+      e.preventDefault(); const code = $('#joinCode').value;
+      if (normCode(code).length < 6) return $('#joinErr').textContent = 'Invite codes are at least 6 characters.';
+      await joinRoom(code); S.chatCode = code.trim().slice(0, 64); save(); rerender();
+    };
+    const nc = $('#newCode'); if (nc) nc.onclick = () => { const i = $('#joinCode'); i.value = `lvl-${randHex(3)}-${randHex(3)}-${randHex(3)}`; i.type = 'text'; toast('Code made. Press Join, then share it.'); };
+    if (S.chatCode && !C.autoTried) { C.autoTried = true; joinRoom(S.chatCode).then(rerender).catch(() => {}); }
+    return;
+  }
+  if (isOwner && !C.signKey) mediaGet('signkey').then(k => { if (k && !C.signKey) { C.signKey = k; rerender(); } }).catch(() => {});
+  paintChat(); startChat();
+  $('#chatForm').onsubmit = async e => {
+    e.preventDefault(); const inp = $('#chatIn');
+    const t = inp.value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 500); if (!t) return;
+    const n = displayName().slice(0, 24);
+    if (!isOwner && /owner|admin/i.test(n)) return toast('Names with "owner" or "admin" can\'t post. Change your nickname in Settings.');
+    if (Date.now() - C.lastSend < 2500) return toast('Slow down a little.');
+    C.lastSend = Date.now(); inp.value = '';
+    try { await postChat({k:'msg', n, t, ts:Date.now()}); } catch { inp.value = t; toast("Couldn't send. Check your connection and try again."); }
+  };
+  $('#chatList').onclick = async e => {
+    if (!canMod()) return;
+    const h = e.target.closest('[data-hide]'), mu = e.target.closest('[data-mute]');
+    try {
+      if (h) { await postChat({k:'hide', n:displayName(), t:'', ref:h.dataset.hide, ts:Date.now()}); toast('Message hidden for everyone'); }
+      if (mu) { await postChat({k:'mute', n:displayName(), t:'', ref:mu.dataset.mute.toLowerCase(), ts:Date.now()}); toast(`${mu.dataset.mute} is muted`); }
+    } catch { toast("Couldn't reach the chat. Try again."); }
+  };
+  const ml = $('#mutedList'); if (ml) ml.onclick = async e => { const b = e.target.closest('[data-unmute]'); if (!b) return;
+    try { await postChat({k:'unmute', n:displayName(), t:'', ref:b.dataset.unmute, ts:Date.now()}); toast(`${b.dataset.unmute} can post again`); } catch { toast("Couldn't reach the chat. Try again."); } };
+  $('#copyCode').onclick = () => { try { navigator.clipboard.writeText(S.chatCode).then(() => toast('Invite code copied'), () => toast(`Code: ${S.chatCode}`)); } catch { toast(`Code: ${S.chatCode}`); } };
+  $('#leaveChat').onclick = () => { leaveRoom(); S.chatCode = ''; save(); rerender(); };
+  const sf = $('#signForm'); if (sf) sf.onsubmit = async e => { e.preventDefault(); toast('Checking key…');
+    if (await unlockSignKey($('#signKeyIn').value)) { toast('Crown enabled'); rerender(); } else toast('That owner key is not right.'); };
+};
+
 /* settings */
 function accountCard() {
   const u = me();
@@ -854,6 +1028,7 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Track your fun</b>: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.</li>
     <li><b style="color:var(--text)">Check Balance</b> to see how your week splits between learning, playing and watching.</li>
     <li><b style="color:var(--text)">Do daily quests</b> in Help the World — good deeds earn XP too.</li>
+    <li><b style="color:var(--text)">Chat</b> with friends in the Chat tab using an invite code from the owner.</li>
     <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one has Bronze, Silver, Gold and Diamond tiers.</li>
     <li><b style="color:var(--text)">Make an account</b> with a username and password so everyone on this device has their own progress. Email is optional.</li>
     <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is ever uploaded.</li></ol>`)}
@@ -878,11 +1053,14 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <p>This is saved in your browser's <i>localStorage</i> (website) or the app's local storage folder (desktop app) on this device only.</p>
   <h2>3. What we do not collect</h2>
   <ul><li>Email is optional. If you add one, it stays on this device and is never sent anywhere or used to contact you.</li><li>No phone number, location or contacts.</li><li>No usage analytics or crash tracking.</li><li>No advertising IDs. No ads at all.</li></ul>
-  <h2>4. Third-party content</h2>
+  <h2>4. Global chat (optional)</h2>
+  <p>The chat is the one feature that sends data off your device. If you join a chat room, each message you send (with your display name and the time) is stored on the website host's database (Wix), encrypted with the room's invite code. Anyone who has the invite code can read the room. The owner can hide messages and mute names, and can delete stored messages. Don't share personal information in the chat.</p>
+  <h2>4b. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
   <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
-  <li><b>Fonts</b> may be loaded from Google Fonts; if unavailable, your system font is used.</li></ul>
+  <li><b>Fonts</b> may be loaded from Google Fonts; if unavailable, your system font is used.</li>
+  <li><b>Website hosting:</b> the website version is hosted by Wix, which may record page visits and show a cookie notice. The desktop app does not do this.</li></ul>
   <h2>5. Notifications</h2>
   <p>If you turn on notifications, they are created locally by your device for timers and break reminders. Nothing is sent over the internet.</p>
   <h2>6. Your control</h2>
@@ -983,7 +1161,7 @@ function openAuth(t = 'signup') {
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);
-  resetTimers(); S = clean(loadJSON(KEY, {})); isOwner = false; clearMedia();
+  resetTimers(); leaveRoom(); C.autoTried = false; C.signKey = null; S = clean(loadJSON(KEY, {})); isOwner = false; clearMedia();
   resumeFocus(); if (S.run.game) startGame(S.run.game.game, S.run.game.start);
   init(); verifyOwner();
 }
