@@ -7,7 +7,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
-const today = (d = new Date()) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+const pad2 = n => String(n).padStart(2, '0');
+const today = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; // YYYY-MM-DD, local time
 const dayOffset = n => { const d = new Date(); d.setDate(d.getDate() - n); return today(d); };
 const fmtMin = m => m >= 60 ? `${Math.floor(m/60)}h ${m%60 ? (m%60)+'m' : ''}`.trim() : `${m}m`;
 const hue = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 65% 55%)`; };
@@ -123,13 +124,46 @@ const DEFAULT = {
   yt:[],                          // {id,url,title,kind,watched,mins}
   quests:{},                      // date -> [index]
   questsTotal:0,
+  run:{},                         // running timers, so a reload does not lose them
 };
+/* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
+const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
+const str = (v, max = 200) => typeof v === 'string' ? v.slice(0, max) : '';
+const arr = v => Array.isArray(v) ? v : [];
+const okId = v => typeof v === 'string' && /^[\w-]{1,40}$/.test(v) ? v : uid();
+const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const CATS = ['learn', 'play', 'watch'];
+function clean(raw) {
+  const s = raw && typeof raw === 'object' ? raw : {}, d = structuredClone(DEFAULT);
+  d.name = str(s.name, 24); d.agreed = s.agreed === true; d.theme = s.theme === 'light' ? 'light' : 'dark';
+  d.xp = num(s.xp, 0); d.notify = s.notify === true; d.thumbs = s.thumbs !== false;
+  d.breakEvery = num(s.breakEvery, 60, 0, 600); d.epLen = num(s.epLen, 40, 1, 300); d.track = TRACKS[s.track] ? s.track : 'web';
+  const g = s.goals || {}; d.goals = {learn:num(g.learn, 60, 0, 1440), play:num(g.play, 120, 0, 1440), watch:num(g.watch, 90, 0, 1440)};
+  d.log = arr(s.log).filter(x => x && isDay(x.d) && CATS.includes(x.cat)).map(x => {
+    const e = {d:x.d, cat:x.cat, m:num(x.m, 0, 0, 1440)}; if (x.g) e.g = str(x.g, 60); if (x.ref) e.ref = str(x.ref, 60); return e; });
+  for (const [k, v] of Object.entries(s.lessons || {})) if (/^\w+\.\d+\.\d+$/.test(k)) d.lessons[k] = str(v, 10);
+  d.tasks = arr(s.tasks).filter(x => x && x.text).map(x => ({id:okId(x.id), text:str(x.text, 120), done:x.done === true}));
+  const f = s.focus || {}; d.focus = {work:num(f.work, 25, 1, 120), short:num(f.short, 5, 1, 120), long:num(f.long, 15, 1, 120), count:num(f.count, 0)};
+  d.backlog = arr(s.backlog).filter(x => x && x.title).map(x => ({id:okId(x.id), title:str(x.title, 60), platform:str(x.platform, 30),
+    status:['playing', 'backlog', 'finished'].includes(x.status) ? x.status : 'backlog', xpDone:x.xpDone === true || x.status === 'finished'}));
+  d.series = arr(s.series).filter(x => x && x.title).map(x => ({id:okId(x.id), title:str(x.title, 60), platform:str(x.platform, 30),
+    s:num(x.s, 1, 1, 999), e:num(x.e, 0, 0, 9999), status:['watching', 'plan', 'done'].includes(x.status) ? x.status : 'watching'}));
+  d.yt = arr(s.yt).filter(x => x && (x.title || x.url)).map(x => ({id:okId(x.id), url:safeUrl(str(x.url, 500)), title:str(x.title, 90) || 'YouTube video',
+    kind:x.kind === 'fun' ? 'fun' : 'learn', mins:num(x.mins, 10, 1, 1440), watched:x.watched === true}));
+  for (const [k, v] of Object.entries(s.quests || {})) if (isDay(k)) d.quests[k] = [...new Set(arr(v).map(i => num(i, 0, 0, QUESTS.length - 1)))];
+  d.questsTotal = num(s.questsTotal, 0);
+  const r = s.run || {};
+  if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
+  if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
+  return d;
+}
 let S;
-try { S = Object.assign(structuredClone(DEFAULT), JSON.parse(localStorage.getItem(KEY) || '{}')); }
-catch { S = structuredClone(DEFAULT); }
+try { S = clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
+catch { S = clean({}); }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
 
-const addLog = (cat, m) => { if (m > 0) { S.log.push({d: today(), cat, m: Math.round(m)}); save(); } };
+const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
+const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
 const minsOn = (d, cat) => S.log.filter(x => x.d === d && (!cat || x.cat === cat)).reduce((a, x) => a + x.m, 0);
 const level = () => { let lv = 1, need = 100, xp = S.xp; while (xp >= need) { xp -= need; lv++; need = 100 + (lv - 1) * 25; } return {lv, xp, need}; };
 const gainXP = (n, why) => {
@@ -163,14 +197,15 @@ function buildNav() {
 }
 
 /* ---------- router ---------- */
-let current = 'home';
+let current = 'home', baseTitle = 'LevelUp Life';
 function route() {
   const id = (location.hash.match(/^#\/?([\w-]+)/) || [])[1] || 'home';
+  if (id === 'main') return; // the "Skip to content" link, not a tab
   const r = ROUTES.find(x => x.id === id) || ROUTES[0];
   current = r.id;
   $$('[data-route]').forEach(a => { const on = a.dataset.route === r.id; a.classList.toggle('active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   const act = $(`#nav [data-route="${r.id}"]`); if (act) act.scrollIntoView({block:'nearest', inline:'nearest'});
-  $('#pageTitle').textContent = r.name; $('#pageSub').textContent = r.sub; document.title = `${r.name} · LevelUp Life`;
+  $('#pageTitle').textContent = r.name; $('#pageSub').textContent = r.sub; baseTitle = `${r.name} · LevelUp Life`; document.title = baseTitle;
   $('#sheet').hidden = true;
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
@@ -181,7 +216,7 @@ const rerender = () => render();
 /* ---------- small components ---------- */
 const card = (cls, title, body, extra = '') => `<section class="card ${cls}">${title ? `<div class="card-h"><h3>${title}</h3>${extra}</div>` : ''}${body}</section>`;
 const empty = t => `<div class="empty">${t}</div>`;
-function lineChart(series, days = 7) {
+function lineChart(series) {
   const W = 600, H = 150, pad = 12;
   const max = Math.max(30, ...series.flatMap(s => s.data));
   const pts = data => data.map((v, i) => [pad + i * (W - 2 * pad) / (data.length - 1), H - pad - v / max * (H - 2 * pad)]);
@@ -207,7 +242,7 @@ VIEWS.home = () => {
   const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   return `<div class="grid">
   ${card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h3 style="margin-top:14px;font-size:1.3rem">Analytics</h3><div class="muted">Last 7 days</div>
-    <div class="small" style="color:var(--accent2);margin-top:6px">${trend >= 0 ? '+' : ''}${trend}% learning</div></div>
+    <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`)}
   ${card('c7', `${greet}, ${esc(S.name || 'Player')}`, `<div class="statrow">
@@ -221,13 +256,13 @@ VIEWS.home = () => {
     <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
     : empty('🏆 You finished every lesson! Build something and share it.'), `<span class="tag p">${pctDone()}% done</span>`)}
   ${card('c4', 'Up next', `<ul class="list">
-    <li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--card2)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? esc(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>
-    ${(() => { const g = S.backlog.find(b=>b.status==='playing'); return `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--card2)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? esc(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`; })()}
+    <li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? esc(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>
+    ${(() => { const g = S.backlog.find(b=>b.status==='playing'); return `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? esc(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`; })()}
     ${(() => { const v = S.yt.find(y=>!y.watched); return `<li class="item"><span class="thumb" style="--h:#e0465a">${icon('youtube')}</span><div class="grow"><div class="t">${v ? esc(v.title) : 'No saved videos'}</div><div class="s">${v ? (v.kind === 'learn' ? 'Learning' : 'Fun') : 'Save one in YouTube'}</div></div><a class="btn sm" href="#youtube">Open</a></li>`; })()}
   </ul>`, '<span class="more">···</span>')}
   ${card('c4', "Today's quest", `<div class="quest" style="border:0;padding:0"><span class="thumb" style="--h:var(--accent)">${icon('impact')}</span><div><b>${esc(qi[1][0])}</b><p class="muted small" style="margin:4px 0 0">${esc(qi[1][1])}</p></div></div>
     <div class="row" style="margin-top:16px"><button class="btn primary" data-quest="${qi[0]}" ${questDone(qi[0]) ? 'disabled' : ''}>${questDone(qi[0]) ? 'Done ✓' : 'Complete +15 XP'}</button><a class="btn" href="#impact">All quests</a></div>`)}
-  ${card('c12', 'Programs', `<div class="tiles">${ROUTES.filter(r=>r.id!=='home').map(r=>`<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short||r.name}</span></a>`).join('')}</div>`, '<span class="more">···</span>')}
+  ${card('c12', 'Programs', `<div class="tiles cols-5">${ROUTES.filter(r=>r.id!=='home').map(r=>`<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short||r.name}</span></a>`).join('')}</div>`, '<span class="more">···</span>')}
   </div>`;
 };
 BIND.home = m => {
@@ -257,27 +292,34 @@ VIEWS.study = () => {
   <div class="c4" style="display:grid;gap:22px;align-content:start">
   ${card('', 'Study tasks', `<form class="row" id="taskForm"><input id="taskIn" placeholder="e.g. Finish flexbox exercise" maxlength="120" aria-label="New task"><button class="iconbtn" aria-label="Add task">${icon('plus')}</button></form>
     <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${esc(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('No tasks yet. Add your first one above.')}</ul>`)}
-  ${card('', 'Study tips', `<ul class="list small muted" style="gap:10px">
-    <li>🎯 Build tiny projects — you learn 10× faster by making things.</li><li>⏱️ Use 25-minute Focus sessions, then a real break.</li>
-    <li>🎮 Recreate a menu or HUD from your favourite game in HTML & CSS.</li><li>📺 Watch a tutorial once, then rebuild it without looking.</li>
-    <li>🤝 Share your work. Feedback is a power-up.</li></ul>`)}
+  ${card('', 'Study tips', `<ul class="tips">
+    <li>Build tiny projects. You learn fastest by making things.</li><li>Use 25-minute Focus sessions, then take a real break.</li>
+    <li>Recreate a menu or HUD from your favourite game in HTML &amp; CSS.</li><li>Watch a tutorial once, then rebuild it without looking.</li>
+    <li>Share your work. Feedback is a power-up.</li></ul>`)}
   </div></div>`;
 };
 BIND.study = m => {
   m.querySelectorAll('[data-track]').forEach(b => b.onclick = () => { S.track = b.dataset.track; save(); rerender(); });
   m.querySelectorAll('[data-lesson]').forEach(c => c.onchange = () => {
-    if (c.checked) { S.lessons[c.dataset.lesson] = today(); addLog('learn', 20); gainXP(20, 'lesson complete'); }
-    else { delete S.lessons[c.dataset.lesson]; gainXP(-20); }
+    const ref = 'lesson:' + c.dataset.lesson;
+    if (c.checked) { S.lessons[c.dataset.lesson] = today(); addLog('learn', 20, ref); gainXP(20, 'lesson complete'); }
+    else { delete S.lessons[c.dataset.lesson]; dropLog(ref); gainXP(-20); }
     save(); rerender();
   });
   $('#taskForm').onsubmit = e => { e.preventDefault(); const v = $('#taskIn').value.trim(); if (!v) return; S.tasks.unshift({id:uid(), text:v, done:false}); save(); rerender(); $('#taskIn').focus(); };
-  m.querySelectorAll('[data-task]').forEach(c => c.onchange = () => { const t = S.tasks.find(x=>x.id===c.dataset.task); t.done = c.checked; if (c.checked) gainXP(5, 'task done'); save(); rerender(); });
+  m.querySelectorAll('[data-task]').forEach(c => c.onchange = () => { const t = S.tasks.find(x=>x.id===c.dataset.task); t.done = c.checked; gainXP(c.checked ? 5 : -5, 'task done'); save(); rerender(); });
   m.querySelectorAll('[data-deltask]').forEach(b => b.onclick = () => { S.tasks = S.tasks.filter(x=>x.id!==b.dataset.deltask); save(); rerender(); });
 };
 
 /* focus (pomodoro) — timer survives navigation */
 const T = {mode:'work', end:0, left:S.focus.work*60, running:false, label:'', iv:null};
 const modeLen = m => S.focus[m] * 60;
+function startTicking() { clearInterval(T.iv); T.running = true; T.iv = setInterval(tick, 250); S.run.focus = {mode:T.mode, end:T.end}; save(); }
+function stopTicking() { T.running = false; clearInterval(T.iv); delete S.run.focus; save(); }
+function resumeFocus() { // pick up a timer that was running before the page was reloaded
+  const f = S.run.focus; if (!f) return;
+  T.mode = f.mode; T.end = f.end; T.left = Math.max(0, Math.round((f.end - Date.now()) / 1000)); startTicking();
+}
 function tick() {
   if (!T.running) return;
   T.left = Math.max(0, Math.round((T.end - Date.now()) / 1000));
@@ -285,17 +327,17 @@ function tick() {
   paintTimer();
 }
 function finishTimer() {
-  T.running = false; clearInterval(T.iv);
+  stopTicking();
   if (T.mode === 'work') {
-    addLog('learn', S.focus.work); S.focus.count++; save(); gainXP(S.focus.work, 'focus session');
-    notify('Focus complete 🎉', 'Great work! Take a break — stretch, drink water.');
+    addLog('learn', S.focus.work, 'focus'); S.focus.count++; save(); gainXP(S.focus.work, 'focus session');
+    notify('Focus complete', 'Great work! Take a break: stretch and drink some water.');
     setMode(S.focus.count % 4 === 0 ? 'long' : 'short');
   } else { notify('Break over', 'Ready for another focus round?'); setMode('work'); }
 }
-function setMode(m) { T.mode = m; T.running = false; clearInterval(T.iv); T.left = modeLen(m); if (current === 'focus') rerender(); }
+function setMode(m) { stopTicking(); T.mode = m; T.left = modeLen(m); paintTimer(); if (current === 'focus') rerender(); }
 function paintTimer() {
   const el = $('#tTime'); const mm = String(Math.floor(T.left/60)).padStart(2,'0'), ss = String(T.left%60).padStart(2,'0');
-  document.title = T.running ? `${mm}:${ss} · ${T.mode === 'work' ? 'Focus' : 'Break'}` : document.title;
+  document.title = T.running ? `${mm}:${ss} · ${T.mode === 'work' ? 'Focus' : 'Break'}` : baseTitle;
   if (!el) return;
   el.textContent = `${mm}:${ss}`;
   const C = 2 * Math.PI * 120; $('#tRing').style.strokeDashoffset = C * (1 - T.left / modeLen(T.mode));
@@ -313,7 +355,7 @@ VIEWS.focus = () => {
     <div class="row" style="justify-content:center"><button class="btn primary" id="tGo"></button><button class="btn" id="tReset">${icon('reset')}Reset</button><button class="btn" id="tSkip">Skip</button></div>
     <p class="muted small" style="margin-top:14px">Shortcut: <kbd>Space</kbd> start / pause on this tab</p></div>`)}
   <div class="c5" style="display:grid;gap:22px;align-content:start">
-  ${card('', 'Today', `<div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Sessions</span><span class="v">${S.log.filter(x=>x.d===today()&&x.cat==='learn'&&x.m===S.focus.work).length}</span></div><div class="stat"><span class="k">Learning time</span><span class="v">${fmtMin(todayF)}</span></div></div>
+  ${card('', 'Today', `<div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Sessions</span><span class="v">${S.log.filter(x=>x.d===today()&&x.ref==='focus').length}</span></div><div class="stat"><span class="k">Learning time</span><span class="v">${fmtMin(todayF)}</span></div></div>
     <div class="meter" style="margin-top:16px"><i style="width:${Math.min(100,todayF/S.goals.learn*100)}%"></i></div><p class="muted small">${fmtMin(todayF)} of your ${fmtMin(S.goals.learn)} daily learning goal</p>`)}
   ${card('', 'Timer lengths (minutes)', `<div class="row">${[['work','Focus'],['short','Short'],['long','Long']].map(([k,n])=>`<label class="field" style="flex:1"><span>${n}</span><input type="number" min="1" max="120" data-len="${k}" value="${S.focus[k]}"></label>`).join('')}</div>`)}
   ${card('', 'Why it works', `<p class="muted small" style="margin:0">Short, focused blocks beat long distracted ones. Every 4th break is a long one. Each finished focus session gives XP and counts toward your learning goal.</p>`)}
@@ -329,20 +371,29 @@ BIND.focus = m => {
   m.querySelectorAll('[data-len]').forEach(i => i.onchange = () => { const v = Math.max(1, Math.min(120, +i.value || 1)); S.focus[i.dataset.len] = v; save(); if (!T.running && T.mode === i.dataset.len) T.left = v * 60; paintTimer(); });
 };
 function toggleTimer() {
-  if (T.running) { T.running = false; clearInterval(T.iv); }
+  if (T.running) { T.left = Math.max(0, Math.round((T.end - Date.now()) / 1000)); stopTicking(); }
   else { if ('Notification' in window && S.notify && Notification.permission === 'default') Notification.requestPermission();
-    T.running = true; T.end = Date.now() + T.left * 1000; T.iv = setInterval(tick, 250); }
+    if (T.left <= 0) T.left = modeLen(T.mode);
+    T.end = Date.now() + T.left * 1000; startTicking(); }
   paintTimer();
 }
 
 /* gaming */
-const G = {start:0, iv:null, game:'', lastBreak:0};
+const G = {start:0, iv:null, game:'', nextBreak:0};
+function startGame(game, start) {
+  G.game = game; G.start = start; G.nextBreak = S.breakEvery * (Math.floor((Date.now() - start) / 60000 / (S.breakEvery || 1)) + 1);
+  clearInterval(G.iv); G.iv = setInterval(gameTick, 1000); S.run.game = {start, game}; save();
+}
 function gameElapsed() { return G.start ? Math.floor((Date.now() - G.start) / 1000) : 0; }
 function gameTick() {
   const s = gameElapsed(), el = $('#gClock');
   if (el) el.textContent = `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor(s/60)%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const mins = Math.floor(s / 60);
-  if (S.breakEvery > 0 && mins > 0 && mins % S.breakEvery === 0 && G.lastBreak !== mins) { G.lastBreak = mins; notify('Break time 🎮', `You've played ${fmtMin(mins)}. Stand up, stretch, rest your eyes.`); }
+  // ">=" instead of an exact minute match: background tabs only tick about once a minute
+  if (G.start && S.breakEvery > 0 && mins >= G.nextBreak) {
+    G.nextBreak = (Math.floor(mins / S.breakEvery) + 1) * S.breakEvery;
+    notify('Break time', `You've played ${fmtMin(mins)}. Stand up, stretch, rest your eyes.`);
+  }
 }
 VIEWS.gaming = () => {
   const wk = week('play'), tot = wk.reduce((a,b)=>a+b,0), playedToday = minsOn(today(),'play');
@@ -358,7 +409,7 @@ VIEWS.gaming = () => {
   ${card('c7', 'This week', `<div class="statrow" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><span class="k">Today</span><span class="v">${fmtMin(playedToday)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">7 days</span><span class="v">${fmtMin(tot)}</span></div><div class="stat"><span class="k">Games finished</span><span class="v">${S.backlog.filter(b=>b.status==='finished').length}</span></div></div>
     <div class="meter" style="margin:16px 0 6px"><i style="width:${Math.min(100,playedToday/S.goals.play*100)}%;${playedToday>S.goals.play?'background:var(--bad)':''}"></i></div>
-    <p class="muted small">${playedToday > S.goals.play ? '⚠️ Over your daily play limit — maybe time for a quest or a walk?' : 'Within your healthy daily limit. GG!'}</p>
+    <p class="muted small">${playedToday > S.goals.play ? 'Over your daily play limit. Maybe time for a quest or a walk?' : 'Within your daily limit. GG!'}</p>
     ${lineChart([{c:CAT.play.c,data:wk}])}`)}
   ${card('c12', 'Game library', `<form class="row" id="bForm"><input id="bTitle" placeholder="Game title" maxlength="60" aria-label="Game title"><input id="bPlat" placeholder="Platform (PC, PS5, Switch…)" maxlength="30" aria-label="Platform">
     <select id="bStatus" style="flex:0 0 160px" aria-label="Status"><option value="backlog">Backlog</option><option value="playing">Playing</option><option value="finished">Finished</option></select><button class="btn primary">${icon('plus')}Add game</button></form>
@@ -370,19 +421,19 @@ VIEWS.gaming = () => {
 BIND.gaming = m => {
   gameTick();
   $('#gGo').onclick = () => {
-    if (!G.start) { G.game = $('#gGame').value.trim() || 'Gaming'; G.start = Date.now(); G.lastBreak = 0; G.iv = setInterval(gameTick, 1000); toast(`Session started: ${G.game}. GL HF!`); }
-    else { const mins = Math.max(1, Math.round(gameElapsed()/60)); S.log.push({d:today(), cat:'play', m:mins, g:G.game}); save(); clearInterval(G.iv); G.start = 0; toast(`Saved ${fmtMin(mins)} of ${G.game}`); }
+    if (!G.start) { startGame($('#gGame').value.trim() || 'Gaming', Date.now()); toast(`Session started: ${G.game}. GL HF!`); }
+    else { const mins = Math.min(1440, Math.max(1, Math.round(gameElapsed()/60))); S.log.push({d:today(), cat:'play', m:mins, g:G.game}); clearInterval(G.iv); G.start = 0; delete S.run.game; save(); toast(`Saved ${fmtMin(mins)} of ${G.game}`); }
     rerender();
   };
-  $('#gLog').onsubmit = e => { e.preventDefault(); const g = $('#gLogGame').value.trim() || 'Gaming', mn = +$('#gLogMin').value; if (!(mn > 0)) return toast('Enter minutes played'); S.log.push({d:today(), cat:'play', m:Math.round(mn), g}); save(); toast('Session logged'); rerender(); };
+  $('#gLog').onsubmit = e => { e.preventDefault(); const g = $('#gLogGame').value.trim() || 'Gaming', mn = +$('#gLogMin').value; if (!(mn > 0)) return toast('Enter the minutes you played'); S.log.push({d:today(), cat:'play', m:Math.min(1440, Math.round(mn)), g}); save(); toast('Session logged'); rerender(); };
   $('#bForm').onsubmit = e => { e.preventDefault(); const t = $('#bTitle').value.trim(); if (!t) return toast('Enter a game title'); S.backlog.unshift({id:uid(), title:t, platform:$('#bPlat').value.trim(), status:$('#bStatus').value}); save(); rerender(); };
-  m.querySelectorAll('[data-bstat]').forEach(s => s.onchange = () => { const b = S.backlog.find(x=>x.id===s.dataset.bstat); b.status = s.value; if (s.value==='finished') gainXP(10,'game finished'); save(); rerender(); });
+  m.querySelectorAll('[data-bstat]').forEach(s => s.onchange = () => { const b = S.backlog.find(x=>x.id===s.dataset.bstat); b.status = s.value; if (s.value==='finished' && !b.xpDone) { b.xpDone = true; gainXP(10,'game finished'); } save(); rerender(); });
   m.querySelectorAll('[data-bdel]').forEach(b => b.onclick = () => { S.backlog = S.backlog.filter(x=>x.id!==b.dataset.bdel); save(); rerender(); });
 };
 
 /* series */
 let seriesFilter = 'all';
-function watchEp(id) { const s = S.series.find(x=>x.id===id); if (!s) return; s.e++; addLog('watch', S.epLen); save(); toast(`${s.title}: S${s.s}E${s.e} watched`); rerender(); }
+function watchEp(id) { const s = S.series.find(x=>x.id===id); if (!s) return; s.e++; if (s.status === 'plan') s.status = 'watching'; addLog('watch', S.epLen); save(); toast(`${s.title}: S${s.s}E${s.e} watched`); rerender(); }
 VIEWS.series = () => {
   const st = {watching:'Watching', plan:'Plan to watch', done:'Finished'};
   const list = S.series.filter(s => seriesFilter === 'all' || s.status === seriesFilter);
@@ -439,7 +490,9 @@ BIND.youtube = m => {
     if (!url && !title) return toast('Paste a link or a title'); S.yt.unshift({id:uid(), url, title, kind:$('#yKind').value, mins:Math.max(1,+$('#yMin').value||10), watched:false}); save(); rerender(); };
   m.querySelectorAll('[data-yf]').forEach(b => b.onclick = () => { ytFilter = b.dataset.yf; rerender(); });
   m.querySelectorAll('[data-yw]').forEach(b => b.onclick = () => { const v = S.yt.find(x=>x.id===b.dataset.yw); v.watched = !v.watched;
-    if (v.watched) { addLog(v.kind === 'learn' ? 'learn' : 'watch', v.mins); if (v.kind === 'learn') gainXP(10, 'learning video'); }
+    const ref = 'yt:' + v.id;
+    if (v.watched) { addLog(v.kind === 'learn' ? 'learn' : 'watch', v.mins, ref); if (v.kind === 'learn') gainXP(10, 'learning video'); }
+    else { dropLog(ref); if (v.kind === 'learn') gainXP(-10); }
     save(); rerender(); });
   m.querySelectorAll('[data-ydel]').forEach(b => b.onclick = () => { S.yt = S.yt.filter(x=>x.id!==b.dataset.ydel); save(); rerender(); });
 };
@@ -453,10 +506,10 @@ VIEWS.balance = () => {
   const all = tot.reduce((a,b)=>a+b,0) || 1;
   const score = Math.round(Math.min(100, (tot[0] / Math.max(1, S.goals.learn*7)) * 60 + (tot[1] <= S.goals.play*7 ? 20 : 5) + (tot[2] <= S.goals.watch*7 ? 20 : 5)));
   return `<div class="grid">
-  ${card('c8', 'Last 7 days', `<div class="bars">${data.map(x=>`<div class="col"><div class="stack" style="height:${x.v.reduce((a,b)=>a+b,0)/max*100}%">${x.v.map((v,i)=>`<i style="height:${v/(x.v.reduce((a,b)=>a+b,0)||1)*100}%;background:${Object.values(CAT)[i].c}"></i>`).join('')}</div><span class="lbl">${new Date(x.d+'T12:00').toLocaleDateString(undefined,{weekday:'short'})}</span></div>`).join('')}</div>
+  ${card('c8', 'Last 7 days', `<div class="bars">${data.map(x=>`<div class="col"><div class="bar"><div class="stack" style="height:${x.v.reduce((a,b)=>a+b,0)/max*100}%" title="${fmtMin(x.v.reduce((a,b)=>a+b,0))}">${x.v.map((v,i)=>`<i style="height:${v/(x.v.reduce((a,b)=>a+b,0)||1)*100}%;background:${Object.values(CAT)[i].c}"></i>`).join('')}</div></div><span class="lbl">${new Date(x.d+'T12:00').toLocaleDateString(undefined,{weekday:'short'})}</span></div>`).join('')}</div>
     <div class="legend" style="margin-top:14px">${Object.values(CAT).map((c,i)=>`<span><i style="background:${c.c}"></i>${c.n} · ${fmtMin(tot[i])}</span>`).join('')}</div>`)}
   ${card('c4', 'Balance score', `<div style="text-align:center"><div class="orb" aria-hidden="true"><i></i><i></i><i></i></div><div class="stat"><span class="v">${score}<span class="muted" style="font-size:1rem">/100</span></span>
-    <span class="k">${score>=80?'Legendary balance 🏆':score>=50?'Solid — keep going':'Let\'s add more learning'}</span></div></div>`)}
+    <span class="k">${score>=80?'Legendary balance':score>=50?'Solid. Keep going':'Let\'s add more learning'}</span></div></div>`)}
   ${card('c6', 'Where your time goes', ['learn','play','watch'].map((c,i)=>`<div style="margin-bottom:16px"><div class="row" style="justify-content:space-between"><span>${CAT[c].n}</span><span class="muted">${Math.round(tot[i]/all*100)}%</span></div><div class="meter"><i style="width:${tot[i]/all*100}%;background:${CAT[c].c}"></i></div></div>`).join(''))}
   ${card('c6', 'Daily goals', `<div class="form">
     <label class="field"><span>Learning goal (min / day)</span><input type="number" min="0" data-goal="learn" value="${S.goals.learn}"></label>
@@ -479,7 +532,7 @@ VIEWS.impact = () => {
     `<span class="tag p">${done}/4</span>`)}
   ${card('c4', 'Your impact', `<div style="text-align:center"><div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Good deeds</span><span class="v">${S.questsTotal}</span></div><div class="stat"><span class="k">Streak</span><span class="v">${streak()}🔥</span></div></div></div>`)}
-  ${card('c12', 'Gamers & learners helping the world', `<div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${ORGS.map(([n,d,u])=>`<a class="tile" style="border-radius:24px;align-items:flex-start;text-align:left;padding:18px" href="${u}" target="_blank" rel="noopener">${icon('globe')}<span><b style="font-weight:500">${esc(n)}</b><br><span class="muted small">${esc(d)}</span></span></a>`).join('')}</div>`)}
+  ${card('c12', 'Gamers & learners helping the world', `<div class="tiles cols-4">${ORGS.map(([n,d,u])=>`<a class="tile" style="border-radius:24px;align-items:flex-start;text-align:left;padding:18px" href="${u}" target="_blank" rel="noopener">${icon('globe')}<span><b style="font-weight:500">${esc(n)}</b><br><span class="muted small">${esc(d)}</span></span></a>`).join('')}</div>`)}
   </div>`;
 };
 BIND.impact = m => m.querySelectorAll('[data-q]').forEach(c => c.onchange = () => doQuest(+c.dataset.q));
@@ -512,11 +565,11 @@ BIND.options = () => {
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
   $('#stExport').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
-  $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d) throw 0; S = Object.assign(structuredClone(DEFAULT), d); save(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
+  $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
   let armed = false;
   $('#stWipe').onclick = () => {
     if (!armed) { armed = true; $('#stWipe').innerHTML = `${icon('trash')}Click again to delete everything`; setTimeout(() => { armed = false; const b = $('#stWipe'); if (b) b.innerHTML = `${icon('trash')}Delete all my data`; }, 5000); return; }
-    try { localStorage.removeItem(KEY); } catch {} S = structuredClone(DEFAULT); save(); init(); location.hash = '#home'; toast('All data deleted'); };
+    try { localStorage.removeItem(KEY); } catch {} S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
   $('#stCopy').onclick = () => { const t = JSON.stringify(S); const fb = () => { const a = $('#stBackupText'); a.hidden = false; a.value = t; a.select(); toast('Select all and copy the text below'); };
     try { navigator.clipboard.writeText(t).then(() => toast('Backup copied — paste it into a text file to keep it'), fb); } catch { fb(); } };
 };
@@ -600,6 +653,7 @@ function events() {
   window.addEventListener('hashchange', route);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
+  $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
   document.addEventListener('click', e => {
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
     else if (e.target.id === 'sheet') $('#sheet').hidden = true;
@@ -634,9 +688,16 @@ function events() {
   window.addEventListener('hashchange', () => { if (!S.agreed && current !== 'privacy') $('#consent').hidden = false; });
 }
 
+function resetTimers() {
+  clearInterval(T.iv); T.running = false; T.mode = 'work'; T.left = modeLen('work');
+  clearInterval(G.iv); G.start = 0;
+}
 function init() {
   applyTheme(); paintPlayer(); route();
   $('#consent').hidden = S.agreed;
 }
-buildNav(); events(); init();
+buildNav(); events();
+resumeFocus();
+if (S.run.game) startGame(S.run.game.game, S.run.game.start);
+init();
 })();
