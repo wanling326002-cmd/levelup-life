@@ -153,13 +153,60 @@ let isOwner = false;
 async function verifyOwner() {
   let ok = false;
   try { ok = !!S.ownerProof && safeEq(await sha256(S.ownerProof), OWNER_CHECK); } catch {}
-  if (ok !== isOwner) { isOwner = ok; paintPlayer(); if (['home', 'badges', 'options'].includes(current)) rerender(); }
+  if (ok !== isOwner) { isOwner = ok; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube'].includes(current)) rerender(); }
 }
 async function claimOwner(key) {
   const proof = await pbkdf2(normKey(key), OWNER_SALT, 200000);
   if (!safeEq(await sha256(proof), OWNER_CHECK)) return false;
   S.ownerProof = proof; save(); await verifyOwner(); return true;
 }
+
+/* ---------- owner media (profile picture, banner, custom emoji) ----------
+   Images are stored as files in IndexedDB on this device, keyed per account. Only the owner can add or see them. */
+let mediaDb;
+const idb = () => mediaDb ||= new Promise((res, rej) => { const r = indexedDB.open('levelup-media', 1); r.onupgradeneeded = () => r.result.createObjectStore('files'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function mediaOp(mode, fn) {
+  const db = await idb();
+  return new Promise((res, rej) => { const tx = db.transaction('files', mode), req = fn(tx.objectStore('files')); tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
+}
+const mk = k => KEY + '|' + k;
+const mediaGet = k => mediaOp('readonly', s => s.get(mk(k)));
+const mediaPut = (k, v) => mediaOp('readwrite', s => s.put(v, mk(k)));
+const mediaDel = k => mediaOp('readwrite', s => s.delete(mk(k)));
+async function mediaWipe() { try { const ks = await mediaOp('readonly', s => s.getAllKeys()); for (const k of ks) if (String(k).startsWith(KEY + '|')) await mediaOp('readwrite', s => s.delete(k)); } catch {} }
+const M = {pfp:'', banner:'', emoji:new Map()};
+function clearMedia() { [M.pfp, M.banner, ...M.emoji.values()].forEach(u => u && URL.revokeObjectURL(u)); M.pfp = M.banner = ''; M.emoji = new Map(); }
+async function loadMedia() {
+  clearMedia(); if (!isOwner || !window.indexedDB) return;
+  try {
+    const url = b => b ? URL.createObjectURL(b) : '';
+    M.pfp = url(await mediaGet('pfp')); M.banner = url(await mediaGet('banner'));
+    for (const e of S.emoji) { const b = await mediaGet('emoji:' + e.id); if (b) M.emoji.set(e.name, URL.createObjectURL(b)); }
+  } catch {}
+}
+async function isAnimated(file) {
+  const b = new Uint8Array(await file.slice(0, 2 * 1048576).arrayBuffer());
+  if (file.type === 'image/gif') { let n = 0; for (let i = 0; i < b.length - 2; i++) if (b[i] === 0x21 && b[i + 1] === 0xF9 && b[i + 2] === 0x04 && ++n > 1) return true; return false; }
+  if (file.type === 'image/webp') for (let i = 0; i < Math.min(b.length, 4096) - 3; i++) if (b[i] === 0x41 && b[i + 1] === 0x4E && b[i + 2] === 0x49 && b[i + 3] === 0x4D) return true;
+  return false;
+}
+async function prepImage(file, kind) { // still images are resized to save space; animated ones are kept as they are so they keep moving
+  const L = {pfp:{max:8, w:320, h:320, crop:true}, banner:{max:15, w:1800, h:600}, emoji:{max:2, w:128, h:128}}[kind];
+  if (!file || !/^image\/(png|jpeg|gif|webp)$/.test(file.type)) throw new Error('Use a PNG, JPG, WebP or GIF image.');
+  if (file.size > L.max * 1048576) throw new Error(`That file is too big. The limit is ${L.max} MB.`);
+  if (await isAnimated(file)) return {blob:file, live:true};
+  const img = await createImageBitmap(file);
+  let sw = img.width, sh = img.height, sx = 0, sy = 0;
+  if (L.crop) { const sq = Math.min(sw, sh); sx = (sw - sq) / 2; sy = (sh - sq) / 2; sw = sh = sq; }
+  const scale = Math.min(1, L.w / sw, L.h / sh), cw = Math.max(1, Math.round(sw * scale)), ch = Math.max(1, Math.round(sh * scale));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+  const blob = await new Promise(r => c.toBlob(r, 'image/webp', .9)) || await new Promise(r => c.toBlob(r, 'image/png'));
+  return {blob, live:false};
+}
+// escape text, then turn :name: into the owner's custom emoji
+const emo = s => { const h = esc(s); return M.emoji.size ? h.replace(/:([a-z0-9_]{2,24}):/g, (m, n) => M.emoji.has(n) ? `<img class="emoji" src="${M.emoji.get(n)}" alt=":${n}:" title=":${n}:">` : m) : h; };
+const avatarInner = () => M.pfp ? `<img src="${M.pfp}" alt="">` : esc(displayName().trim().charAt(0).toUpperCase());
 
 /* ---------- state ---------- */
 const DEFAULT = {
@@ -177,6 +224,7 @@ const DEFAULT = {
   run:{},                         // running timers, so a reload does not lose them
   stats:{episodes:0},
   ownerProof:'',
+  emoji:[],                       // owner's custom emoji: {id, name, live}; the images live in IndexedDB
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -205,6 +253,7 @@ function clean(raw) {
   for (const [k, v] of Object.entries(s.quests || {})) if (isDay(k)) d.quests[k] = [...new Set(arr(v).map(i => num(i, 0, 0, QUESTS.length - 1)))];
   d.questsTotal = num(s.questsTotal, 0);
   d.stats = {episodes:num((s.stats || {}).episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6)};
+  const seen = new Set(); d.emoji = arr(s.emoji).filter(x => x && typeof x.name === 'string' && /^[a-z0-9_]{2,24}$/.test(x.name) && !seen.has(x.name) && seen.add(x.name)).slice(0, 100).map(x => ({id:okId(x.id), name:x.name, live:x.live === true}));
   d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
@@ -219,9 +268,9 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
 const minsOn = (d, cat) => S.log.filter(x => x.d === d && (!cat || x.cat === cat)).reduce((a, x) => a + x.m, 0);
-const MAX_LEVEL = 50;
+const MAX_LEVEL = 50, OWNER_LEVEL = 100;
 const level = () => {
-  if (isOwner) return {lv:MAX_LEVEL, xp:1, need:1, max:true};
+  if (isOwner) return {lv:OWNER_LEVEL, xp:1, need:1, max:true};
   let lv = 1, need = 100, xp = S.xp;
   while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = 100 + (lv - 1) * 25; }
   return lv >= MAX_LEVEL ? {lv:MAX_LEVEL, xp:1, need:1, max:true} : {lv, xp, need, max:false};
@@ -244,7 +293,7 @@ function paintPlayer() {
   const {lv, xp, need, max} = level();
   $('#lvl').textContent = max ? `${lv} MAX` : lv; $('#xpBar').style.width = (max ? 100 : xp / need * 100) + '%';
   $('.profile').title = `${displayName()}${me() ? '' : ' (guest)'} · ${max ? 'Max level' : `${xp}/${need} XP to level ${lv + 1}`}`;
-  $('#avatar').textContent = displayName().trim().charAt(0).toUpperCase();
+  $('#avatar').innerHTML = avatarInner();
   $('.profile').classList.toggle('owner', isOwner);
 }
 function applyTheme() {
@@ -326,7 +375,7 @@ VIEWS.home = () => {
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`)}
-  ${card('c7', `${greet}, ${esc(displayName())}`, `<div class="statrow">
+  ${card('c7', `${greet}, ${emo(displayName())}`, `<div class="statrow">
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
@@ -337,9 +386,9 @@ VIEWS.home = () => {
     <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
     : empty('🏆 You finished every lesson! Build something and share it.'), `<span class="tag p">${pctDone()}% done</span>`)}
   ${card('c4', 'Up next', `<ul class="list">
-    <li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? esc(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>
-    ${(() => { const g = S.backlog.find(b=>b.status==='playing'); return `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? esc(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`; })()}
-    ${(() => { const v = S.yt.find(y=>!y.watched); return `<li class="item"><span class="thumb" style="--h:#e0465a">${icon('youtube')}</span><div class="grow"><div class="t">${v ? esc(v.title) : 'No saved videos'}</div><div class="s">${v ? (v.kind === 'learn' ? 'Learning' : 'Fun') : 'Save one in YouTube'}</div></div><a class="btn sm" href="#youtube">Open</a></li>`; })()}
+    <li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? emo(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>
+    ${(() => { const g = S.backlog.find(b=>b.status==='playing'); return `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? emo(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`; })()}
+    ${(() => { const v = S.yt.find(y=>!y.watched); return `<li class="item"><span class="thumb" style="--h:#e0465a">${icon('youtube')}</span><div class="grow"><div class="t">${v ? emo(v.title) : 'No saved videos'}</div><div class="s">${v ? (v.kind === 'learn' ? 'Learning' : 'Fun') : 'Save one in YouTube'}</div></div><a class="btn sm" href="#youtube">Open</a></li>`; })()}
   </ul>`, '<span class="more">···</span>')}
   ${card('c4', "Today's quest", `<div class="quest" style="border:0;padding:0"><span class="thumb" style="--h:var(--accent)">${icon('impact')}</span><div><b>${esc(qi[1][0])}</b><p class="muted small" style="margin:4px 0 0">${esc(qi[1][1])}</p></div></div>
     <div class="row" style="margin-top:16px"><button class="btn primary" data-quest="${qi[0]}" ${questDone(qi[0]) ? 'disabled' : ''}>${questDone(qi[0]) ? 'Done ✓' : 'Complete +15 XP'}</button><a class="btn" href="#impact">All quests</a></div>`)}
@@ -372,7 +421,7 @@ VIEWS.study = () => {
       <div class="lessons">${mod.l.map(([name,url],li)=>{ const id=lessonId(t,mi,li); return `<label><input type="checkbox" class="check" data-lesson="${id}" ${S.lessons[id]?'checked':''}><span>${esc(name)}</span><a href="${url}" target="_blank" rel="noopener">Open ↗</a></label>`; }).join('')}</div></details>`; }).join('')}`)}
   <div class="c4" style="display:grid;gap:22px;align-content:start">
   ${card('', 'Study tasks', `<form class="row" id="taskForm"><input id="taskIn" placeholder="e.g. Finish flexbox exercise" maxlength="120" aria-label="New task"><button class="iconbtn" aria-label="Add task">${icon('plus')}</button></form>
-    <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${esc(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('No tasks yet. Add your first one above.')}</ul>`)}
+    <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${emo(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('No tasks yet. Add your first one above.')}</ul>`)}
   ${card('', 'Study tips', `<ul class="tips">
     <li>Build tiny projects. You learn fastest by making things.</li><li>Use 25-minute Focus sessions, then take a real break.</li>
     <li>Recreate a menu or HUD from your favourite game in HTML &amp; CSS.</li><li>Watch a tutorial once, then rebuild it without looking.</li>
@@ -494,7 +543,7 @@ VIEWS.gaming = () => {
     ${lineChart([{c:CAT.play.c,data:wk}])}`)}
   ${card('c12', 'Game library', `<form class="row" id="bForm"><input id="bTitle" placeholder="Game title" maxlength="60" aria-label="Game title"><input id="bPlat" placeholder="Platform (PC, PS5, Switch…)" maxlength="30" aria-label="Platform">
     <select id="bStatus" style="flex:0 0 160px" aria-label="Status"><option value="backlog">Backlog</option><option value="playing">Playing</option><option value="finished">Finished</option></select><button class="btn primary">${icon('plus')}Add game</button></form>
-    <ul class="list" style="margin-top:12px">${S.backlog.map(b=>`<li class="item"><span class="thumb" style="--h:${hue(b.title)}">${esc(b.title.charAt(0).toUpperCase())}</span><div class="grow"><div class="t">${esc(b.title)}</div><div class="s">${esc(b.platform||'—')} · ${fmtMin(S.log.filter(x=>x.cat==='play'&&x.g===b.title).reduce((a,x)=>a+x.m,0))} logged</div></div>
+    <ul class="list" style="margin-top:12px">${S.backlog.map(b=>`<li class="item"><span class="thumb" style="--h:${hue(b.title)}">${esc(b.title.charAt(0).toUpperCase())}</span><div class="grow"><div class="t">${emo(b.title)}</div><div class="s">${esc(b.platform||'—')} · ${fmtMin(S.log.filter(x=>x.cat==='play'&&x.g===b.title).reduce((a,x)=>a+x.m,0))} logged</div></div>
       <select data-bstat="${b.id}" style="flex:0 0 140px;padding:7px 34px 7px 14px" aria-label="Status">${Object.entries(st).map(([k,[n]])=>`<option value="${k}" ${b.status===k?'selected':''}>${n}</option>`).join('')}</select>
       <button class="iconbtn" data-bdel="${b.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('Your library is empty. Add the games you are playing or want to play.')}</ul>`)}
   </div>`;
@@ -526,7 +575,7 @@ VIEWS.series = () => {
     <button class="btn primary">${icon('plus')}Add series</button></form>`)}
   ${card('c8', 'Your watchlist', `<div class="row" style="margin-bottom:10px">${[['all','All'],...Object.entries(st)].map(([k,v])=>`<button class="chip ${seriesFilter===k?'on':''}" data-sf="${k}">${v} <span class="dim">${k==='all'?S.series.length:S.series.filter(s=>s.status===k).length}</span></button>`).join('')}</div>
     <ul class="list">${list.map(s=>`<li class="item"><span class="thumb" style="--h:${hue(s.title)}">${esc(s.title.charAt(0).toUpperCase())}</span>
-      <div class="grow"><div class="t">${esc(s.title)}</div><div class="s">${esc(s.platform||'—')} · Season ${s.s}, episode ${s.e} seen</div></div>
+      <div class="grow"><div class="t">${emo(s.title)}</div><div class="s">${esc(s.platform||'—')} · Season ${s.s}, episode ${s.e} seen</div></div>
       <span class="tag ${s.status==='watching'?'p':s.status==='done'?'g':'y'}">${st[s.status]}</span>
       ${s.status!=='done'?`<button class="btn sm" data-sep="${s.id}" title="Mark next episode watched">+1 ep</button>`:''}
       <button class="iconbtn" data-snext="${s.id}" title="Next season" aria-label="Next season">S+</button>
@@ -559,7 +608,7 @@ VIEWS.youtube = () => {
   ${card('c8', 'Watch later', `<div class="row" style="margin-bottom:10px">${[['all','All'],['todo','Not watched'],['learn','Learning'],['fun','Fun']].map(([k,v])=>`<button class="chip ${ytFilter===k?'on':''}" data-yf="${k}">${v}</button>`).join('')}</div>
     <ul class="list">${list.map(v=>{ const id = ytId(v.url); return `<li class="item ${v.watched?'done':''}">
       ${S.thumbs && id ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="" width="96" height="54" style="border-radius:12px;object-fit:cover;flex:none" loading="lazy" referrerpolicy="no-referrer">` : `<span class="thumb" style="--h:#e0465a">${icon('youtube')}</span>`}
-      <div class="grow"><div class="t">${esc(v.title)}</div><div class="s">${v.kind==='learn'?'📚 Learning':'🍿 Fun'} · ${fmtMin(v.mins)}</div></div>
+      <div class="grow"><div class="t">${emo(v.title)}</div><div class="s">${v.kind==='learn'?'📚 Learning':'🍿 Fun'} · ${fmtMin(v.mins)}</div></div>
       ${v.url ? `<a class="btn sm" href="${esc(v.url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}
       <button class="btn sm" data-yw="${v.id}">${v.watched?'Unwatch':'Watched'}</button><button class="iconbtn" data-ydel="${v.id}" aria-label="Delete">${icon('trash')}</button></li>`; }).join('') || empty('No videos saved. Paste a link to start your list.')}</ul>`)}
   ${card('c12', 'Learn on YouTube — quick searches', `<div class="tiles">${YT_SEARCHES.map(([n,q])=>`<a class="tile" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}">${icon('youtube')}<span>${esc(n)}</span></a>`).join('')}</div>`)}
@@ -642,7 +691,7 @@ const BADGES = [
   {name:'Level Up', icon:'badge', unit:'level', t:[5, 10, 25, MAX_LEVEL], v:() => level().lv},
 ];
 function badgeState(b) {
-  if (isOwner) return {tier:3, val:b.t[3], next:null};
+  if (isOwner) return {tier:3, val:b.unit === 'level' ? OWNER_LEVEL : b.t[3], next:null};
   const val = b.v(); let tier = -1; b.t.forEach((x, i) => { if (val >= x) tier = i; });
   return {tier, val, next:tier < 3 ? b.t[tier + 1] : null};
 }
@@ -651,25 +700,65 @@ VIEWS.badges = () => {
   const earned = st.filter(([, x]) => x.tier >= 0).length + (isOwner ? 1 : 0), diamonds = st.filter(([, x]) => x.tier === 3).length;
   const total = BADGES.length + (isOwner ? 1 : 0);
   return `<div class="grid">
-  ${card('c12', '', `<div class="pc">
-    <span class="avatar big${isOwner ? ' gold' : ''}">${esc(displayName().charAt(0).toUpperCase())}</span>
-    <div class="grow"><div class="row" style="gap:10px"><h2>${esc(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
+  ${card('c12', '', `${isOwner && M.banner ? `<div class="pc-banner"><img src="${M.banner}" alt=""></div>` : ''}<div class="pc">
+    <span class="avatar big${isOwner ? ' gold' : ''}">${avatarInner()}</span>
+    <div class="grow"><div class="row" style="gap:10px"><h2>${emo(displayName())}</h2>${isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : ''}${u ? '' : '<span class="tag">Guest</span>'}</div>
       <p class="muted" style="margin:4px 0 12px">Level ${L.lv}${L.max ? ' (max)' : ''} · ${earned}/${total} badges · ${diamonds} Diamond</p>
       <div class="meter" style="max-width:440px"><i style="width:${L.max ? 100 : L.xp / L.need * 100}%"></i></div>
       <p class="muted small" style="margin:6px 0 0">${L.max ? 'Max level reached. Legendary.' : `${L.xp} / ${L.need} XP to level ${L.lv + 1}`}</p></div>
     ${u ? '' : '<button class="btn primary" data-open-auth="signup">Create account</button>'}</div>`)}
+  ${studioCards()}
   ${card('c12', 'Badges', `<div class="badges">
     ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : ''}
     ${st.map(([b, x]) => `<div class="badge-tile ${x.tier < 0 ? 'locked' : 'tier-' + x.tier}"${x.tier >= 0 ? ` style="--tc:${TIERS[x.tier][1]}"` : ''}>
       <span class="medal">${icon(b.icon)}</span><b>${b.name}</b><span class="tier">${x.tier < 0 ? 'Locked' : TIERS[x.tier][0]}</span>
-      <p class="muted small">${x.next == null ? `Top tier · ${x.val} ${b.unit}` : `${Math.min(x.val, x.next)} / ${x.next} ${b.unit} for ${TIERS[x.tier + 1][0]}`}</p>
+      <p class="muted small">${b.unit === 'level' ? (x.next == null ? `Top tier · Level ${x.val}` : `Level ${x.val} of ${x.next} for ${TIERS[x.tier + 1][0]}`) : x.next == null ? `Top tier · ${x.val} ${b.unit}` : `${Math.min(x.val, x.next)} / ${x.next} ${b.unit} for ${TIERS[x.tier + 1][0]}`}</p>
       ${x.next == null ? '' : `<div class="meter"><i style="width:${Math.min(100, x.val / x.next * 100)}%"></i></div>`}</div>`).join('')}
   </div>`, `<span class="tag p">${diamonds}/${BADGES.length} Diamond</span>`)}
   ${card('c12', 'How badges work', `<div class="legend">${TIERS.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}</div>
-    <p class="muted small" style="margin:10px 0 0">Every badge has four tiers. Study, focus, play, watch and help others to climb them. Level ${MAX_LEVEL} is the max level.</p>`)}
+    <p class="muted small" style="margin:10px 0 0">Every badge has four tiers. Study, focus, play, watch and help others to climb them. Level ${isOwner ? OWNER_LEVEL : MAX_LEVEL} is the max level.</p>`)}
   </div>`;
 };
-BIND.badges = m => m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp';
+function studioCards() {
+  if (!isOwner) return ''; // owner only: nobody else gets these controls
+  return `${card('c6', 'Customize profile', `
+    <div class="studio-row"><span class="avatar big gold">${avatarInner()}</span><div class="grow"><b>Profile picture</b><p class="muted small">PNG, JPG, WebP or an animated GIF. Up to 8 MB.</p>
+      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upPfp" accept="${IMG_ACCEPT}" hidden></label>${M.pfp ? '<button class="btn sm" id="rmPfp">Remove</button>' : ''}</div></div></div>
+    <div class="studio-row"><div class="banner-thumb">${M.banner ? `<img src="${M.banner}" alt="">` : '<span class="muted small">No banner</span>'}</div><div class="grow"><b>Banner</b><p class="muted small">A picture or an animated GIF. Wide images (3:1) look best. Up to 15 MB.</p>
+      <div class="row"><label class="btn sm primary">${icon('upload')}Upload<input type="file" id="upBanner" accept="${IMG_ACCEPT}" hidden></label>${M.banner ? '<button class="btn sm" id="rmBanner">Remove</button>' : ''}</div></div></div>
+    <p class="err" id="studioErr" role="alert"></p>`, `<span class="tag owner">${icon('crown')}Owner only</span>`)}
+  ${card('c6', 'Custom emoji', `<form class="row" id="emoForm"><input id="emoName" maxlength="26" placeholder="Name, e.g. gg" aria-label="Emoji name"><label class="btn primary">${icon('upload')}Choose image<input type="file" id="emoFile" accept="${IMG_ACCEPT}" hidden></label></form>
+    <p class="muted small">Still images and animated GIFs both work (up to 2 MB). Type <b>:name:</b> in tasks, game, series or video titles to use one. Click an emoji to copy its code.</p>
+    <p class="err" id="emoErr" role="alert"></p>
+    <div class="emoji-grid">${S.emoji.filter(e => M.emoji.has(e.name)).map(e => `<div class="emo-tile"><button type="button" class="emo-copy" data-copy=":${e.name}:" title="Copy :${e.name}:"><img src="${M.emoji.get(e.name)}" alt=":${e.name}:"></button>
+      <span class="small">:${e.name}:</span><span class="tag ${e.live ? 'p' : ''}">${e.live ? 'Live' : 'Still'}</span><button class="iconbtn" data-emodel="${e.id}" aria-label="Delete :${e.name}:">${icon('trash')}</button></div>`).join('') || empty('No emoji yet. Type a name, then choose an image.')}</div>`,
+    `<span class="tag p">${S.emoji.length}/100</span>`)}`;
+}
+BIND.badges = m => {
+  m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  if (!isOwner) return;
+  const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); };
+  const upload = (sel, kind, done) => { const inp = $(sel); inp.onchange = async () => {
+    const f = inp.files[0]; inp.value = ''; if (!f) return; $('#studioErr').textContent = '';
+    try { const {blob} = await prepImage(f, kind); await mediaPut(kind, blob); await refresh(); toast(done); }
+    catch (e) { $('#studioErr').textContent = e && e.message ? e.message : 'Could not save that image in this browser.'; } }; };
+  upload('#upPfp', 'pfp', 'Profile picture updated'); upload('#upBanner', 'banner', 'Banner updated');
+  const remove = (sel, kind) => { const b = $(sel); if (b) b.onclick = async () => { await mediaDel(kind).catch(() => {}); await refresh(); }; };
+  remove('#rmPfp', 'pfp'); remove('#rmBanner', 'banner');
+  $('#emoForm').onsubmit = e => { e.preventDefault(); $('#emoFile').click(); };
+  $('#emoFile').onchange = async () => {
+    const f = $('#emoFile').files[0]; $('#emoFile').value = ''; const err = $('#emoErr'); err.textContent = ''; if (!f) return;
+    const name = $('#emoName').value.trim().toLowerCase().replace(/^:+|:+$/g, '');
+    if (!/^[a-z0-9_]{2,24}$/.test(name)) return err.textContent = 'Type a name first: 2–24 letters, numbers or _.';
+    if (S.emoji.some(x => x.name === name)) return err.textContent = `:${name}: already exists. Pick another name.`;
+    if (S.emoji.length >= 100) return err.textContent = 'You have 100 emoji, the limit. Delete one first.';
+    try { const {blob, live} = await prepImage(f, 'emoji'); const id = uid(); await mediaPut('emoji:' + id, blob); S.emoji.push({id, name, live}); save(); await refresh(); toast(`:${name}: added`); }
+    catch (e) { err.textContent = e && e.message ? e.message : 'Could not save that image in this browser.'; }
+  };
+  m.querySelectorAll('[data-emodel]').forEach(b => b.onclick = async () => { const id = b.dataset.emodel; await mediaDel('emoji:' + id).catch(() => {}); S.emoji = S.emoji.filter(x => x.id !== id); save(); await refresh(); });
+  m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; try { navigator.clipboard.writeText(t).then(() => toast(`Copied ${t}`), () => toast(`Type ${t} to use it`)); } catch { toast(`Type ${t} to use it`); } });
+};
 
 /* settings */
 function accountCard() {
@@ -688,8 +777,8 @@ function accountCard() {
 }
 function ownerCard() {
   return card('c6', 'Owner', isOwner
-    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: max level, every badge at Diamond and the Founder badge.</p><button class="btn" id="ownOff">Turn off owner status</button>`
-    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock max level and every badge.</p>
+    ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level 100, every badge at Diamond, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
+    : `<p class="muted" style="margin-top:-6px">If you own LevelUp Life, enter your owner key to unlock level 100, every badge and the owner extras.</p>
       <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner key" aria-label="Owner key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
 }
 VIEWS.options = () => `<div class="grid">
@@ -729,6 +818,7 @@ BIND.options = m => {
     $('#acDelete').onclick = () => {
       if (!armedDel) { armedDel = true; $('#acDelete').innerHTML = `${icon('trash')}Click again to delete account`; setTimeout(() => { armedDel = false; const b = $('#acDelete'); if (b) b.innerHTML = `${icon('trash')}Delete account`; }, 5000); return; }
       try { localStorage.removeItem(keyFor(u.username)); } catch {}
+      mediaWipe();
       delete ACC.users[u.username.toLowerCase()]; switchTo(null); toast('Account deleted');
     };
   }
@@ -751,7 +841,7 @@ BIND.options = m => {
   let armed = false;
   $('#stWipe').onclick = () => {
     if (!armed) { armed = true; $('#stWipe').innerHTML = `${icon('trash')}Click again to delete everything`; setTimeout(() => { armed = false; const b = $('#stWipe'); if (b) b.innerHTML = `${icon('trash')}Delete all my data`; }, 5000); return; }
-    try { localStorage.removeItem(KEY); } catch {} S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
+    try { localStorage.removeItem(KEY); } catch {} mediaWipe(); S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
   $('#stCopy').onclick = () => { const t = JSON.stringify(S); const fb = () => { const a = $('#stBackupText'); a.hidden = false; a.value = t; a.select(); toast('Select all and copy the text below'); };
     try { navigator.clipboard.writeText(t).then(() => toast('Backup copied — paste it into a text file to keep it'), fb); } catch { fb(); } };
 };
@@ -893,7 +983,7 @@ function openAuth(t = 'signup') {
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);
-  resetTimers(); S = clean(loadJSON(KEY, {})); isOwner = false;
+  resetTimers(); S = clean(loadJSON(KEY, {})); isOwner = false; clearMedia();
   resumeFocus(); if (S.run.game) startGame(S.run.game.game, S.run.game.start);
   init(); verifyOwner();
 }

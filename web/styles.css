@@ -273,6 +273,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
     color:var(--muted);text-decoration:none;font:inherit;font-size:.72rem;background:none;border:0;cursor:pointer}
   .bottomnav .active{color:var(--text);background:rgba(111,78,246,.2)}
   .foot{justify-content:center;text-align:center}
+  .card>.pc-banner{margin:-18px -18px 16px;height:120px}
 }
 @media (max-width:640px){
   .item{flex-wrap:wrap}
@@ -283,6 +284,24 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
   .card-h{flex-wrap:wrap}
 }
 @media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.switch{display:none}}
+/* owner extras: profile picture, banner, emoji */
+.avatar{overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.card>.pc-banner{margin:-24px -24px 20px;height:200px;border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;border-bottom:1px solid var(--line)}
+.pc-banner img{width:100%;height:100%;object-fit:cover;display:block}
+.studio-row{display:flex;gap:18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.studio-row:last-of-type{border-bottom:0}
+.studio-row .grow{flex:1;min-width:0}
+.studio-row p{margin:4px 0 10px}
+.banner-thumb{width:84px;height:84px;flex:none;border-radius:16px;overflow:hidden;background:var(--soft2);display:grid;place-items:center;text-align:center}
+.banner-thumb img{width:100%;height:100%;object-fit:cover}
+.emoji{height:1.4em;width:auto;vertical-align:-.32em;margin:0 1px}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px;margin-top:6px}
+.emo-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:1px solid var(--line);border-radius:18px;background:var(--soft);text-align:center;min-width:0}
+.emo-tile .small{overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
+.emo-copy{background:none;border:0;padding:4px;border-radius:12px;cursor:pointer}
+.emo-copy:hover{background:var(--soft2)}
+.emo-copy img{width:56px;height:56px;object-fit:contain;display:block}
 /* accounts, owner and badges */
 .peekwrap{position:relative;display:block;min-width:0}
 .field>.peekwrap{padding-left:0}
