@@ -56,6 +56,12 @@ h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em}
 .pillnav{display:flex;gap:2px;padding:5px;border:1px solid var(--line2);border-radius:var(--pill);
   background:var(--soft);overflow-x:auto;scrollbar-width:none;max-width:100%}
 .pillnav::-webkit-scrollbar{display:none}
+.pillnav.compact a svg{display:none}
+.pillnav.measure a{transition:none}
+.pillnav.fade-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent)}
+.pillnav.fade-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px);mask-image:linear-gradient(90deg,transparent,#000 48px)}
+.pillnav.fade-l.fade-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent)}
+.pillnav.dragging{cursor:grabbing;user-select:none}.pillnav.dragging a{pointer-events:none}
 .pillnav a{display:flex;align-items:center;gap:8px;padding:10px 15px;border-radius:var(--pill);
   color:var(--muted);text-decoration:none;font-size:.98rem;white-space:nowrap;position:relative;transition:.2s}
 .pillnav a:hover{color:var(--text)}

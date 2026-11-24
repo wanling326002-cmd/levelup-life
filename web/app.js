@@ -1600,8 +1600,40 @@ function paintPalette() {
 function runPal(i) { const a = pal[i]; if (!a) return; closePalette(); a.run(); }
 
 /* ---------- global events ---------- */
+/* top menu: hide the icons when they don't fit, then let the mouse wheel (or a drag) scroll it sideways */
+function navScroll() {
+  const nav = $('#nav'); if (!nav) return;
+  const fades = () => { const max = nav.scrollWidth - nav.clientWidth;
+    nav.classList.toggle('fade-l', nav.scrollLeft > 2); nav.classList.toggle('fade-r', max > 2 && nav.scrollLeft < max - 2); };
+  const fit = () => { // measured with animations paused, so a link halfway through a size change can't fool it
+    nav.classList.add('measure'); nav.classList.remove('compact');
+    if (nav.scrollWidth > nav.clientWidth + 1) nav.classList.add('compact');
+    void nav.offsetWidth; nav.classList.remove('measure'); fades(); };
+  nav.addEventListener('wheel', e => {
+    const max = nav.scrollWidth - nav.clientWidth; if (max <= 0) return; // nothing to scroll: leave the page alone
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const step = d * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? nav.clientWidth : 1);
+    e.preventDefault(); nav.scrollLeft += step; // while the mouse is over the menu, the wheel moves the menu
+  }, {passive:false});
+  let drag = null;
+  nav.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || e.button !== 0) return; drag = {x:e.clientX, left:nav.scrollLeft, moved:false}; });
+  window.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 5) drag.moved = true; if (drag.moved) { nav.scrollLeft = drag.left - dx; nav.classList.add('dragging'); } });
+  window.addEventListener('pointerup', () => { if (!drag) return; const moved = drag.moved; drag = null; nav.classList.remove('dragging');
+    if (moved) nav._dragEnd = Date.now(); });
+  nav.addEventListener('click', e => { if (Date.now() - (nav._dragEnd || 0) < 80) { e.preventDefault(); e.stopPropagation(); } }, true); // a drag is not a click
+  nav.addEventListener('scroll', fades, {passive:true});
+  let lastW = -1; // re-fit whenever the top bar changes width (window resize, scrollbar appearing, fonts loading)
+  let fitT = 0;
+  const refit = () => { const w = nav.parentElement.clientWidth; if (w !== lastW) { lastW = w; clearTimeout(fitT); fitT = setTimeout(fit, 60); } }; // wait for the new layout to settle
+  if ('ResizeObserver' in window) new ResizeObserver(refit).observe(nav.parentElement);
+  window.addEventListener('resize', () => { lastW = -1; refit(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  fit();
+}
 function events() {
   window.addEventListener('hashchange', route);
+  navScroll();
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
