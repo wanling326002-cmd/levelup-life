@@ -169,6 +169,7 @@ async function verifyOwner() { // checks both roles
   try { adm = !!S.adminProof && safeEq(await sha256(S.adminProof), ADMIN_CHECK); } catch {}
   if (ok !== isOwner || adm !== isAdmin) { isOwner = ok; isAdmin = adm; await loadMedia(); paintPlayer(); if (['home', 'badges', 'options', 'study', 'gaming', 'series', 'youtube', 'chat', 'players'].includes(current)) rerender(); }
   if (S.pub) schedulePublish(4000); // keep the public profile up to date (it skips the upload when nothing changed)
+  if (isOwner || isAdmin) setTimeout(() => loadReports(), 3000); // a dot on Players when there are open reports
 }
 async function claimOwner(key) { // returns 'owner', 'admin' or false
   const n = normKey(key);
@@ -275,6 +276,9 @@ const DEFAULT = {
   modHidden:[],                   // owner/admin: players hidden from the leaderboard
   packHash:'',                    // owner/admin: last published chat emoji pack
   staffAdds:[],                   // the owner/admins who added me (so I'm told only once)
+  toured:false,                   // saw the first-visit tour
+  since:0, lastBackup:0, backupSnooze:0, // backup reminder
+  repAt:[],                       // when I sent reports (a simple rate limit)
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -313,6 +317,9 @@ function clean(raw) {
   d.friends = names(s.friends, 200); d.ignored = names(s.ignored, 200); d.modHidden = names(s.modHidden, 500);
   d.packHash = /^[0-9a-f]{64}$/.test(s.packHash || '') ? s.packHash : '';
   d.staffAdds = names(s.staffAdds, 50);
+  d.toured = s.toured === true || d.xp >= 60; // people who already use the app don't need the tour
+  d.since = num(s.since, 0, 0, 1e15) || Date.now(); d.lastBackup = num(s.lastBackup, 0, 0, 1e15); d.backupSnooze = num(s.backupSnooze, 0, 0, 1e15);
+  d.repAt = arr(s.repAt).map(x => num(x, 0, 0, 1e15)).filter(x => x > Date.now() - 864e5).slice(-20);
   const r = s.run || {};
   if (r.game && num(r.game.start, 0, 0, 1e15) > 0) d.run.game = {start:num(r.game.start, 0, 0, 1e15), game:str(r.game.game, 60) || 'Gaming'};
   if (r.focus && ['work', 'short', 'long'].includes(r.focus.mode) && num(r.focus.end, 0, 0, 1e15) > 0) d.run.focus = {mode:r.focus.mode, end:num(r.focus.end, 0, 0, 1e15)};
@@ -405,8 +412,9 @@ function showMatch() {
 const rerender = () => render();
 
 /* ---------- small components ---------- */
-const card = (cls, title, body, extra = '') => `<section class="card ${cls}">${title ? `<div class="card-h"><h3>${title}</h3>${extra}</div>` : ''}${body}</section>`;
+const card = (cls, title, body, extra = '') => `<section class="card ${cls}">${title ? `<div class="card-h"><h2>${title}</h2>${extra}</div>` : ''}${body}</section>`;
 const empty = t => `<div class="empty">${t}</div>`;
+const emptyLi = t => `<li class="empty">${t}</li>`; // the same, for use inside a list
 function lineChart(series) {
   const W = 600, H = 150, pad = 12;
   const max = Math.max(30, ...series.flatMap(s => s.data));
@@ -432,7 +440,9 @@ VIEWS.home = () => {
   const hr = new Date().getHours();
   const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   return `<div class="grid">
-  ${card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h3 style="margin-top:14px;font-size:1.3rem">Analytics</h3><div class="muted">Last 7 days</div>
+  ${needBackup() ? `<section class="card c12 backup-note" role="note">${icon('download')}<div class="grow"><b>Back up your progress</b><p class="muted small" style="margin:2px 0 0">${S.lastBackup ? `Your last backup was ${Math.floor((Date.now() - S.lastBackup) / 864e5)} days ago.` : 'You have never made a backup.'} Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.</p></div>
+    <div class="row"><button type="button" class="btn primary sm" data-backup="now">${icon('download')}Download backup</button><button type="button" class="btn sm" data-backup="later">Remind me next week</button></div></section>` : ''}
+  ${card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`)}
@@ -482,7 +492,7 @@ VIEWS.study = () => {
       <div class="lessons">${mod.l.map(([name,url],li)=>{ const id=lessonId(t,mi,li); return `<label><input type="checkbox" class="check" data-lesson="${id}" ${S.lessons[id]?'checked':''}><span>${esc(name)}</span><a href="${url}" target="_blank" rel="noopener">Open ↗</a></label>`; }).join('')}</div></details>`; }).join('')}`)}
   <div class="c4" style="display:grid;gap:22px;align-content:start">
   ${card('', 'Study tasks', `<form class="row" id="taskForm"><input id="taskIn" placeholder="e.g. Finish flexbox exercise" maxlength="120" aria-label="New task"><button class="iconbtn" aria-label="Add task">${icon('plus')}</button></form>
-    <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${emo(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('No tasks yet. Add your first one above.')}</ul>`)}
+    <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${emo(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || emptyLi('No tasks yet. Add your first one above.')}</ul>`)}
   ${card('', 'Study tips', `<ul class="tips">
     <li>Build tiny projects. You learn fastest by making things.</li><li>Use 25-minute Focus sessions, then take a real break.</li>
     <li>Recreate a menu or HUD from your favourite game in HTML &amp; CSS.</li><li>Watch a tutorial once, then rebuild it without looking.</li>
@@ -606,7 +616,7 @@ VIEWS.gaming = () => {
     <select id="bStatus" style="flex:0 0 160px" aria-label="Status"><option value="backlog">Backlog</option><option value="playing">Playing</option><option value="finished">Finished</option></select><button class="btn primary">${icon('plus')}Add game</button></form>
     <ul class="list" style="margin-top:12px">${S.backlog.map(b=>`<li class="item"><span class="thumb" style="--h:${hue(b.title)}">${esc(b.title.charAt(0).toUpperCase())}</span><div class="grow"><div class="t">${emo(b.title)}</div><div class="s">${esc(b.platform||'—')} · ${fmtMin(S.log.filter(x=>x.cat==='play'&&x.g===b.title).reduce((a,x)=>a+x.m,0))} logged</div></div>
       <select data-bstat="${b.id}" style="flex:0 0 140px;padding:7px 34px 7px 14px" aria-label="Status">${Object.entries(st).map(([k,[n]])=>`<option value="${k}" ${b.status===k?'selected':''}>${n}</option>`).join('')}</select>
-      <button class="iconbtn" data-bdel="${b.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('Your library is empty. Add the games you are playing or want to play.')}</ul>`)}
+      <button class="iconbtn" data-bdel="${b.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || emptyLi('Your library is empty. Add the games you are playing or want to play.')}</ul>`)}
   </div>`;
 };
 BIND.gaming = m => {
@@ -641,7 +651,7 @@ VIEWS.series = () => {
       ${s.status!=='done'?`<button class="btn sm" data-sep="${s.id}" title="Mark next episode watched">+1 ep</button>`:''}
       <button class="iconbtn" data-snext="${s.id}" title="Next season" aria-label="Next season">S+</button>
       <select data-sstat="${s.id}" aria-label="Status" style="flex:0 0 140px;padding:7px 34px 7px 14px">${Object.entries(st).map(([k,v])=>`<option value="${k}" ${s.status===k?'selected':''}>${v}</option>`).join('')}</select>
-      <button class="iconbtn" data-sdel="${s.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || empty('Nothing here yet. Add the series you are watching.')}</ul>`)}
+      <button class="iconbtn" data-sdel="${s.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || emptyLi('Nothing here yet. Add the series you are watching.')}</ul>`)}
   ${card('c12', 'Healthy binge tip', `<p class="muted" style="margin:0">Every episode you mark counts ${S.epLen} minutes of watch time (change it in Settings). Try "one episode = one task": finish a study task, then reward yourself with an episode.</p>`)}
   </div>`;
 };
@@ -671,7 +681,7 @@ VIEWS.youtube = () => {
       ${S.thumbs && id ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="" width="96" height="54" style="border-radius:12px;object-fit:cover;flex:none" loading="lazy" referrerpolicy="no-referrer">` : `<span class="thumb" style="--h:#e0465a">${icon('youtube')}</span>`}
       <div class="grow"><div class="t">${emo(v.title)}</div><div class="s">${v.kind==='learn'?'📚 Learning':'🍿 Fun'} · ${fmtMin(v.mins)}</div></div>
       ${v.url ? `<a class="btn sm" href="${esc(v.url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}
-      <button class="btn sm" data-yw="${v.id}">${v.watched?'Unwatch':'Watched'}</button><button class="iconbtn" data-ydel="${v.id}" aria-label="Delete">${icon('trash')}</button></li>`; }).join('') || empty('No videos saved. Paste a link to start your list.')}</ul>`)}
+      <button class="btn sm" data-yw="${v.id}">${v.watched?'Unwatch':'Watched'}</button><button class="iconbtn" data-ydel="${v.id}" aria-label="Delete">${icon('trash')}</button></li>`; }).join('') || emptyLi('No videos saved. Paste a link to start your list.')}</ul>`)}
   ${card('c12', 'Learn on YouTube — quick searches', `<div class="tiles">${YT_SEARCHES.map(([n,q])=>`<a class="tile" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}">${icon('youtube')}<span>${esc(n)}</span></a>`).join('')}</div>`)}
   </div>`;
 };
@@ -857,6 +867,7 @@ async function unlockSignKey(key) {
     const d = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(OWNER_SIGN.iv)}, aes, unb64(OWNER_SIGN.ct)));
     const k = await crypto.subtle.importKey('jwk', {...OWNER_PUB, d}, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
     C.signKey = k; try { await mediaPut('signkey', k); } catch {}
+    try { await mediaPut('ownerdh', await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:OWNER_PUB.x, y:OWNER_PUB.y, d}, {name:'ECDH', namedCurve:'P-256'}, false, ['deriveKey'])); } catch {} // to open reports
     return true;
   } catch { return false; }
 }
@@ -867,6 +878,7 @@ async function unlockAdminSignKey(key) {
     const d = new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(ADMIN_SIGN.iv)}, aes, unb64(ADMIN_SIGN.ct)));
     const k = await crypto.subtle.importKey('jwk', {...ADMIN_PUB, d}, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
     C.adminSignKey = k; try { await mediaPut('adminsignkey', k); } catch {}
+    try { await mediaPut('admindh', await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:ADMIN_PUB.x, y:ADMIN_PUB.y, d}, {name:'ECDH', namedCurve:'P-256'}, false, ['deriveKey'])); } catch {} // to open reports
     return true;
   } catch { return false; }
 }
@@ -942,6 +954,7 @@ async function pullChat() {
       if (m.k === 'unmute' && (m.owner || muted.get(ref) === 'admin')) muted.delete(ref);
     }
     C.muted = muted;
+    C.modlog = all.filter(m => (m.owner || m.admin) && m.k !== 'msg').map(m => ({a:m.k, u:m.k === 'hide' ? ((byId.get(m.ref) || {}).n || 'a message') : m.ref, by:m.n, role:m.owner ? 'owner' : 'admin', ts:m.at, chat:true}));
     C.msgs = all.filter(m => { if (m.k !== 'msg' || hidden.has(m.id)) return false; const n = m.n.toLowerCase();
       if (m.owner) return true;
       if (m.admin) return muted.get(n) !== 'owner';
@@ -969,7 +982,7 @@ function paintChat() {
   list.innerHTML = C.msgs.map(m => { const p = chatPlayer(m), cm = ` data-cm="${esc(m.id)}"`; // every name opens a profile card (with Add friend)
     return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? shared(p.pf) : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
     <div class="grow"><div class="msg-h"><button type="button" class="name-btn"${cm} title="View profile · add friend"><b>${esc(m.n)}</b></button>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
-    ${canMod() && (canHide(m) || canMute(m)) ? `<span class="msg-tools">${canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}</span>` : ''}</div>
+    <span class="msg-tools">${canMod() && canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMod() && canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}${m.n !== displayName() && !m.owner ? `<button type="button" class="linkbtn small rep-btn" data-repmsg="${esc(m.id)}" aria-label="Report this message">Report</button>` : ''}</span></div>
     <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
   $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
@@ -982,6 +995,7 @@ const CHAT_RULES = `<ul class="tips">
   <li>Don't click links from people you don't know.</li>
   <li>The owner and admins can hide messages and mute names for everyone.</li>
   <li>Click a name to open that player's profile (players with a public profile).</li>
+  <li>See something wrong? Press <b>Report</b> on a message. Only the owner and admins can read reports.</li>
   <li>Names with "owner" or "admin" in them can't post.</li></ul>`;
 VIEWS.chat = () => {
   if (!C.room) return `<div class="grid">
@@ -1067,7 +1081,7 @@ const PLAYERS = 'Players', USER_OK = /^[a-z0-9_]{3,20}$/, DATA_IMG = /^data:imag
 const DATA_MEDIA = /^data:(image\/(webp|png|jpeg|gif)|video\/webm);base64,[A-Za-z0-9+/=]+$/;
 const shared = src => src.startsWith('data:video/') ? `<video src="${src}" autoplay muted loop playsinline disablepictureinpicture aria-hidden="true"></video>` : `<img src="${src}" alt="">`;
 const pid = u => 'p-' + u;
-const PL = {list:[], by:new Map(), at:0, loading:null, hidden:new Map(), packs:{owner:new Map(), admin:new Map()}, packAt:0, keys:new Map(), status:'', tab:'all', q:'', timer:null};
+const PL = {list:[], by:new Map(), modlog:[], at:0, loading:null, hidden:new Map(), packs:{owner:new Map(), admin:new Map()}, packAt:0, keys:new Map(), status:'', tab:'all', q:'', timer:null};
 const TH = {key:'', pf:'', bn:''};
 let pubBusy = false, openU = '', openNote = '', openName = '';
 const myU = () => me() ? me().username.toLowerCase() : '';
@@ -1239,10 +1253,12 @@ async function loadPlayers(force) {
       const list = [];
       for (const it of items) { const p = await readProfile(it); if (p && !p.gone) list.push(p); }
       const by = new Map(list.map(p => [p.u, p])), hidden = new Map();
+      const modlog = [];
       for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (!m) continue;
+        cleanLog(m.log).forEach(e => modlog.push({...e, role:m.role}));
         for (const u of arr(m.hidden)) { const p = by.get(u); if (!p || p.role === 'owner') continue; if (m.role === 'owner') hidden.set(u, 'owner'); else if (!p.role && !hidden.has(u)) hidden.set(u, 'admin'); } }
       list.sort((a, b) => b.lv - a.lv || b.xp - a.xp || a.n.localeCompare(b.n));
-      Object.assign(PL, {list, by, hidden, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot(); staffNotice();
+      Object.assign(PL, {list, by, hidden, modlog, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot(); staffNotice();
     } catch { PL.status = 'offline'; if (!PL.at) PL.at = 0; }
     finally { PL.loading = null; }
     return PL.list;
@@ -1287,17 +1303,19 @@ async function changeFriend(u, act) {
     toast(!ok ? "Saved here. It will sync when the leaderboard can be reached." : act === 'add' ? (isFriend(friendState(u)) ? `You and ${u} are now friends!` : `Friend request sent to ${u}${wentPublic ? ' · your profile is now public' : ''}`) : `Removed ${u}`); }
   repaintSocial(); reqDot(); if (wentPublic && current === 'players') rerender();
 }
-function reqDot() { // a dot on the Players menu item when someone sent you a friend request
-  const n = me() ? friendRequests().length : 0;
-  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${n} friend request${n === 1 ? '' : 's'}` : 'Players'; });
+function reqDot() { // a dot on the Players menu item for friend requests (and open reports, for the owner/admins)
+  const fr = me() ? friendRequests().length : 0, rp = isOwner || isAdmin ? RP.list.length : 0, n = fr + rp;
+  const msg = [fr ? `${fr} friend request${fr === 1 ? '' : 's'}` : '', rp ? `${rp} open report${rp === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');
+  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${msg}` : 'Players'; });
 }
 async function setHidden(u, hide) {
   const st = await staffKey(); if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
-  const [role, key] = st, cur = new Set(S.modHidden);
+  const [role, key] = st, cur = new Set(S.modHidden); let log = [];
   try {
-    for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (m && m.role === role) arr(m.hidden).forEach(x => USER_OK.test(x) && cur.add(x)); }
+    for (const it of await queryItems({kind:'mod'}, 10)) { const m = await readStaff(it, 'mod'); if (m && m.role === role) { arr(m.hidden).forEach(x => USER_OK.test(x) && cur.add(x)); log = cleanLog(m.log); } }
     hide ? cur.add(u) : cur.delete(u); S.modHidden = [...cur].slice(-500); save();
-    const d = JSON.stringify({v:1, role, hidden:S.modHidden, ts:Date.now()});
+    log.push({a:hide ? 'hide' : 'show', u, by:displayName().slice(0, 24), ts:Date.now()});
+    const d = JSON.stringify({v:1, role, hidden:S.modHidden, log:log.slice(-100), ts:Date.now()});
     await saveItem('mod-' + role, 'mod', sealed(d, await signText(key, d)));
     await loadPlayers(true); toast(hide ? `${u} is hidden from the leaderboard` : `${u} is back on the leaderboard`);
   } catch { toast("Couldn't reach the leaderboard. Try again."); }
@@ -1340,8 +1358,8 @@ const chatEmoji = m => m.owner ? (isOwner && M.emoji.size ? M.emoji : PL.packs.o
 function emojiPicker() {
   const mine = (isOwner || isAdmin) ? S.emoji.filter(e => M.emoji.has(e.name)) : [];
   return `<div class="emo-pick" id="emoPick" hidden role="dialog" aria-label="Emoji">
-    ${mine.length ? `<h4>Your emoji</h4><div class="emo-grid">${mine.map(e => `<button type="button" data-ins=":${e.name}:" title=":${e.name}:"><img src="${M.emoji.get(e.name)}" alt=":${e.name}:"></button>`).join('')}</div>` : ''}
-    ${EMOJI.map(([h, list]) => `<h4>${h}</h4><div class="emo-grid">${list.split(' ').map(e => `<button type="button" data-ins="${e}" aria-label="${e}">${e}</button>`).join('')}</div>`).join('')}</div>`;
+    ${mine.length ? `<p class="emo-h">Your emoji</p><div class="emo-grid">${mine.map(e => `<button type="button" data-ins=":${e.name}:" title=":${e.name}:"><img src="${M.emoji.get(e.name)}" alt=":${e.name}:"></button>`).join('')}</div>` : ''}
+    ${EMOJI.map(([h, list]) => `<p class="emo-h">${h}</p><div class="emo-grid">${list.split(' ').map(e => `<button type="button" data-ins="${e}" aria-label="${e}">${e}</button>`).join('')}</div>`).join('')}</div>`;
 }
 async function linkChat() { // a name in chat links to a profile only when the message was signed by that player's key
   const todo = C.msgs.filter(m => m.u && m.ps && m.pv === undefined); if (!todo.length) return;
@@ -1371,7 +1389,7 @@ function friendButtons(u, sm = '') {
 const privateCardHTML = (u, name) => `<div class="pm-body"><div class="row" style="gap:14px;flex-wrap:nowrap"><span class="avatar big" style="background:${hue(u)}">${esc(name.charAt(0).toUpperCase())}</span><div style="min-width:0"><h2>${esc(name)}</h2><p class="muted small" style="margin:2px 0 0">@${esc(u)} · no public profile yet</p></div></div>
   <p class="muted" style="margin:0">${u === myU() ? 'This is you. Make your profile public on the Players page so others can open it and add you.' : isOwner || isAdmin ? `${esc(name)} keeps their profile private. Their stats are stored only on their own device and were never uploaded, so they can't be shown here, not even to the owner. You can still add them: as ${isOwner ? 'the owner' : 'an admin'}, they become your friend right away, no request needed.` : `${esc(name)} hasn't made their profile public, so there are no stats to show yet. You can still send a friend request: they'll see it on their Players page and can accept it there.`}</p>
   ${me() && !S.pub && u !== myU() ? `<p class="muted small" style="margin:0">${SHARED_INFO}</p>` : ''}
-  <div class="row">${friendButtons(u)}</div></div>`;
+  <div class="row">${friendButtons(u)}${u !== myU() ? `<button type="button" class="linkbtn small" data-report="${u}" data-name="${esc(name)}">Report</button>` : ''}</div></div>`;
 function profileHTML(u) {
   const p = PL.by.get(u);
   if (!p) return PL.status === 'offline' && !PL.list.length ? `<div class="pm-body"><h2>${esc(u)}</h2><p class="muted">Can't reach the leaderboard right now. Try again in a moment.</p></div>` : privateCardHTML(u, openName || u);
@@ -1384,7 +1402,7 @@ function profileHTML(u) {
       <div class="stat"><span class="k">Leaderboard</span><span class="v">${hid ? 'Hidden' : pos ? '#' + pos : '–'}</span></div><div class="stat"><span class="k">Friends</span><span class="v">${mutualCount(p)}</span></div></div>
     ${L && L.lv === p.lv ? `<div><div class="meter"><i style="width:${L.xp / L.need * 100}%"></i></div><p class="muted small" style="margin:6px 0 0">${L.xp} / ${L.need} XP to level ${p.lv + 1}</p></div>` : ''}
     <div class="mini-badges">${BADGES.map((b, i) => { const r = RANKS[p.rk[i]]; return `<div class="mini-badge${r ? '' : ' locked'}"${r ? ` style="--tc:${r.color}"` : ''}>${icon(b.icon)}<span><b>${b.name}</b><br><span class="muted">${r ? r.name : 'Locked'}</span></span></div>`; }).join('')}</div>
-    <div class="row">${friendButtons(u)}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}</div>
+    <div class="row">${friendButtons(u)}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}${u !== myU() && p.role !== 'owner' ? `<button type="button" class="linkbtn small" data-report="${u}" data-name="${esc(p.n)}">Report</button>` : ''}</div>
     ${hid && u === myU() ? `<p class="err">A moderator hid you from the leaderboard.</p>` : ''}
     ${openNote ? `<p class="muted small" style="margin:0">${esc(openNote)}</p>` : ''}
   </div>`;
@@ -1401,11 +1419,13 @@ function ensureProfileModal() {
 }
 async function openProfile(u, note = '', name = '') {
   if (!USER_OK.test(u)) return;
-  const m = ensureProfileModal(); openU = u; openNote = note; openName = name; m.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
+  const m = ensureProfileModal(); if (m.hidden) PM.back = document.activeElement; openU = u; openNote = note; openName = name; m.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
   await loadPlayers(); if (openU === u) $('#pmBody').innerHTML = profileHTML(u);
   const c = m.querySelector('.pm-close'); if (c) c.focus();
 }
-function closeProfile() { const m = $('#playerModal'); if (m) m.hidden = true; openU = ''; openNote = ''; openName = ''; }
+const PM = {back:null};
+function closeProfile() { const m = $('#playerModal'), was = m && !m.hidden; if (m) m.hidden = true; openU = ''; openNote = ''; openName = '';
+  if (was && PM.back && document.body.contains(PM.back)) try { PM.back.focus(); } catch {} PM.back = null; }
 const chatPlayer = m => { // the verified profile behind a chat message, if there is one
   if (m.pv) return PL.by.get(m.u) || null;
   if (m.owner || m.admin) { const p = PL.by.get(m.n.toLowerCase()); if (p && p.role === (m.owner ? 'owner' : 'admin')) return p; } // signed by the owner/admin key
@@ -1413,7 +1433,7 @@ const chatPlayer = m => { // the verified profile behind a chat message, if ther
 };
 async function openChatPerson(id) { // clicking a name or picture in chat
   const m = C.msgs.find(x => x.id === id); if (!m) return;
-  const mo = ensureProfileModal(); openU = ''; mo.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
+  const mo = ensureProfileModal(); if (mo.hidden) PM.back = document.activeElement; openU = ''; mo.hidden = false; $('#pmBody').innerHTML = '<div class="pm-body"><p class="muted">Loading profile…</p></div>';
   await loadPlayers();
   if (m.u && m.ps && m.pv === undefined && PL.by.has(m.u)) { m.pv = await verifyWith(PL.by.get(m.u), m.ps, sigText(m) + '|' + m.u); C.pv.set(m.id, m.pv); }
   const p = chatPlayer(m); if (p) return openProfile(p.u);
@@ -1492,7 +1512,10 @@ VIEWS.players = () => {
   ${card('', 'Friends', u ? `<form class="row" id="addFriendForm"><input id="addFriendIn" class="grow" placeholder="Username" maxlength="20" aria-label="Friend's username" autocomplete="off"><button class="btn">${icon('userplus')}Add</button></form>
     <div id="friendsBox" style="margin-top:14px"></div>` : '<p class="muted" style="margin-top:-6px">Make an account to add friends.</p>', '<span class="tag p" id="reqCount" hidden></span>')}
   ${isOwner || isAdmin ? card('', 'Hidden players', '<div id="hiddenBox"></div>', isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : `<span class="tag adm">${icon('shield')}Admin</span>`) : ''}
-  </div></div>`;
+  </div>
+  ${isOwner || isAdmin ? `${card('c7', 'Reports', '<div id="repBox"><p class="muted small" style="margin:0">Loading reports…</p></div>', '<span class="tag p" id="repCount" hidden></span>')}
+  ${card('c5', 'Moderation log', '<ul class="modlog" id="modLog"></ul>')}` : ''}
+  </div>`;
 };
 function stopPlayers() { clearInterval(PL.timer); PL.timer = null; }
 BIND.players = m => {
@@ -1508,7 +1531,8 @@ BIND.players = m => {
     $('#addFriendIn').value = ''; changeFriend(v, 'add'); };
   const hb = $('#hiddenBox'); if (hb) hb.onclick = e => { const b = e.target.closest('[data-hidep2]'); if (b) setHidden(b.dataset.hidep2, false); };
   paintPlayers();
-  loadPlayers(true).then(paintPlayers);
+  loadPlayers(true).then(() => { paintPlayers(); paintMod(); });
+  if (isOwner || isAdmin) loadReports(true).then(paintMod);
   stopPlayers(); PL.timer = setInterval(() => { if (document.visibilityState === 'visible' && current === 'players') loadPlayers(true).then(paintPlayers); }, 30000);
 };
 
@@ -1539,6 +1563,7 @@ function ownerCard() {
 VIEWS.options = () => `<div class="grid">
   ${accountCard()}
   ${ownerCard()}
+  ${appCard()}
   ${card('c6', 'Public profile', `<div class="form">
     <div class="row" style="justify-content:space-between"><span>Show me on the leaderboard<br><span class="muted small">Lets others open your profile and add you as a friend</span></span>${me() ? `<button class="switch" id="stPublic" role="switch" aria-checked="${S.pub}" aria-label="Public profile"><i></i></button>` : '<button class="btn sm" data-open-auth="signup">Create account</button>'}</div>
     <p class="muted small" id="pubStatus" style="margin:0">${pubStatusHTML()}</p>
@@ -1553,7 +1578,7 @@ VIEWS.options = () => `<div class="grid">
     <label class="field"><span>Gaming break reminder every (minutes, 0 = off)</span><input type="number" min="0" max="600" id="stBreak" value="${S.breakEvery}"></label>
     <label class="field"><span>Average episode length (minutes)</span><input type="number" min="1" max="200" id="stEp" value="${S.epLen}"></label>
     <a class="btn" href="#balance">Edit daily goals →</a></div>`)}
-  ${card('c12', 'Your data', `<p class="muted" style="margin-top:-6px">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
+  ${card('c12', 'Your data', `<p class="muted small" style="margin:-6px 0 8px">Last backup: ${S.lastBackup ? new Date(S.lastBackup).toLocaleDateString() : 'never'}</p><p class="muted" style="margin-top:0">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
     <div class="row"><button class="btn" id="stExport">${icon('download')}Export backup (.json)</button>
     <label class="btn" style="cursor:pointer">${icon('upload')}Import backup<input type="file" id="stImport" accept="application/json,.json" hidden></label>
     <button class="btn" id="stCopy">${icon('link')}Copy backup</button>
@@ -1600,14 +1625,15 @@ BIND.options = m => {
   sw('#stNotify', () => { S.notify = !S.notify; if (S.notify && 'Notification' in window && Notification.permission !== 'granted') Notification.requestPermission(); });
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
-  $('#stExport').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
+  const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
+  $('#stExport').onclick = () => { S.lastBackup = Date.now(); save(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
   $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
   let armed = false;
   $('#stWipe').onclick = async () => {
     if (!armed) { armed = true; $('#stWipe').innerHTML = `${icon('trash')}Click again to delete everything`; setTimeout(() => { armed = false; const b = $('#stWipe'); if (b) b.innerHTML = `${icon('trash')}Delete all my data`; }, 5000); return; }
     if (S.pub) { $('#stWipe').disabled = true; S.pub = false; await Promise.race([unpublishProfile().catch(() => {}), new Promise(r => setTimeout(r, 8000))]); } // the public profile goes too
     try { localStorage.removeItem(KEY); } catch {} await mediaWipe(); S = clean({}); resetTimers(); save(); init(); location.hash = '#home'; toast('All data deleted'); };
-  $('#stCopy').onclick = () => { const t = JSON.stringify(S); const fb = () => { const a = $('#stBackupText'); a.hidden = false; a.value = t; a.select(); toast('Select all and copy the text below'); };
+  $('#stCopy').onclick = () => { S.lastBackup = Date.now(); save(); const t = JSON.stringify(S); const fb = () => { const a = $('#stBackupText'); a.hidden = false; a.value = t; a.select(); toast('Select all and copy the text below'); };
     try { navigator.clipboard.writeText(t).then(() => toast('Backup copied — paste it into a text file to keep it'), fb); } catch { fb(); } };
 };
 
@@ -1622,7 +1648,8 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Chat</b> with friends in the Chat tab using an invite code from the owner.</li>
     <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one climbs 24 ranks, from Bronze III to Challenger.</li>
     <li><b style="color:var(--text)">Make an account</b> with a username and password so everyone on this device has their own progress. Email is optional.</li>
-    <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is ever uploaded.</li></ol>`)}
+    <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is uploaded unless you join the chat or make your profile public.</li></ol>
+    <div class="row" style="margin-top:16px"><button type="button" class="btn primary" id="tourBtn">${icon('play')}Take the tour</button><a class="btn" href="#options">Install the app</a></div>`)}
   ${card('c5', 'Keyboard shortcuts', `<div class="keys">
     <span><kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>/</kbd></span><span class="muted">Search & jump anywhere</span>
     <span><kbd>1</kbd> – <kbd>9</kbd></span><span class="muted">Go to tab 1–9 (9 is Badges)</span>
@@ -1649,11 +1676,14 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <h2>4a. Public profile, leaderboard and friends (optional, off by default)</h2>
   <p>If you turn on "Show me on the leaderboard", the app publishes a small public profile to the website host's database (Wix) that <b>anyone can see</b>: your username, level, XP, badge ranks, the usernames you added as friends, and the date you made your account. The owner's and admins' profile picture and banner are shared too. Your tasks, games, series, videos, notes, email and password are <b>never</b> shared.</p>
   <p>Your profile is signed with a key made on your device, so nobody else can edit it. If chat is on, messages you send while public carry your username so others can open your profile. Levels are reported by your own app; the owner and admins can hide a profile from the leaderboard. The owner can add any player as a friend without a request, and admins can do the same for regular players; you'll be told when this happens. Turning the setting off, deleting your account or deleting all your data replaces your public profile with an empty "removed" note.</p>
+  <h2>4c. Reports</h2>
+  <p>If you report a message or a player, the report (the reason, your note, the message, the names involved and your name) is stored on the website host's database <b>encrypted so only the owner and admins can read it</b>. Please only report real problems.</p>
   <h2>4b. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
   <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
-  <li><b>Fonts</b> may be loaded from Google Fonts; if unavailable, your system font is used.</li>
+  <li><b>Fonts</b> are included with the website, so no font requests go to Google.</li>
+  <li><b>Offline copy:</b> on the website, your browser keeps a copy of the app's own files (not your data) so it opens fast and works offline. Clearing site data removes it.</li>
   <li><b>Website hosting:</b> the website version is hosted by Wix, which may record page visits and show a cookie notice. The desktop app does not do this.</li></ul>
   <h2>5. Notifications</h2>
   <p>If you turn on notifications, they are created locally by your device for timers and break reminders. Nothing is sent over the internet.</p>
@@ -1681,6 +1711,8 @@ const ACTIONS = () => [
   {n:'Add a study task', h:'Action', i:'study', run:() => { location.hash = '#study'; setTimeout(() => $('#taskIn')?.focus(), 60); }},
   {n:'Toggle light / dark mode', h:'Action', i:'eye', run:() => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); }},
   ...(me() ? [{n:'Log out', h:'Account', i:'logout', run:() => logout()}] : [{n:'Create account or log in', h:'Account', i:'user', run:() => openAuth('signup')}]),
+  {n:'Take the tour', h:'Help', i:'help', run:() => startTour()},
+  ...(APP.install ? [{n:'Install LevelUp Life', h:'App', i:'download', run:() => installApp()}] : []),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
   ...S.series.map(s => ({n:s.title, h:'Series', i:'series', run:() => location.hash = '#series'})),
   ...S.backlog.map(b => ({n:b.title, h:'Game', i:'gaming', run:() => location.hash = '#gaming'})),
@@ -1692,9 +1724,249 @@ function paintPalette() {
   const q = $('#paletteInput').value.toLowerCase().trim();
   pal = ACTIONS().filter(a => !q || a.n.toLowerCase().includes(q) || a.h.toLowerCase().includes(q)).slice(0, 12);
   palSel = Math.min(palSel, Math.max(0, pal.length - 1));
-  $('#paletteList').innerHTML = pal.map((a, i) => `<li data-i="${i}" class="${i===palSel?'sel':''}">${icon(a.i)}${esc(a.n)}<span class="dim">${a.h}</span></li>`).join('') || '<li class="dim">No matches</li>';
+  $('#paletteList').innerHTML = pal.map((a, i) => `<li data-i="${i}" id="pal-${i}" role="option" aria-selected="${i===palSel}" class="${i===palSel?'sel':''}">${icon(a.i)}${esc(a.n)}<span class="dim">${a.h}</span></li>`).join('') || '<li class="dim" role="option" aria-disabled="true">No matches</li>';
+  $('#paletteInput').setAttribute('aria-activedescendant', pal.length ? `pal-${palSel}` : '');
 }
 function runPal(i) { const a = pal[i]; if (!a) return; closePalette(); a.run(); }
+
+
+/* ---------- app shell: offline, updates and installing ---------- */
+const APP = {install:null, update:false};
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function setupShell() {
+  const bar = document.createElement('div'); bar.className = 'update-bar'; bar.id = 'updateBar'; bar.hidden = true; bar.setAttribute('role', 'status');
+  bar.innerHTML = `<span>A new version of LevelUp Life is ready.</span><button type="button" class="btn sm primary" id="updateBtn">Reload</button><button type="button" class="iconbtn" id="updateLater" aria-label="Later">${icon('x')}</button>`;
+  const chip = document.createElement('div'); chip.className = 'net-chip'; chip.id = 'netChip'; chip.hidden = true; chip.setAttribute('role', 'status');
+  chip.textContent = 'Offline · your progress is still saved on this device';
+  document.body.append(bar, chip);
+  bar.querySelector('#updateBtn').onclick = () => location.reload();
+  bar.querySelector('#updateLater').onclick = () => { bar.hidden = true; };
+  const net = () => { chip.hidden = navigator.onLine; };
+  window.addEventListener('online', () => { net(); toast('Back online'); }); window.addEventListener('offline', net); net();
+  if ('serviceWorker' in navigator && window.isSecureContext && /^https?:$/.test(location.protocol)) { // websites only (not the desktop app)
+    navigator.serviceWorker.register('levelup-sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'update' && !APP.update) { APP.update = true; bar.hidden = false; } });
+  }
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); APP.install = e; if (current === 'options') rerender(); });
+  window.addEventListener('appinstalled', () => { APP.install = null; toast('LevelUp Life is installed'); if (current === 'options') rerender(); });
+}
+async function installApp() {
+  if (!APP.install) { location.hash = '#options'; return; }
+  APP.install.prompt(); const r = await APP.install.userChoice.catch(() => null); APP.install = null;
+  if (r && r.outcome === 'accepted') toast('Installing LevelUp Life…'); if (current === 'options') rerender();
+}
+function appCard() {
+  const body = isStandalone() ? `<p class="muted" style="margin-top:-6px">You're using the installed app. It opens from your desktop or home screen and works offline.</p>`
+    : APP.install ? `<p class="muted" style="margin-top:-6px">Install LevelUp Life to open it from your desktop or home screen like a normal app. It works offline too.</p><button type="button" class="btn primary" id="installBtn">${icon('download')}Install app</button>`
+    : isIOS() ? `<p class="muted" style="margin-top:-6px">To install on iPhone or iPad: tap the <b>Share</b> button in Safari, then <b>Add to Home Screen</b>.</p>`
+    : `<p class="muted" style="margin-top:-6px">To install: in Chrome or Edge, use the install icon at the right of the address bar, or open the browser menu and choose <b>Install LevelUp Life</b>. On Windows you can also use the desktop installer.</p>`;
+  return card('c6', 'App', body + `<p class="muted small" style="margin:12px 0 0">After your first visit the app opens offline too. Chat and Players need the internet.</p>`);
+}
+
+/* ---------- first-visit tour ---------- */
+const isPhone = () => matchMedia('(max-width: 860px)').matches;
+const TOUR = [
+  {t:'Welcome to LevelUp Life! 👋', b:'Here is a quick tour of where everything is. It takes about 30 seconds, and you can skip it any time.'},
+  {sel:() => isPhone() ? '#bottomnav' : '#nav', t:'Pages', b:'Study, Focus, Gaming, Series, YouTube and more. On a computer you can scroll this menu with your mouse wheel.'},
+  {sel:'.profile', t:'Your level', b:'Earn XP by studying, focusing, finishing games and doing good deeds. Click here to see your badges.'},
+  {sel:'#searchBtn', t:'Search everything', b:'Find any page or action. Shortcut: Ctrl + K. The number keys 1 to 9 jump between pages.'},
+  {sel:() => isPhone() ? '#moreBtn' : '#nav [data-route="players"]', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
+  {sel:'a.round[href="#options"]', t:'Settings', b:'Light or dark mode, your account, public profile, backups and installing the app.'},
+  {t:"You're ready! 🎮", b:'Start with today’s quests on the Help the World page, or open Study to pick a track. Have fun!'},
+];
+const TR = {i:-1, el:null, back:null};
+function startTour() {
+  closePalette(); closeProfile(); TR.back = document.activeElement; TR.i = 0;
+  if (!TR.el) {
+    TR.el = document.createElement('div'); TR.el.className = 'tour'; TR.el.hidden = true;
+    TR.el.innerHTML = `<div class="tour-hole" aria-hidden="true"></div><div class="tour-box" role="dialog" aria-modal="true" aria-labelledby="tourT" aria-describedby="tourB">
+      <p class="dim small" id="tourN" style="margin:0"></p><h2 id="tourT"></h2><p id="tourB" class="muted"></p>
+      <div class="row tour-btns"><button type="button" class="linkbtn" id="tourSkip">Skip tour</button><span class="spacer"></span><button type="button" class="btn sm" id="tourBack">Back</button><button type="button" class="btn sm primary" id="tourNext">Next</button></div></div>`;
+    document.body.append(TR.el);
+    TR.el.querySelector('#tourSkip').onclick = () => endTour();
+    TR.el.querySelector('#tourBack').onclick = () => { if (TR.i > 0) { TR.i--; paintTour(); } };
+    TR.el.querySelector('#tourNext').onclick = () => { if (TR.i < TOUR.length - 1) { TR.i++; paintTour(); } else endTour(); };
+    window.addEventListener('resize', () => { if (TR.i >= 0) paintTour(); });
+  }
+  TR.el.hidden = false; paintTour();
+}
+function paintTour() {
+  const s = TOUR[TR.i], sel = typeof s.sel === 'function' ? s.sel() : s.sel, target = sel ? $(sel) : null;
+  const hole = TR.el.querySelector('.tour-hole'), box = TR.el.querySelector('.tour-box');
+  TR.el.querySelector('#tourN').textContent = `Step ${TR.i + 1} of ${TOUR.length}`;
+  TR.el.querySelector('#tourT').textContent = s.t; TR.el.querySelector('#tourB').textContent = s.b;
+  TR.el.querySelector('#tourBack').disabled = TR.i === 0;
+  TR.el.querySelector('#tourNext').textContent = TR.i === TOUR.length - 1 ? 'Finish' : 'Next';
+  if (target && target.getClientRects().length) { // (pinned elements like the phone menu have no offsetParent)
+    if (target.closest('#nav') && target !== $('#nav')) target.scrollIntoView({block:'nearest', inline:'nearest'});
+    const r = target.getBoundingClientRect(), pad = 6;
+    TR.el.classList.remove('center'); hole.style.display = 'block';
+    Object.assign(hole.style, {left:`${r.left - pad}px`, top:`${r.top - pad}px`, width:`${r.width + pad * 2}px`, height:`${r.height + pad * 2}px`});
+    const bw = box.offsetWidth, bh = box.offsetHeight, below = r.bottom + 16 + bh < innerHeight;
+    box.style.top = `${below ? r.bottom + 16 : Math.max(12, r.top - 16 - bh)}px`;
+    box.style.left = `${Math.min(Math.max(12, r.left + r.width / 2 - bw / 2), innerWidth - bw - 12)}px`;
+  } else { TR.el.classList.add('center'); hole.style.display = 'none'; box.style.top = box.style.left = ''; }
+  TR.el.querySelector('#tourNext').focus();
+}
+function endTour() {
+  if (!TR.el || TR.i < 0) return;
+  TR.el.hidden = true; TR.i = -1; if (!S.toured) { S.toured = true; save(); }
+  if (TR.back && TR.back.focus) try { TR.back.focus(); } catch {}
+}
+function maybeTour() { // new players only; automated test browsers are skipped so they can click freely
+  if (S.toured || navigator.webdriver || !ACC.current || !$('#consent').hidden) return;
+  setTimeout(() => { if (!S.toured && TR.i < 0 && $('#consent').hidden) startTour(); }, 700);
+}
+
+/* ---------- keep keyboard focus inside open pop-ups ---------- */
+function openDialog() {
+  if (TR.el && !TR.el.hidden) return TR.el.querySelector('.tour-box');
+  for (const sel of ['#playerModal', '#consent', '#palette']) { const d = $(sel); if (d && !d.hidden) return d.querySelector('.modal-box, .palette-box') || d; }
+  return null;
+}
+function trapFocus(e) {
+  if (e.key !== 'Tab') return; const d = openDialog(); if (!d) return;
+  const f = [...d.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (!d.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
+/* ---------- backup reminder ---------- */
+const hasData = () => S.xp >= 100 || S.tasks.length + S.series.length + S.backlog.length + S.yt.length >= 3 || Object.keys(S.lessons).length >= 2;
+const needBackup = () => hasData() && Date.now() - Math.max(S.lastBackup, S.since) > 14 * 864e5 && Date.now() > S.backupSnooze;
+function downloadBackup() {
+  S.lastBackup = Date.now(); save();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'}));
+  a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Backup downloaded. Keep the file somewhere safe.');
+}
+
+/* ---------- reports: encrypted so only the owner and admins can read them ---------- */
+const REASONS = ['Spam', 'Bullying or hate', 'Inappropriate name or picture', 'Cheating', 'Something else'];
+const RP = {list:[], log:[], at:0, need:false, loading:null};
+async function sealForStaff(obj) { // a fresh key per report, wrapped for the owner key and the admin key
+  const eph = await crypto.subtle.generateKey({name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey']), epk = await crypto.subtle.exportKey('jwk', eph.publicKey);
+  const cek = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt']), raw = await crypto.subtle.exportKey('raw', cek);
+  const iv = crypto.getRandomValues(new Uint8Array(12)), ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, cek, enc.encode(JSON.stringify(obj)));
+  const keys = {};
+  for (const [role, pub] of [['owner', OWNER_PUB], ['admin', ADMIN_PUB]]) {
+    const pk = await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:pub.x, y:pub.y}, {name:'ECDH', namedCurve:'P-256'}, false, []);
+    const kek = await crypto.subtle.deriveKey({name:'ECDH', public:pk}, eph.privateKey, {name:'AES-GCM', length:256}, false, ['encrypt']);
+    const kiv = crypto.getRandomValues(new Uint8Array(12)); keys[role] = {iv:b64(kiv), ct:b64(await crypto.subtle.encrypt({name:'AES-GCM', iv:kiv}, kek, raw))};
+  }
+  return {v:1, epk:{x:epk.x, y:epk.y}, iv:b64(iv), ct:b64(ct), keys};
+}
+async function openSealed(env, role, dh) {
+  const w = env.keys && env.keys[role]; if (!w || !env.epk) return null;
+  const epk = await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:env.epk.x, y:env.epk.y}, {name:'ECDH', namedCurve:'P-256'}, false, []);
+  const kek = await crypto.subtle.deriveKey({name:'ECDH', public:epk}, dh, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const raw = await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(w.iv)}, kek, unb64(w.ct));
+  const cek = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(env.iv)}, cek, unb64(env.ct))));
+}
+function openReport(target) { // target: {u, name, msg?}
+  const m = ensureProfileModal(); if (m.hidden) PM.back = document.activeElement; openU = ''; m.hidden = false;
+  $('#pmBody').innerHTML = `<div class="pm-body"><h2>Report ${esc(target.name)}</h2>
+    <p class="muted" style="margin:0">Reports go privately to the owner and admins. Only they can read them.</p>
+    ${target.msg ? `<blockquote class="rep-quote">${esc(target.msg.t)}</blockquote>` : ''}
+    <form class="form" id="repForm"><fieldset class="rep-reasons"><legend>What's wrong?</legend>${REASONS.map((r, i) => `<label class="row"><input type="radio" name="repWhy" value="${i}"${i ? '' : ' checked'}> ${r}</label>`).join('')}</fieldset>
+    <label class="field"><span>Anything else the owner should know? (optional)</span><textarea id="repNote" maxlength="300" rows="3"></textarea></label>
+    <p class="err" id="repErr" role="alert"></p>
+    <div class="row"><button class="btn primary">Send report</button><button type="button" class="btn" data-close-pm>Cancel</button></div></form></div>`;
+  $('#repForm').onsubmit = async e => {
+    e.preventDefault(); const err = $('#repErr'); err.textContent = '';
+    S.repAt = S.repAt.filter(x => x > Date.now() - 864e5);
+    if (S.repAt.length && Date.now() - S.repAt[S.repAt.length - 1] < 60000) return err.textContent = 'Please wait a minute before sending another report.';
+    if (S.repAt.length >= 10) return err.textContent = "You've sent a lot of reports today. Please try again tomorrow.";
+    const btn = e.target.querySelector('.btn.primary'); btn.disabled = true;
+    try {
+      const why = +(($('input[name="repWhy"]:checked') || {}).value || 0);
+      const env = await sealForStaff({v:1, target:{u:target.u || '', name:target.name}, msg:target.msg ? {t:target.msg.t.slice(0, 500), at:target.msg.at || 0} : null,
+        reason:why, note:$('#repNote').value.replace(/\p{Cc}/gu, ' ').trim().slice(0, 300), by:{name:displayName().slice(0, 24), u:myU()}, ts:Date.now()});
+      await saveItem('rep-' + randHex(8), 'report', JSON.stringify({v:1, env}));
+      S.repAt.push(Date.now()); save(); closeProfile(); toast('Report sent. Thank you for helping keep LevelUp Life friendly.');
+    } catch { btn.disabled = false; err.textContent = "Couldn't send the report. Check your connection and try again."; }
+  };
+  setTimeout(() => { const r = $('input[name="repWhy"]'); if (r) r.focus(); }, 30);
+}
+async function reportMsg(id) { // make sure we know which player sent it (their signature is checked first)
+  const m = C.msgs.find(x => x.id === id); if (!m) return;
+  if (m.u && m.ps && m.pv === undefined) { await loadPlayers(); const p = PL.by.get(m.u); if (p) { m.pv = await verifyWith(p, m.ps, sigText(m) + '|' + m.u); C.pv.set(m.id, m.pv); } }
+  const p = chatPlayer(m); openReport({u:p ? p.u : '', name:m.n, msg:{t:m.t, at:m.at}});
+}
+const repTarget = r => r.u || (PL.by.has(r.name.toLowerCase()) ? r.name.toLowerCase() : ''); // a public player with that name
+const cleanLog = v => arr(v).filter(e => e && ['hide', 'show'].includes(e.a) && USER_OK.test(e.u) && num(e.ts, 0, 0, 1e15) > 0).map(e => ({a:e.a, u:e.u, by:str(e.by, 24), ts:num(e.ts, 0, 0, 1e15)})).slice(-100);
+async function loadReports(force) {
+  if (!(isOwner || isAdmin)) return;
+  if (!force && Date.now() - RP.at < 30000) return; if (RP.loading) return RP.loading;
+  RP.loading = (async () => {
+    try {
+      const role = isOwner ? 'owner' : 'admin'; let dh = null; try { dh = await mediaGet(role + 'dh'); } catch {}
+      RP.need = !dh; const items = [];
+      for (let off = 0; off < 500; off += 100) { const got = await queryItems({kind:'report'}, 100, off); items.push(...got); if (got.length < 100) break; }
+      const list = [], log = [];
+      for (const it of items) {
+        try {
+          const id = String(it.id || (it.data || {})._id), w = JSON.parse(String((it.data || {}).payload || ''));
+          if (w.res) { // handled: signed by the owner or an admin
+            if (['owner', 'admin'].includes(w.role) && await verifyWith(w.role === 'owner' ? OWNER_PUB : ADMIN_PUB, String(w.sig), `res|${id}|${w.ts}|${w.act}|${w.u || ''}`))
+              log.push({a:w.act === 'hidden' ? 'report-hide' : 'report-done', u:str(w.u, 24) || 'a player', by:str(w.by, 24), role:w.role, ts:num(w.ts, 0, 0, 1e15)});
+          } else if (w.env && dh) {
+            const r = await openSealed(w.env, role, dh); if (!r || !r.target) continue;
+            list.push({id, reason:REASONS[num(r.reason, 4, 0, 4)], u:USER_OK.test(r.target.u) ? r.target.u : '', name:str(r.target.name, 24), msg:r.msg ? str(r.msg.t, 500) : '',
+              note:str(r.note, 300), by:str(r.by && r.by.name, 24), byU:r.by && USER_OK.test(r.by.u) ? r.by.u : '', ts:num(r.ts, 0, 0, 1e15)});
+          }
+        } catch {}
+      }
+      RP.list = list.sort((a, b) => b.ts - a.ts); RP.log = log; RP.at = Date.now();
+    } catch {}
+    finally { RP.loading = null; }
+    reqDot();
+  })();
+  return RP.loading;
+}
+async function resolveReport(id, act) {
+  const r = RP.list.find(x => x.id === id), st = await staffKey(); if (!r) return;
+  if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
+  try {
+    const tu = repTarget(r); if (act === 'hidden' && tu) await setHidden(tu, true);
+    const ts = Date.now(), by = displayName().slice(0, 24), sig = await signText(st[1], `res|${id}|${ts}|${act}|${r.u || r.name}`);
+    await saveItem(id, 'report', JSON.stringify({v:1, res:true, role:st[0], act, u:r.u || r.name, by, ts, sig}));
+    RP.list = RP.list.filter(x => x.id !== id); RP.log.push({a:act === 'hidden' ? 'report-hide' : 'report-done', u:r.u || r.name, by, role:st[0], ts});
+    toast(act === 'hidden' ? `Report handled · ${r.name} is hidden from the leaderboard` : 'Report marked as handled'); reqDot(); paintMod();
+  } catch { toast("Couldn't reach the server. Try again."); }
+}
+const MOD_WORDS = {hide:'hid', show:'showed again', mute:'muted', unmute:'unmuted', 'report-done':'handled a report about', 'report-hide':'hid (after a report)'};
+function paintMod() {
+  const box = $('#repBox'), lg = $('#modLog'); if (!box) return;
+  const rc = $('#repCount'); if (rc) { rc.textContent = RP.list.length; rc.hidden = !RP.list.length; }
+  box.innerHTML = RP.need ? `<p class="muted" style="margin-top:0">Enter your ${isOwner ? 'owner' : 'admin'} key once on this device to open reports. Reports are encrypted so only the owner and admins can read them.</p>
+      <form class="row" id="repKeyForm"><input id="repKeyIn" type="password" autocomplete="off" placeholder="${isOwner ? 'Owner' : 'Admin'} key" aria-label="${isOwner ? 'Owner' : 'Admin'} key"><button class="btn">Unlock reports</button></form>`
+    : RP.list.map(r => `<div class="rep"><div class="row" style="gap:8px"><b>${esc(r.reason)}</b><span class="dim small">${fmtTime(r.ts)}</span></div>
+      <p class="small" style="margin:0">About ${repTarget(r) ? `<button type="button" class="linkbtn" style="padding:0" data-player="${repTarget(r)}">${esc(r.name)}</button>` : `<b>${esc(r.name)}</b>`} · reported by ${r.byU ? `<button type="button" class="linkbtn" style="padding:0" data-player="${r.byU}">${esc(r.by)}</button>` : esc(r.by)}</p>
+      ${r.msg ? `<blockquote class="rep-quote">${esc(r.msg)}</blockquote>` : ''}${r.note ? `<p class="muted small" style="margin:0">“${esc(r.note)}”</p>` : ''}
+      <div class="row"><button type="button" class="btn sm" data-repres="${esc(r.id)}" data-act="done">${icon('check')}Mark handled</button>${repTarget(r) && canHidePlayer(PL.by.get(repTarget(r))) ? `<button type="button" class="btn sm danger" data-repres="${esc(r.id)}" data-act="hidden">Hide from leaderboard</button>` : ''}</div></div>`).join('')
+    || '<p class="muted small" style="margin:0">No open reports. 🎉</p>';
+  const kf = $('#repKeyForm'); if (kf) kf.onsubmit = async e => { e.preventDefault(); toast('Checking key…');
+    const ok = isOwner ? await unlockSignKey($('#repKeyIn').value) : await unlockAdminSignKey($('#repKeyIn').value);
+    if (!ok) return toast('That key is not right.'); await loadReports(true); paintMod(); toast('Reports unlocked'); };
+  if (!lg) return;
+  const all = [...PL.modlog, ...RP.log, ...(C.modlog || [])].filter(e => e.ts).sort((a, b) => b.ts - a.ts).slice(0, 60);
+  lg.innerHTML = all.map(e => `<li>${e.role === 'owner' ? icon('crown') : icon('shield')}<span><b>${esc(e.by || (e.role === 'owner' ? 'Owner' : 'Admin'))}</b> ${MOD_WORDS[e.a] || esc(e.a)} <b>${esc(e.u)}</b>${e.chat ? ' <span class="muted">in chat</span>' : ''}</span><span class="dim small">${fmtTime(e.ts)}</span></li>`).join('')
+    || '<li class="muted small">Nothing yet. Hides, mutes and handled reports show up here.</li>';
+}
+document.addEventListener('click', e => {
+  const t = e.target;
+  const b = t.closest('[data-backup]'); if (b) { if (b.dataset.backup === 'now') downloadBackup(); else { S.backupSnooze = Date.now() + 7 * 864e5; save(); toast("OK, I'll remind you next week"); } if (current === 'home') rerender(); return; }
+  const rp = t.closest('[data-report]'); if (rp) { openReport({u:rp.dataset.report, name:rp.dataset.name || rp.dataset.report}); return; }
+  const rm = t.closest('[data-repmsg]'); if (rm) { reportMsg(rm.dataset.repmsg); return; }
+  const rs = t.closest('[data-repres]'); if (rs) { resolveReport(rs.dataset.repres, rs.dataset.act); return; }
+  if (t.closest('#tourBtn')) startTour();
+});
 
 /* ---------- global events ---------- */
 /* top menu: hide the icons when they don't fit, then let the mouse wheel (or a drag) scroll it sideways */
@@ -1730,7 +2002,8 @@ function navScroll() {
 }
 function events() {
   window.addEventListener('hashchange', route);
-  navScroll();
+  navScroll(); setupShell();
+  document.addEventListener('keydown', trapFocus);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
@@ -1747,7 +2020,7 @@ function events() {
     else if (e.key === 'Enter') runPal(palSel);
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
+    if (e.key === 'Escape') { endTour(); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;
     if (typing || e.ctrlKey || e.metaKey) return;
@@ -1776,7 +2049,7 @@ function events() {
 /* ---------- sign up / log in ---------- */
 const fails = {n:0, until:0};
 function setAuthTab(t) {
-  $$('[data-auth]').forEach(b => b.classList.toggle('on', b.dataset.auth === t));
+  $$('[data-auth]').forEach(b => { b.classList.toggle('on', b.dataset.auth === t); b.setAttribute('aria-selected', String(b.dataset.auth === t)); });
   $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login';
   $('#suErr').textContent = ''; $('#liErr').textContent = '';
   hidePeeks($('#consent'));
@@ -1837,6 +2110,7 @@ function resetTimers() {
 function init() {
   applyTheme(); paintPlayer(); route();
   if (me() && (S.pub || S.friends.length || S.staffAdds.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
+  maybeTour();
   if (ACC.current) $('#consent').hidden = true; else openAuth('signup');
 }
 buildNav(); events();

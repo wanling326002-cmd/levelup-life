@@ -6,8 +6,13 @@
 <title>LevelUp Life</title>
 <meta name="description" content="Balance gaming, series and YouTube with learning, focus and doing good. All data stays on your device.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#06060b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LevelUp">
+<script>/* load the font early on the website (the desktop app reads local files, which can't be preloaded) */
+if (location.protocol !== 'file:') { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous'; l.href = 'fonts/outfit.woff2'; document.head.appendChild(l); }</script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -33,12 +38,14 @@
     </a>
   </header>
 
+  <main class="page">
   <div class="pagehead">
     <h1 id="pageTitle">Home</h1>
     <p id="pageSub" class="muted"></p>
   </div>
 
-  <main id="main" tabindex="-1"></main>
+  <div id="main" tabindex="-1"></div>
+  </main>
 </div>
 
 <footer class="foot">
@@ -50,8 +57,8 @@
 
 <div class="palette" id="palette" hidden>
   <div class="palette-box glass" role="dialog" aria-label="Search">
-    <input id="paletteInput" placeholder="Jump to a tab or action…  (Esc to close)" autocomplete="off">
-    <ul id="paletteList"></ul>
+    <input id="paletteInput" placeholder="Jump to a tab or action…  (Esc to close)" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list" aria-label="Search pages and actions">
+    <ul id="paletteList" role="listbox" tabindex="0" aria-label="Results"></ul>
   </div>
 </div>
 
@@ -67,7 +74,7 @@
     <div class="orb small" aria-hidden="true"><i></i><i></i><i></i></div>
     <h2 id="authTitle">Welcome to LevelUp Life</h2>
     <p class="muted">Track games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
-    <div class="seg" role="tablist"><button type="button" class="on" data-auth="signup">Create account</button><button type="button" data-auth="login">Log in</button></div>
+    <div class="seg" role="tablist" aria-label="Account"><button type="button" role="tab" aria-selected="true" class="on" data-auth="signup">Create account</button><button type="button" role="tab" aria-selected="false" data-auth="login">Log in</button></div>
     <form id="signupForm" class="form" novalidate>
       <label class="field"><span>Username</span><input id="suUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _"></label>
       <label class="field"><span>Password</span><input id="suPass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></label>

@@ -1,0 +1,21 @@
+{
+  "name": "LevelUp Life",
+  "short_name": "LevelUp",
+  "description": "Balance gaming, series and YouTube with learning, focus and doing good.",
+  "start_url": "./#home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#06060b",
+  "theme_color": "#06060b",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ],
+  "shortcuts": [
+    {"name": "Study", "url": "./#study", "icons": [{"src": "icon-192.png", "sizes": "192x192"}]},
+    {"name": "Focus timer", "url": "./#focus", "icons": [{"src": "icon-192.png", "sizes": "192x192"}]},
+    {"name": "Chat", "url": "./#chat", "icons": [{"src": "icon-192.png", "sizes": "192x192"}]},
+    {"name": "Players", "url": "./#players", "icons": [{"src": "icon-192.png", "sizes": "192x192"}]}
+  ]
+}
