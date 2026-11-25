@@ -77,6 +77,7 @@ const P = {
   home:'<rect x="3" y="3" width="7" height="7" rx="3.5"/><rect x="14" y="3" width="7" height="7" rx="3.5"/><rect x="3" y="14" width="7" height="7" rx="3.5"/><rect x="14" y="14" width="7" height="7" rx="3.5"/>',
   study:'<path d="M2 9 12 4l10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/>',
   focus:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
+  companion:'<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5.5 8 9s-8 4-8 9M16 3c0 5-8 5.5-8 9s8 4 8 9"/>',
   gaming:'<rect x="2" y="7" width="20" height="11" rx="5.5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.5" r=".6"/><circle cx="18" cy="13.5" r=".6"/>',
   series:'<rect x="3" y="5" width="18" height="13" rx="3"/><path d="M8 21h8M10 9.5v5l4-2.5z"/>',
   youtube:'<rect x="2" y="5" width="20" height="14" rx="5"/><path d="m10 9 5 3-5 3z"/>',
@@ -113,6 +114,7 @@ const ROUTES = [
   {id:'study', name:'Study Path', short:'Study', sub:'Learn Web Design & App Development, step by step.', key:'2', main:true},
   {id:'focus', name:'Focus', sub:'Pomodoro timer — deep work, then a real break.', key:'3', main:true},
   {id:'gaming', name:'Gaming', sub:'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
+  {id:'companion', name:'Game Time', sub:'Automatic game tracking and daily play limits, with the Windows app.', main:true},
   {id:'series', name:'Series', sub:'Never forget which episode you are on.', key:'5', main:true},
   {id:'youtube', name:'YouTube', sub:'Save videos to learn from — or just enjoy.', key:'6', main:true},
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
@@ -475,7 +477,7 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); if (current !== 'messages') stopDM(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+function render() { if (current !== 'companion') stopGameTime(); if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); if (current !== 'messages') stopDM(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
 
 /* show / hide buttons on every password box, so people can check what they typed */
 function addPeek(root = document) {
@@ -690,6 +692,7 @@ VIEWS.gaming = () => {
   const wk = week('play'), tot = wk.reduce((a,b)=>a+b,0), playedToday = minsOn(today(),'play');
   const st = {playing:['Playing','p'], backlog:['Backlog','y'], finished:['Finished','g']};
   return `<div class="grid">
+  ${card('c12', '', `<div class="row gt-promo">${icon('companion')}<span class="grow"><b>Track games automatically</b><br><span class="muted small">The free Windows app counts your game time on its own and reminds you of daily limits.</span></span><a class="btn" href="#companion">Open Game Time</a></div>`)}
   ${card('c5', 'Session tracker', `<div style="text-align:center"><div style="font-size:3rem;font-weight:500;letter-spacing:.05em;margin:6px 0" id="gClock">00:00:00</div>
     <input id="gGame" list="gList" placeholder="Which game?" maxlength="60" value="${esc(G.game)}" style="margin-bottom:14px" ${G.start?'disabled':''}>
     <datalist id="gList">${S.backlog.map(b=>`<option value="${esc(b.title)}">`).join('')}</datalist>
@@ -1768,6 +1771,7 @@ BIND.options = m => {
 /* help */
 VIEWS.help = () => `<div class="grid">
   ${card('c7', 'How to use LevelUp Life', `<ol class="muted" style="padding-left:20px;margin:0;display:grid;gap:10px">
+    <li><b style="color:var(--text)">Game Time</b> counts your game time automatically with the free Windows app and reminds you of your daily limits.</li>
     <li><b style="color:var(--text)">Pick a study track</b> in Study Path (Web Design or App Development) and tick lessons as you finish them.</li>
     <li><b style="color:var(--text)">Start a Focus session</b> when you study. Finished sessions give XP and count toward your goal.</li>
     <li><b style="color:var(--text)">Track your fun</b>: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.</li>
@@ -1793,7 +1797,7 @@ VIEWS.help = () => `<div class="grid">
 
 /* privacy */
 VIEWS.privacy = () => card('c12', '', `${LANG !== 'en' ? '<p class="muted" style="margin-top:0">The Privacy Terms are shown in English.</p>' : ''}<div class="prose" translate="no">
-  <p class="dim small">Last updated: 24 November 2026 (public profiles, leaderboard and friends added)</p>
+  <p class="dim small">Last updated: 25 November 2026 (Game Time companion for Windows added; earlier: public profiles, leaderboard and friends added)</p>
   <h2>1. The short version</h2>
   <p>LevelUp Life is a local-first app. <b>Everything you type stays on your own device.</b> We do not have servers that store your data, we do not require an account, and we do not use analytics, trackers, cookies for advertising, or sell anything about you.</p>
   <h2>2. What data the app stores</h2>
@@ -1814,7 +1818,16 @@ VIEWS.privacy = () => card('c12', '', `${LANG !== 'en' ? '<p class="muted" style
   <p>If you join a study group, your display name, your focus timer (focusing, on a break or paused, and when it ends) and how many sessions you did today are shared with everyone who has the group code, encrypted with that code. When you leave, it is removed from the group.</p>
   <h2>4e. Online accounts (optional)</h2>
   <p>If you make an online account, your email address and password are handled by Wix (the website host) so you can log in on other devices. Before your progress is uploaded, it is <b>encrypted on your device with a key made from your password</b>, so Wix and the owner can't read it. If you reset your password, you can unlock your saved progress once with the old password, or start fresh. The sign-up and login form uses Google reCAPTCHA (“I'm not a robot”), which loads only on that form and follows Google's privacy policy. Deleting your account here clears your online copy; to remove the login itself, ask the owner.</p>
-  <h2>4f. Third-party content</h2>
+  <h2>4f. Game Time companion for Windows (optional)</h2>
+  <p>The optional Windows app recognises games by reading the names and locations of running programs, using the lowest access level Windows offers. It does not read game memory, inject code, change game files, look at network traffic or interfere with anti-cheat, and it never asks for game account passwords. It always shows a tray icon while it runs, and you can pause tracking or quit at any time.</p>
+  <ul><li><b>Kept on your PC</b> (in your Windows user profile): your tracked games with their program names and install folders, your play sessions (start and end times) for 120 days, your limits and settings. The website sign-in is stored encrypted with Windows' own protection (DPAPI).</li>
+  <li><b>Sent to the website, only if you connect an online account:</b> tracked games' names and program names, session start and end times, your limits, time zone and reminder setting, your PC's name, the app version, whether tracking is on and which game is playing now. Never a list of your other programs, install folders, screenshots, keystrokes, chats or game accounts. It is sent over HTTPS.</li>
+  <li><b>Who can see it:</b> only your account. As the site's operator, the owner can technically reach this database in the Wix dashboard to run and protect the service, but uses it for nothing else. It is not sold or shared, and unlike your saved progress it is not end-to-end encrypted.</li>
+  <li><b>Why:</b> to show your playtime and daily limits in the app and on the website. Limits are reminders only; games are never closed or blocked.</li>
+  <li><b>How long:</b> on your PC for 120 days; online until you delete it. Use "Delete game history" on the Game Time page, disconnect a PC from the website or the app, or uninstall the app.</li>
+  <li><b>Your rights (POPIA, South Africa):</b> you may ask what is held about you, have it corrected or deleted, object to its use, and complain to the Information Regulator (inforegulator.org.za). Most of this you can do yourself on the Game Time page; for anything else, contact the site owner.</li>
+  <li><b>Children:</b> if you are under 18, ask a parent or guardian before connecting the app to an online account.</li></ul>
+  <h2>4g. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
   <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
@@ -2546,6 +2559,312 @@ async function finishOnline(P) {
 }
 function openOnline(mode, connect) { OL.mode = mode || 'signup'; OL.connect = connect || ''; OL.step = 'form'; openAuth('online'); }
 async function cloudTombstone(u) { try { const k = await mediaGet('cloudkey'); if (k) await cloudPut(u, await sealCloud(k, {v:1, deleted:true, at:Date.now()}), Date.now()); } catch {} }
+
+/* ---------- Game Time: automatic game tracking and daily play limits ----------
+   One page, two sources:
+   - In the Windows app, the data comes from the tracker on this PC (window.levelupDesktop).
+   - On the website, it comes from what the app synced to the member's own collections (online accounts only).
+   Both are turned into the same model and drawn by the same code, using CompanionCore for days, overlaps and limits. */
+const GT_DOWNLOAD = 'https://github.com/wanling326002-cmd/levelup-life/releases/latest/download/LevelUp-Life-Setup.exe';
+const GT_RELEASES = 'https://github.com/wanling326002-cmd/levelup-life/releases/latest';
+const GT_FRESH_MS = 150000; // a PC that checked in within 2.5 minutes counts as connected
+const GT = {model: null, loading: false, error: '', timer: null, live: null, desk: null, unsub: null, remote: null, editing: false};
+const desktop = () => window.levelupDesktop && window.levelupDesktop.isDesktop ? window.levelupDesktop : null;
+if (desktop()) desktop().setLang(LANG).catch(() => {}); // the tray, notifications and splash use the same language
+const CC = () => window.CompanionCore;
+const gtSource = s => ({steam:'Steam', epic:'Epic Games', xbox:'Xbox / Game Pass', gog:'GOG', ea:'EA app', ubisoft:'Ubisoft Connect', battlenet:'Battle.net', riot:'Riot', rockstar:'Rockstar', bethesda:'Bethesda', other:'Installed game', manual:'Added by you'}[s] || 'Game');
+const gtDur = ms => fmtMin(Math.floor(Math.max(0, ms) / 60000));
+const gtClock = ms => CC().fmtClock(ms);
+const gtTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+const gtLoc = () => LANG === 'zh' ? 'zh-CN' : LANG; // dates follow the language picked in Settings
+const gtDay = (day, o) => new Date(day + 'T12:00:00Z').toLocaleDateString(gtLoc(), {...o, timeZone: 'UTC'});
+const gtAgo = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? 'just now' : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : fmtTime(ms); };
+
+/* ---------- loading ---------- */
+function stopGameTime() { clearInterval(GT.timer); GT.timer = null; clearInterval(GT.live); GT.live = null; if (GT.unsub) { GT.unsub(); GT.unsub = null; } }
+function startGameTime() {
+  stopGameTime();
+  const d = desktop();
+  if (d) { GT.unsub = d.onUpdate(p => { GT.desk = p; gtSetModel(gtFromDesktop(p)); }); GT.timer = setInterval(() => gtLoad(), 5000); }
+  else GT.timer = setInterval(() => { if (document.visibilityState === 'visible') gtLoad(); }, 15000); // the website refreshes every 15 seconds
+  GT.live = setInterval(gtTickLive, 1000);
+  gtLoad();
+}
+async function gtLoad() {
+  if (GT.loading) return; GT.loading = true;
+  try {
+    const d = desktop();
+    if (d) { GT.desk = await d.snapshot(); gtSetModel(gtFromDesktop(GT.desk)); }
+    else if (isOnlineAcc() && canOnline()) { GT.remote = await gtFetchRemote(); gtSetModel(gtFromRemote(GT.remote)); }
+    else gtSetModel({mode: 'setup'});
+    GT.error = '';
+  } catch (e) { GT.error = "Couldn't load your game time right now. It will try again."; if (!GT.model) gtSetModel({mode: 'setup'}); else paintGtError(); }
+  finally { GT.loading = false; }
+}
+function gtSetModel(m) {
+  const same = GT.model && JSON.stringify({...GT.model, now: 0}) === JSON.stringify({...m, now: 0});
+  GT.model = m;
+  if (current !== 'companion' || same) return;
+  const a = document.activeElement; // don't redraw under someone typing a limit
+  if (a && a.closest && a.closest('#main') && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { GT.dirty = true; return; }
+  rerender();
+}
+function paintGtError() { const el = $('#gtErr'); if (el) el.textContent = GT.error; }
+
+// The website reads the member's own data: devices, settings and the last 14 days of sessions.
+async function gtFetchRemote() {
+  const u = me(), token = await memberToken(u), q = (id, query) => wixPost('/wix-data/v2/items/query', {dataCollectionId: id, query}, token);
+  const [dev, cfg] = await Promise.all([q('CompanionDevices', {paging: {limit: 20}}), q('CompanionConfig', {sort: [{fieldName: 'updatedAt', order: 'DESC'}], paging: {limit: 1}})]);
+  const cItem = (cfg.dataItems || [])[0];
+  let config = null; try { config = cItem ? JSON.parse(cItem.data.data) : null; } catch {}
+  const tz = config && config.tz && CC().validTz(config.tz) ? config.tz : gtTz();
+  const today = CC().dayKey(Date.now(), tz), days = Array.from({length: 14}, (_, i) => CC().addDays(today, -i));
+  const segs = [];
+  for (let off = 0; off < 5000; off += 1000) {
+    const j = await q('GameSessions', {filter: {day: {$in: days}}, paging: {limit: 1000, offset: off}});
+    const items = j.dataItems || []; segs.push(...items.map(i => ({id: i.id, ...i.data})));
+    if (items.length < 1000) break;
+  }
+  return {devices: (dev.dataItems || []).map(i => ({itemId: i.id, ...i.data})), config, configId: cItem ? cItem.id : null, segs, tz, today};
+}
+
+/* ---------- the shared model ---------- */
+function gtFromDesktop(p) {
+  const s = p.snap, st = p.status;
+  return {mode: 'desktop', now: s.now, tz: s.tz, today: s.day, paused: s.paused, todayMs: s.todayMs, overall: s.overall, week: s.week, hist: s.hist,
+    playing: s.playing.map(x => ({name: x.name, since: x.since, live: true})),
+    games: p.games.map(g => { const t = s.games.find(x => x.id === g.id) || {}; return {...g, todayMs: t.todayMs || 0, limit: t.limit || CC().limitStatus(0, 0), playing: !!t.playing, sessionMs: t.sessionMs || 0}; }),
+    settings: {...p.settings, startup: p.startup}, conn: {state: st.state, member: st.member, error: st.error, lastSync: st.lastSync},
+    device: p.device, version: p.version, scan: p.scan, reader: p.processReader, updateReady: p.updateReady};
+}
+function gtFromRemote(r) {
+  const C = CC(), now = Date.now(), cfg = r.config || {games: []};
+  const devices = r.devices.filter(d => !d.revoked).map(d => { let playing = []; try { playing = JSON.parse(d.playing || '[]'); } catch {} return {...d, playing, fresh: now - (d.lastSeen || 0) < GT_FRESH_MS}; });
+  const freshIds = new Set(devices.filter(d => d.fresh).map(d => d.device));
+  // An open session on a PC that is still checking in keeps counting until now; on a silent PC it stops where it was last saved.
+  const segs = r.segs.map(s => s.open && freshIds.has(s.device) && s.day === r.today ? {...s, end: Math.max(s.end, now)} : s);
+  const totals = C.dayTotals(segs, r.today), week = C.history(segs, r.today, 7), hist = C.history(segs, r.today, 14);
+  const games = (cfg.games || []).filter(g => !g.deleted).map(g => {
+    const used = (totals.perGame[g.id] || {ms: 0}).ms, live = devices.some(d => d.fresh && d.playing.some(x => x.game === g.id));
+    return {id: g.id, name: g.name, source: g.source, enabled: g.enabled !== false, limitMin: g.limitMin || 0, exes: g.exes || [], todayMs: used, limit: C.limitStatus(used, g.limitMin), playing: live};
+  });
+  for (const id of Object.keys(totals.perGame)) if (!games.some(g => g.id === id)) games.push({id, name: totals.perGame[id].name || 'Game', source: 'other', enabled: true, limitMin: 0, todayMs: totals.perGame[id].ms, limit: C.limitStatus(totals.perGame[id].ms, 0), orphan: true});
+  const playing = devices.filter(d => d.fresh && d.tracking).flatMap(d => d.playing.map(x => ({name: x.name, since: x.since, device: d.name, live: true})));
+  return {mode: 'web', now, tz: r.tz, today: r.today, todayMs: totals.overallMs, overall: C.limitStatus(totals.overallMs, cfg.overallLimitMin || 0), week, hist, games, playing, devices,
+    settings: {overallLimitMin: cfg.overallLimitMin || 0, tz: cfg.tz || '', notify: cfg.notify !== false}, hasConfig: !!r.config};
+}
+
+/* ---------- the page ---------- */
+const gtMeter = (lim, usedMs) => lim.hasLimit
+  ? `<div class="meter gt-meter${lim.reached ? ' over' : ''}" role="progressbar" aria-label="Time used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(lim.fraction * 100)}"><i style="width:${Math.round(lim.fraction * 100)}%"></i></div>
+     <p class="muted small gt-lim">${lim.reached ? `<b class="gt-over">Daily limit reached</b> · ${gtDur(lim.overtimeMs)} overtime` : `${gtDur(usedMs)} used · <b>${gtDur(lim.remainingMs)} left</b> of ${gtDur(lim.limitMs)}`}</p>`
+  : `<p class="muted small gt-lim">${gtDur(usedMs)} today · no limit set</p>`;
+function gtStatus(m) {
+  if (m.mode === 'desktop') {
+    const tracking = m.paused ? ['warn', 'Tracking paused'] : ['ok', 'Tracking on'];
+    const c = m.conn.state === 'connected' ? 'Connected to your account' : m.conn.state === 'offline' ? 'Offline: will sync when back online' : m.conn.state === 'signedOut' ? 'Sign-in expired: connect again' : m.conn.state === 'disconnected' ? 'Disconnected from the website' : 'Not connected: this PC only';
+    return {tone: tracking[0], label: tracking[1], detail: c};
+  }
+  if (!m.devices.length) return {tone: 'off', label: 'No PC connected yet', detail: 'Install the Windows app and connect it to start.'};
+  const fresh = m.devices.filter(d => d.fresh);
+  if (fresh.length) return {tone: fresh.some(d => d.tracking) ? 'ok' : 'warn', label: fresh.some(d => d.tracking) ? 'Companion connected' : 'Tracking paused on your PC', detail: fresh.map(d => d.name).join(', '), detailNo: true};
+  const last = Math.max(...m.devices.map(d => d.lastSeen || 0));
+  return {tone: 'off', label: 'Companion offline', detail: `Last seen ${gtAgo(last)}`};
+}
+function gtNowCard(m) {
+  const st = gtStatus(m);
+  const playing = m.playing.length
+    ? m.playing.map(p => `<div class="gt-playing"><span class="gt-dot live" aria-hidden="true"></span><div class="grow"><b translate="no">${esc(p.name)}</b>${p.device ? `<span class="muted small" translate="no"> · ${esc(p.device)}</span>` : ''}<div class="gt-clock" data-since="${p.since}">${gtClock((m.now || Date.now()) - p.since)}</div><span class="muted small">Current session</span></div></div>`).join('')
+    : `<p class="muted" style="margin:6px 0 0">${m.mode === 'web' && st.tone === 'off' ? 'Nothing is shown as playing while the app is offline.' : m.paused ? 'Tracking is paused. Nothing is being counted.' : 'No game running right now.'}</p>`;
+  const ctrl = m.mode === 'desktop' ? `<div class="row" style="margin-top:14px"><button class="btn${m.paused ? ' primary' : ''}" id="gtPause">${icon(m.paused ? 'play' : 'pause')}${m.paused ? 'Resume tracking' : 'Pause tracking'}</button></div>` : '';
+  return card('c5', 'Now', `<div class="gt-status ${st.tone}" role="status"><span class="gt-dot" aria-hidden="true"></span><div><b>${st.label}</b><div class="muted small"${st.detailNo ? ' translate="no"' : ''}>${esc(st.detail)}</div></div></div>${playing}${ctrl}`);
+}
+function gtTodayCard(m) {
+  const o = m.overall;
+  return card('c7', 'Today', `<div class="statrow" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><span class="k">Played today</span><span class="v">${gtDur(m.todayMs)}</span></div>
+      <div class="stat"><span class="k">Daily limit</span><span class="v">${o.hasLimit ? gtDur(o.limitMs) : 'None'}</span></div>
+      <div class="stat"><span class="k">${o.reached ? 'Overtime' : 'Remaining'}</span><span class="v${o.reached ? ' gt-over' : ''}">${o.hasLimit ? gtDur(o.reached ? o.overtimeMs : o.remainingMs) : '—'}</span></div></div>
+    ${gtMeter(o, m.todayMs)}
+    <p class="muted small" style="margin:8px 0 0">Two games open at the same time count once toward this limit. Limits are reminders only: games are never closed or blocked.<br><span>The day starts at midnight in this time zone:</span> <span translate="no">${esc(m.tz)}</span></p>`,
+    o.reached ? '<span class="tag r">Limit reached</span>' : '');
+}
+function gtGamesCard(m) {
+  const d = m.mode === 'desktop';
+  const list = m.games.length ? `<ul class="list gt-games">${m.games.map(g => `<li class="item${g.enabled ? '' : ' off'}" data-gid="${esc(g.id)}">
+      <span class="thumb" translate="no" style="--h:${hue(g.name)}">${g.playing ? '<span class="gt-dot live" aria-label="Playing now"></span>' : esc((g.name || '?').charAt(0).toUpperCase())}</span>
+      <div class="grow"><div class="t" translate="no">${esc(g.name)}</div><div class="s"><span>${gtSource(g.source)}</span>${g.exes && g.exes.length ? `<span translate="no"> · ${esc(g.exes.slice(0, 3).join(', '))}${g.exes.length > 3 ? '…' : ''}</span>` : ''}</div>
+        ${g.enabled ? gtMeter(g.limit, g.todayMs) : '<p class="muted small gt-lim">Not tracked</p>'}</div>
+      ${g.orphan ? '' : `<div class="gt-ctrl"><label class="gt-limit"><span class="muted small">Limit (min)</span><input type="number" min="0" max="1440" step="5" inputmode="numeric" value="${g.limitMin || ''}" placeholder="None" data-gtlimit="${esc(g.id)}" aria-label="Daily limit for ${esc(g.name)} in minutes"></label>
+        <button class="switch" role="switch" aria-checked="${g.enabled}" aria-label="Track ${esc(g.name)}" data-gttrack="${esc(g.id)}"><i></i></button>
+        ${d && g.source === 'manual' ? `<button class="btn sm ghost" data-gtexe="${esc(g.id)}" title="Add another .exe for this game">${icon('plus')}<span class="sr-only">Add another .exe for ${esc(g.name)}</span></button>` : ''}
+        <button class="btn sm ghost danger" data-gtdel="${esc(g.id)}" title="Remove">${icon('trash')}<span class="sr-only">Remove ${esc(g.name)}</span></button></div>`}
+    </li>`).join('')}</ul>` : empty(d ? 'No games yet. Use "Find games" or "Add game".' : 'No games yet. They appear here once the Windows app finds them.');
+  const tools = d ? `<div class="row" style="margin-top:14px"><button class="btn" id="gtAddFile">${icon('plus')}Add game (.exe)</button><button class="btn" id="gtAddProc">${icon('play')}Add a running program</button>
+      <button class="btn ghost" id="gtScan">${icon('reset')}${m.scan && m.scan.running ? 'Looking for games…' : 'Find games again'}</button></div>
+      <p class="muted small" style="margin:8px 0 0">${m.scan && m.scan.last ? `<span>Last search: ${gtAgo(m.scan.last)}</span><br>` : ''}<span>Turn off anything that isn't a game you want to track. A game can have several programs: use + on games you added yourself.</span></p>
+      <div id="gtPicker"></div>` : '';
+  return card('c12', 'Tracked games', list + tools, `<span class="tag">${m.games.filter(g => g.enabled).length} tracked</span>`);
+}
+function gtWeekCard(m) {
+  const days = m.week, max = Math.max(60 * 60000, ...days.map(x => x.overallMs)), lim = m.overall.hasLimit ? m.overall.limitMs : 0;
+  const wk = days.reduce((a, x) => a + x.overallMs, 0), names = {};
+  for (const x of days) for (const g of Object.values(x.perGame)) { names[g.game] ||= {name: g.name, ms: 0}; names[g.game].ms += g.ms; }
+  const top = Object.values(names).sort((a, b) => b.ms - a.ms).slice(0, 6);
+  return card('c7', 'Last 7 days', `<div class="bars gt-bars">${days.map(x => `<div class="col"><div class="bar"><div class="stack" style="height:${Math.max(2, x.overallMs / max * 100)}%" title="${gtDur(x.overallMs)}"><i style="height:100%;background:${lim && x.overallMs > lim ? 'var(--bad)' : 'var(--accent2)'}"></i></div></div><span class="lbl" translate="no">${esc(gtDay(x.day, {weekday: 'short'}))}</span></div>`).join('')}</div>
+    <p class="muted small" style="margin:10px 0 0"><span>${gtDur(wk)} in the last 7 days</span>${lim ? `<span> · red days went over your ${gtDur(lim)} limit</span>` : ''}</p>
+    ${top.length ? `<ul class="list gt-top">${top.map(g => `<li class="row" style="justify-content:space-between"><span translate="no">${esc(g.name)}</span><span class="muted">${gtDur(g.ms)}</span></li>`).join('')}</ul>` : ''}`);
+}
+function gtHistoryCard(m) {
+  const hist = (m.hist || m.week).slice().reverse();
+  return card('c5', 'Daily history', `<ul class="list gt-hist">${hist.map(x => `<li class="row" style="justify-content:space-between">${x.day === m.today ? '<span>Today</span>' : `<span translate="no">${esc(gtDay(x.day, {weekday: 'short', day: 'numeric', month: 'short'}))}</span>`}<span class="${m.overall.hasLimit && x.overallMs > m.overall.limitMs ? 'gt-over' : 'muted'}">${gtDur(x.overallMs)}</span></li>`).join('')}</ul>`);
+}
+function gtSettingsCard(m) {
+  const d = m.mode === 'desktop', tz = m.settings.tz || '', zones = (() => { try { return Intl.supportedValuesOf('timeZone'); } catch { return [gtTz()]; } })();
+  return card('c6', 'Limits & settings', `<div class="form">
+    <label class="field"><span>Overall daily gaming limit (minutes)</span><input type="number" min="0" max="1440" step="5" id="gtOverall" value="${m.settings.overallLimitMin || ''}" placeholder="No limit"></label>
+    <label class="field"><span>Day starts at midnight in</span><select id="gtTz"><option value="">This computer's time zone${d && m.settings.systemTz ? ` (${esc(m.settings.systemTz)})` : ''}</option>${zones.map(z => `<option translate="no" value="${esc(z)}"${z === tz ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('')}</select></label>
+    <div class="row" style="justify-content:space-between"><span>Reminders at 30, 10 and 0 minutes left<br><span class="muted small">Desktop notifications, once each per day</span></span><button class="switch" id="gtNotify" role="switch" aria-label="Limit reminders" aria-checked="${m.settings.notify !== false}"><i></i></button></div>
+    ${d ? `<div class="row" style="justify-content:space-between"><span>Launch at Windows startup<br><span class="muted small">Starts in the system tray so tracking is always on</span></span><button class="switch" id="gtStartup" role="switch" aria-label="Launch at Windows startup" aria-checked="${!!m.settings.startup}"><i></i></button></div>` : ''}
+    <p class="muted small" style="margin:0"><b>What counts:</b> all the time a tracked game is running, including menus, loading screens and while it's minimised. Time while the computer sleeps is never counted.</p></div>`);
+}
+function gtLimitsInfoCard() {
+  return card('c6', 'What can be detected', `<ul class="gt-info">
+    <li><b>Found automatically:</b> Steam, Epic Games, the Xbox app (games in an XboxGames folder), GOG Galaxy, and EA app, Ubisoft Connect, Battle.net, Riot and Rockstar games that register with Windows.</li>
+    <li><b>Needs adding by hand:</b> older Xbox / Game Pass games in the protected WindowsApps folder, games without a launcher, emulators and games from other launchers. Use "Add a running program" while the game is open.</li>
+    <li><b>Can't be detected:</b> cloud gaming (Xbox Cloud Gaming, GeForce NOW), browser games, and games on consoles or phones.</li>
+    <li>Some games protected by anti-cheat hide their folder. LevelUp Life then recognises them by program name. It never touches a game: no injecting, no reading game memory, no changing files.</li>
+    <li>Launchers, updaters, crash reporters and anti-cheat programs never count as playtime. Games are checked every 5 seconds.</li></ul>`);
+}
+function gtConnCard(m) {
+  if (m.mode === 'desktop') {
+    const c = m.conn, on = c.state !== 'local' && c.state !== 'disconnected';
+    return card('c12', 'Your account', `${on ? `<p style="margin-top:0"><span>This PC syncs with your online account:</span> <b translate="no">${esc((c.member && (c.member.email || c.member.nickname)) || '')}</b></p><p class="muted" style="margin:0 0 8px">See your game time on the website, from any device.${c.lastSync ? ` <span class="small">Last sync: ${gtAgo(c.lastSync)}</span>` : ''}</p>${c.error ? `<p class="err">${esc(c.error)}</p>` : ''}
+        <div class="row">${c.state === 'signedOut' ? `<button class="btn primary" id="gtConnect">${icon('globe')}Connect again</button>` : ''}<button class="btn" id="gtWeb">${icon('link')}Open my dashboard</button><button class="btn" id="gtDisconnect">${icon('logout')}Disconnect this PC</button></div>`
+      : `<p style="margin-top:0">Tracking works on this PC without an account. Connect your online account to see your game time and change limits on the website, from your phone too.</p>
+        <div class="row"><button class="btn primary" id="gtConnect">${icon('globe')}Connect to my account</button></div>
+        <p class="muted small" style="margin:8px 0 0">Your browser opens the LevelUp Life sign-in page. Your password is typed there, never into this app.${c.state === 'disconnected' ? ' This PC was disconnected from the website; connect again any time.' : ''}</p>`}
+      <hr class="gt-hr"><div class="row"><button class="btn ghost danger" id="gtDelLocal">${icon('trash')}Delete game history${on ? ' (this PC and online)' : ' on this PC'}</button></div>
+      <p class="muted small" style="margin:8px 0 0"><span translate="no">LevelUp Life ${esc(m.version || '')}</span>${m.updateReady ? '<span> · An update installs the next time the app starts.</span>' : ''}<br><span>${m.reader === 'win32' ? 'Process list: Windows, limited access' : m.reader === 'tasklist' ? 'Process list: names only' : 'Process list: not available on this system'}</span></p>`);
+  }
+  return card('c12', 'Your PCs', `${m.devices.length ? `<ul class="list">${m.devices.map(d => `<li class="item"><span class="gt-dot${d.fresh ? (d.tracking ? ' on' : ' warn') : ''}" aria-hidden="true"></span><div class="grow"><div class="t" translate="no">${esc(d.name || 'PC')}</div>
+      <div class="s"><span>${d.fresh ? (d.tracking ? 'Connected · tracking on' : 'Connected · tracking paused') : `Last seen ${gtAgo(d.lastSeen || 0)}`}</span>${d.appVersion ? `<span translate="no"> · v${esc(d.appVersion)}</span>` : ''}</div></div>
+      <button class="btn sm" data-gtrevoke="${esc(d.itemId)}">Disconnect</button></li>`).join('')}</ul>` : empty('No PC connected yet.')}
+    <div class="row" style="margin-top:14px"><a class="btn" href="${GT_DOWNLOAD}" rel="noopener">${icon('download')}Download for Windows</a><button class="btn ghost danger" id="gtDelOnline">${icon('trash')}Delete my online game history</button></div>
+    <p class="muted small" style="margin:8px 0 0">Disconnecting stops that PC from syncing within about a minute. It keeps tracking on the PC itself until you connect it again.</p>`);
+}
+function gtSetupCard() {
+  const online = isOnlineAcc();
+  const steps = [
+    ['Download', `Get the free LevelUp Life app for Windows 10 and 11.<div class="row" style="margin-top:8px"><a class="btn primary" href="${GT_DOWNLOAD}" rel="noopener">${icon('download')}Download for Windows</a><a class="btn ghost" href="${GT_RELEASES}" target="_blank" rel="noopener">All versions</a></div>`],
+    ['Install', 'Open the downloaded file. No administrator rights are needed. While the app is new, Windows may show "Windows protected your PC". If it does, choose "More info" and then "Run anyway".'],
+    ['Connect', online ? 'In the app, open Game Time and choose "Connect to my account". Sign in with the same online account you use here.' : 'Connecting needs an online account, so your PC and this website share your game time. You can also use the app on its own, without connecting.<br><a href="#options">Create an online account in Settings</a>'],
+    ['Choose games', 'The app finds games from Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot. Turn off anything you don\'t want tracked and add other games by hand.'],
+    ['Set limits', 'Set a daily limit per game and an overall one. You get reminders at 30, 10 and 0 minutes left. Limits never close or block a game.'],
+  ];
+  return card('c12', 'Set up the Game Time companion', `<p class="muted" style="margin-top:-6px">A small Windows app counts the time you spend in games automatically, even when this website is closed, and shows your daily limits here.</p>
+    <ol class="gt-steps">${steps.map(([t, d], i) => `<li><span class="gt-n">${i + 1}</span><div><b>${t}</b><p class="muted">${d}</p></div></li>`).join('')}</ol>`);
+}
+VIEWS.companion = () => {
+  const m = GT.model;
+  if (!m) return `<div class="grid">${card('c12', '', `<p class="muted" role="status">Loading your game time…</p>`)}</div>`;
+  const err = `<p class="err" id="gtErr" role="alert">${esc(GT.error)}</p>`;
+  if (m.mode === 'setup') return `<div class="grid">${gtSetupCard()}${gtLimitsInfoCard()}${gtPrivacyCard()}</div>${err}`;
+  if (m.mode === 'web' && !m.devices.length && !m.games.length) return `<div class="grid">${gtSetupCard()}${gtConnCard(m)}${gtLimitsInfoCard()}${gtPrivacyCard()}</div>${err}`;
+  return `${err}<div class="grid">${gtNowCard(m)}${gtTodayCard(m)}${gtGamesCard(m)}${gtWeekCard(m)}${gtHistoryCard(m)}${gtSettingsCard(m)}${gtLimitsInfoCard()}${gtConnCard(m)}${gtPrivacyCard()}</div>`;
+};
+function gtPrivacyCard() {
+  return card('c12', 'Privacy', `<p class="muted small" style="margin:0">The app only looks at the names and locations of running programs to recognise games, using the lowest access Windows allows. Only tracked games ever leave your PC: their names, program names, session times and your limits, never a list of your other programs, install folders, screenshots, keystrokes or game accounts. <a href="#privacy">Read the full privacy notice (section 4f)</a>.</p>`);
+}
+function gtTickLive() { // the session clocks count every second without redrawing the page
+  if (current !== 'companion') return;
+  for (const el of document.querySelectorAll('.gt-clock[data-since]')) el.textContent = gtClock(Date.now() - Number(el.dataset.since));
+  if (GT.dirty && !(document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName))) { GT.dirty = false; rerender(); }
+}
+
+/* ---------- changes ---------- */
+// On the website, edits go into the shared settings item; the PC picks them up on its next check-in (within a minute).
+async function gtSaveRemote(mutate) {
+  const r = GT.remote; if (!r || !r.config || !r.configId) return toast('Connect the Windows app first');
+  const cfg = JSON.parse(JSON.stringify(r.config)); mutate(cfg);
+  const token = await memberToken(me());
+  await wixPost('/wix-data/v2/items/save', {dataCollectionId: 'CompanionConfig', dataItem: {id: r.configId, data: {data: JSON.stringify(cfg), updatedAt: Date.now()}}}, token);
+  r.config = cfg; gtSetModel(gtFromRemote(r)); toast('Saved. Your PC updates within a minute.');
+}
+async function gtDo(fn, ok) { try { await fn(); if (ok) toast(ok); } catch (e) { toast(e && e.message && e.message.length < 120 ? e.message : 'Something went wrong. Please try again.'); } }
+async function gtEditGame(id, patch) {
+  const d = desktop();
+  if (d) return gtDo(async () => { GT.desk = await d.editGame(id, patch); gtSetModel(gtFromDesktop(GT.desk)); });
+  return gtDo(() => gtSaveRemote(c => { const g = (c.games || []).find(x => x.id === id); if (g) Object.assign(g, patch, {editedAt: Date.now()}); }));
+}
+async function gtSettings(patch) {
+  const d = desktop();
+  if (d) return gtDo(async () => { GT.desk = await d.setSettings(patch); gtSetModel(gtFromDesktop(GT.desk)); });
+  return gtDo(() => gtSaveRemote(c => { Object.assign(c, patch, {settingsAt: Date.now()}); }));
+}
+BIND.companion = () => {
+  startGameTime();
+  const m = $('#main'), d = desktop();
+  m.onchange = e => {
+    const t = e.target;
+    if (t.dataset.gtlimit) gtEditGame(t.dataset.gtlimit, {limitMin: Math.max(0, Math.min(1440, Math.round(+t.value || 0)))});
+    else if (t.id === 'gtOverall') gtSettings({overallLimitMin: Math.max(0, Math.min(1440, Math.round(+t.value || 0)))});
+    else if (t.id === 'gtTz') gtSettings({tz: t.value});
+  };
+  m.onclick = async e => {
+    const b = e.target.closest('button,a'); if (!b) return;
+    if (b.dataset.gttrack) { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); return gtEditGame(b.dataset.gttrack, {enabled: on}); }
+    if (b.dataset.gtdel) { const g = GT.model.games.find(x => x.id === b.dataset.gtdel); if (!confirm(tr(`Stop tracking ${g ? g.name : 'this game'} and remove it from the list? Its history stays.`))) return;
+      if (d) return gtDo(async () => { GT.desk = await d.removeGame(b.dataset.gtdel); gtSetModel(gtFromDesktop(GT.desk)); }, 'Removed');
+      return gtDo(() => gtSaveRemote(c => { const x = (c.games || []).find(y => y.id === b.dataset.gtdel); if (x) Object.assign(x, {deleted: true, enabled: false, editedAt: Date.now()}); })); }
+    if (b.dataset.gtexe && d) return gtDo(async () => { GT.desk = await d.addExeToGame(b.dataset.gtexe); gtSetModel(gtFromDesktop(GT.desk)); });
+    if (b.dataset.gtrevoke) { if (!confirm(tr('Disconnect this PC? It stops syncing within about a minute.'))) return;
+      return gtDo(async () => { await gtRevoke(b.dataset.gtrevoke); await gtLoad(); }, 'PC disconnected'); }
+    if (b.dataset.gtpick !== undefined) { const p = GT.picker[+b.dataset.gtpick], name = ($('#gtPickName') || {}).value || '';
+      return gtDo(async () => { const r = await d.addGameFromProcess(p, name.trim()); GT.desk = r.payload; GT.picker = null; gtSetModel(gtFromDesktop(GT.desk)); rerender(); }, 'Game added'); }
+    switch (b.id) {
+      case 'gtPause': return gtDo(async () => { GT.desk = await d.setPaused(!GT.model.paused); gtSetModel(gtFromDesktop(GT.desk)); }, GT.model.paused ? 'Tracking resumed' : 'Tracking paused');
+      case 'gtNotify': { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); return gtSettings({notify: on}); }
+      case 'gtStartup': { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); return gtDo(async () => { GT.desk = await d.setStartup(on); gtSetModel(gtFromDesktop(GT.desk)); }); }
+      case 'gtAddFile': return gtDo(async () => { const r = await d.addGameFromFile(); GT.desk = r.payload; gtSetModel(gtFromDesktop(GT.desk)); if (r.added) toast(r.added.warning || `Added ${r.added.name}. You can rename it in the list.`); });
+      case 'gtAddProc': return gtDo(async () => { GT.picker = await d.listRunning(); gtPaintPicker(); });
+      case 'gtScan': return gtDo(async () => { GT.desk = await d.rescan(); gtSetModel(gtFromDesktop(GT.desk)); }, 'Search finished');
+      case 'gtConnect': return gtDo(async () => { toast('Finish signing in in your browser'); const r = await d.connect(); GT.desk = r.payload; gtSetModel(gtFromDesktop(GT.desk)); }, 'Connected to your account');
+      case 'gtDisconnect': if (!confirm(tr('Disconnect this PC from your account? Tracking keeps working on this PC.'))) return; return gtDo(async () => { GT.desk = await d.disconnect(); gtSetModel(gtFromDesktop(GT.desk)); }, 'Disconnected');
+      case 'gtWeb': return d.openWebsite('companion');
+      case 'gtDelLocal': { const online = GT.model.conn.state !== 'local' && GT.model.conn.state !== 'disconnected';
+        if (!confirm(tr(online ? "Delete all game history on this PC and online? Your games and limits stay. This can't be undone." : "Delete all game history on this PC? Your games and limits stay. This can't be undone."))) return;
+        return gtDo(async () => { GT.desk = await d.deleteHistory(online); gtSetModel(gtFromDesktop(GT.desk)); }, 'Game history deleted'); }
+      case 'gtDelOnline': if (!confirm(tr("Delete all game history stored online? Your PCs keep their own copy. This can't be undone."))) return;
+        return gtDo(async () => { await gtDeleteOnline(); await gtLoad(); }, 'Online game history deleted');
+      case 'gtPickCancel': GT.picker = null; return gtPaintPicker();
+    }
+  };
+};
+// Mark a PC as disconnected: only the "revoked" and "playing" fields change, so its other details stay for the list.
+async function gtRevoke(itemId) {
+  const token = await memberToken(me());
+  const body = {dataCollectionId: 'CompanionDevices', patch: {dataItemId: itemId, fieldModifications: [
+    {fieldPath: 'revoked', action: 'SET_FIELD', setFieldOptions: {value: true}}, {fieldPath: 'playing', action: 'SET_FIELD', setFieldOptions: {value: '[]'}}]}};
+  const r = await fetch(WIXAPI + '/wix-data/v2/items/' + encodeURIComponent(itemId), {method: 'PATCH', headers: {'Content-Type': 'application/json', Authorization: token}, body: JSON.stringify(body)});
+  if (!r.ok) throw new Error("Couldn't disconnect that PC. Please try again.");
+}
+async function gtDeleteOnline() { // every GameSessions item of this member (the collection only shows their own)
+  const token = await memberToken(me());
+  for (let i = 0; i < 200; i++) {
+    const j = await wixPost('/wix-data/v2/items/query', {dataCollectionId: 'GameSessions', query: {paging: {limit: 100}}}, token);
+    const ids = (j.dataItems || []).map(x => x.id); if (!ids.length) return;
+    await wixPost('/wix-data/v2/bulk/items/remove', {dataCollectionId: 'GameSessions', dataItemIds: ids}, token);
+  }
+}
+function gtPaintPicker() {
+  const box = $('#gtPicker'); if (!box) return;
+  if (!GT.picker) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="gt-picker"><label class="field"><span>Name to show (optional)</span><input id="gtPickName" maxlength="80" placeholder="For example: Minecraft"></label>
+    <p class="muted small" style="margin:0">Running programs on this PC (this list stays on your PC). Pick the game:</p>
+    <ul class="list">${GT.picker.map((p, i) => `<li class="item"><div class="grow"><div class="t" translate="no">${esc(p.name)}${p.helper ? ' <span class="tag">launcher or helper</span>' : ''}</div><div class="s" translate="no">${esc(p.path || 'Location hidden by Windows')}</div></div><button class="btn sm" data-gtpick="${i}">Add</button></li>`).join('') || emptyLi('No programs found.')}</ul>
+    <button class="btn ghost" id="gtPickCancel">Cancel</button></div>`;
+}
 
 /* ---------- app shell: offline, updates and installing ---------- */
 const APP = {install:null, update:false};

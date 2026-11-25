@@ -1062,3 +1062,201 @@ Bouwen: lanceer je eerste app
 ## fixes
 Ga
 Ga naar: {s}
+## gametime
+Speeltijd
+Automatisch speeltijd bijhouden en dagelijkse limieten, met de Windows-app.
+De Speeltijd-app instellen
+Een kleine Windows-app telt je speeltijd automatisch, ook als deze website dicht is, en toont hier je dagelijkse limieten.
+Downloaden
+Download de gratis LevelUp Life-app voor Windows # en #.
+Downloaden voor Windows
+Alle versies
+Installeren
+Open het gedownloade bestand. Je hebt geen beheerdersrechten nodig. Zolang de app nieuw is, kan Windows „Uw pc is beveiligd door Windows” tonen. Kies dan „Meer informatie” en daarna „Toch uitvoeren”.
+Verbinden
+Om te verbinden heb je een online-account nodig, zodat je pc en deze website je speeltijd delen. Je kunt de app ook zonder verbinding gebruiken.
+Maak een online-account in Instellingen
+Open in de app Speeltijd en kies „Verbinden met mijn account”. Log in met hetzelfde online-account als hier.
+Games kiezen
+De app vindt games van Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net en Riot. Zet uit wat je niet wilt bijhouden en voeg andere games zelf toe.
+Limieten instellen
+Stel een dagelijkse limiet per game en een totale limiet in. Je krijgt herinneringen bij #, # en # minuten over. Limieten sluiten of blokkeren nooit een game.
+Wat herkend kan worden
+Automatisch gevonden:
+Steam, Epic Games, de Xbox-app (games in een XboxGames-map), GOG Galaxy en games van EA app, Ubisoft Connect, Battle.net, Riot en Rockstar die zich bij Windows registreren.
+Moet je zelf toevoegen:
+oudere Xbox-/Game Pass-games in de beveiligde map WindowsApps, games zonder launcher, emulators en games uit andere launchers. Gebruik „Een draaiend programma toevoegen” terwijl de game open is.
+Kan niet herkend worden:
+cloudgaming (Xbox Cloud Gaming, GeForce NOW), browsergames en games op consoles of telefoons.
+Sommige games met anti-cheat verbergen hun map. LevelUp Life herkent ze dan aan de programmanaam. Het raakt een game nooit aan: niets injecteren, geen gamegeheugen lezen, geen bestanden wijzigen.
+Launchers, updaters, crashrapporteurs en anti-cheatprogramma's tellen nooit als speeltijd. Games worden elke # seconden gecontroleerd.
+Privacy
+De app kijkt alleen naar de namen en locaties van draaiende programma's om games te herkennen, met de laagste toegang die Windows toestaat. Alleen bijgehouden games verlaten je pc: hun namen, programmanamen, sessietijden en je limieten, nooit een lijst van je andere programma's, installatiemappen, schermafbeeldingen, toetsaanslagen of game-accounts.
+Lees de volledige privacyverklaring (sectie #f)
+Games automatisch bijhouden
+De gratis Windows-app telt je speeltijd vanzelf en herinnert je aan dagelijkse limieten.
+Speeltijd openen
+Je speeltijd wordt geladen…
+Je pc's
+Nog geen pc verbonden.
+Nog geen pc verbonden
+Mijn online speelgeschiedenis verwijderen
+Na het loskoppelen stopt die pc binnen ongeveer een minuut met synchroniseren. Op de pc zelf wordt het bijhouden voortgezet tot je hem weer verbindt.
+Nu
+App verbonden
+Bijhouden gepauzeerd op je pc
+App offline
+Installeer de Windows-app en verbind hem om te beginnen.
+Huidige sessie
+Zolang de app offline is, wordt niets als „speelt nu” getoond.
+Bijhouden is gepauzeerd. Er wordt niets geteld.
+Er draait nu geen game.
+Bijhouden pauzeren
+Bijhouden hervatten
+Daglimiet
+Resterend
+Extra tijd
+Geen
+Limiet bereikt
+Daglimiet bereikt
+{s} gebruikt ·
+{s} over
+van {s}
+· {s} extra
+{s} vandaag · geen limiet
+Twee games die tegelijk open zijn, tellen één keer mee voor deze limiet. Limieten zijn alleen herinneringen: games worden nooit gesloten of geblokkeerd.
+De dag begint om middernacht in deze tijdzone:
+Gebruikte tijd
+Bijgehouden games
+# bijgehouden
+Speelt nu
+Steam
+Epic Games
+Door jou toegevoegd
+Geïnstalleerde game
+Niet bijgehouden
+Limiet (min)
+Daglimiet voor {s} in minuten
+{s} bijhouden
+Nog een .exe toevoegen voor {s}
+Nog een .exe toevoegen voor deze game
+Nog geen games. Gebruik „Games zoeken” of „Game toevoegen”.
+Nog geen games. Ze verschijnen hier zodra de Windows-app ze vindt.
+Game toevoegen (.exe)
+Een draaiend programma toevoegen
+Opnieuw games zoeken
+Games zoeken…
+Laatste zoekactie: {s}
+Zet alles uit wat geen game is die je wilt bijhouden. Een game kan meerdere programma's hebben: gebruik + bij games die je zelf hebt toegevoegd.
+Laatste 7 dagen
+{s} in de laatste # dagen
+· rode dagen gingen over je limiet van {s}
+Dagoverzicht
+Limieten & instellingen
+Totale dagelijkse gamelimiet (minuten)
+Geen limiet
+De dag begint om middernacht in
+Tijdzone van deze computer
+Tijdzone van deze computer ({s})
+Herinneringen bij #, # en # minuten over
+Bureaubladmeldingen, elk één keer per dag
+Limietherinneringen
+Starten bij opstarten van Windows
+Start in het systeemvak zodat bijhouden altijd aan staat
+Wat telt:
+alle tijd dat een bijgehouden game draait, ook menu's, laadschermen en als hij geminimaliseerd is. Tijd dat de computer slaapt, telt nooit.
+Verbonden · bijhouden aan
+Verbonden · bijhouden gepauzeerd
+Laatst gezien {s}
+zojuist
+# min geleden
+# u geleden
+Loskoppelen
+Bijhouden aan
+Bijhouden gepauzeerd
+Niet verbonden: alleen deze pc
+Offline: synchroniseert zodra je weer online bent
+Aanmelding verlopen: opnieuw verbinden
+Losgekoppeld van de website
+Je account
+Deze pc synchroniseert met je online-account:
+Bekijk je speeltijd op de website, vanaf elk apparaat.
+Laatste synchronisatie: {s}
+Opnieuw verbinden
+Mijn dashboard openen
+Deze pc loskoppelen
+Bijhouden werkt op deze pc zonder account. Verbind je online-account om je speeltijd op de website te zien en limieten te wijzigen, ook vanaf je telefoon.
+Verbinden met mijn account
+Je browser opent de aanmeldpagina van LevelUp Life. Je wachtwoord typ je daar, nooit in deze app.
+Je browser opent de aanmeldpagina van LevelUp Life. Je wachtwoord typ je daar, nooit in deze app. Deze pc is losgekoppeld van de website; je kunt hem altijd opnieuw verbinden.
+Speelgeschiedenis op deze pc verwijderen
+Speelgeschiedenis verwijderen (deze pc en online)
+· Een update wordt geïnstalleerd als de app de volgende keer start.
+Proceslijst: Windows, beperkte toegang
+Proceslijst: alleen namen
+Proceslijst: niet beschikbaar op dit systeem
+Verbind opnieuw: de aanmelding is verlopen.
+Weergavenaam (optioneel)
+Bijvoorbeeld: Minecraft
+Draaiende programma's op deze pc (deze lijst blijft op je pc). Kies de game:
+launcher of hulpprogramma
+Locatie verborgen door Windows
+Geen programma's gevonden.
+Game toegevoegd
+{s} toegevoegd. Je kunt de naam in de lijst wijzigen.
+Dit lijkt een launcher of hulpprogramma. Het telt mee omdat jij het hebt gekozen.
+Kies een programma uit de lijst.
+Verwijderd
+Bijhouden hervat
+Zoeken klaar
+Rond het aanmelden af in je browser
+Verbonden met je account
+Losgekoppeld
+Speelgeschiedenis verwijderd
+Online speelgeschiedenis verwijderd
+Pc losgekoppeld
+Opgeslagen. Je pc werkt binnen een minuut bij.
+Verbind eerst de Windows-app
+Je speeltijd kon nu niet geladen worden. Er wordt opnieuw geprobeerd.
+Kon die pc niet loskoppelen. Probeer het opnieuw.
+{s} niet meer bijhouden en uit de lijst verwijderen? De geschiedenis blijft bewaard.
+Deze pc loskoppelen? Hij stopt binnen ongeveer een minuut met synchroniseren.
+Deze pc loskoppelen van je account? Bijhouden blijft werken op deze pc.
+Alle speelgeschiedenis op deze pc verwijderen? Je games en limieten blijven. Dit kan niet ongedaan worden gemaakt.
+Alle speelgeschiedenis op deze pc en online verwijderen? Je games en limieten blijven. Dit kan niet ongedaan worden gemaakt.
+Alle online opgeslagen speelgeschiedenis verwijderen? Je pc's houden hun eigen kopie. Dit kan niet ongedaan worden gemaakt.
+Speeltijd telt je speeltijd automatisch met de gratis Windows-app en herinnert je aan je dagelijkse limieten.
+telt je speeltijd automatisch met de gratis Windows-app en herinnert je aan je dagelijkse limieten.
+## desktop
+Starten…
+Zoeken naar updates…
+Update {s} downloaden…
+Update downloaden… #%
+Update installeren…
+Starten zonder bijwerken
+Til je dag naar een hoger level
+Versie {s}
+Bijhouden aan · {s}
+Bijhouden aan · geen game actief
+Offline: synchroniseert later
+Niet verbonden (alleen deze pc)
+Vandaag: {s}
+LevelUp Life openen
+Opnieuw starten om bij te werken
+Afsluiten (stopt bijhouden)
+Kies het programma van de game (.exe)
+Nog een programma toevoegen voor {s}
+Nog # minuten
+Vandaag nog # minuten speeltijd.
+Vandaag nog # minuten {s}.
+Je hebt je gamelimiet van vandaag bereikt. De tijd telt door als extra tijd.
+Je hebt je limiet van vandaag voor {s} bereikt. De tijd telt door als extra tijd.
+Deze pc is op de website losgekoppeld van je account. Bijhouden gaat alleen op deze pc door.
+Houdt bij in het systeemvak
+Bijhouden is gepauzeerd. Klik met rechts op het LevelUp Life-pictogram in het systeemvak om te hervatten of af te sluiten.
+LevelUp Life blijft je games bijhouden. Klik met rechts op het pictogram in het systeemvak om te pauzeren of af te sluiten.
+LevelUp Life is actief
+Games bijhouden is gepauzeerd. Open het pictogram in het systeemvak om te hervatten.
+Games bijhouden staat aan. Je vindt LevelUp Life in het systeemvak.
+Update klaar
+Een nieuwe versie van LevelUp Life wordt bij de volgende start geïnstalleerd. Gebruik „Opnieuw starten om bij te werken” in het systeemvak om het nu te doen.

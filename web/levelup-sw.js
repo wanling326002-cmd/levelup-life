@@ -3,7 +3,7 @@
    downloaded, the page is told so it can offer a "Reload" button. Wix APIs, YouTube and other sites
    are never cached: they always go straight to the network. No personal data is stored here. */
 const CACHE = 'levelup-shell-v1';
-const SHELL = ['./', 'app.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
+const SHELL = ['./', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
   'fonts/outfit.woff2'];
 const WATCH = /\/(app\.js|styles\.css)?$/; // a change to these means a new version of the app
 

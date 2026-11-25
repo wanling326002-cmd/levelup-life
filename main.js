@@ -9,17 +9,26 @@ const path = require('path'), fs = require('fs'), os = require('os'), crypto = r
 const {Tracker} = require('./companion/tracker');
 const {JsonFileStore} = require('./companion/store');
 const {CompanionService} = require('./companion/service');
-const {createProcessSource, readReg} = require('./companion/processes');
+const {createProcessSource, createFileSource, readReg} = require('./companion/processes');
 const {scanAll} = require('./companion/scanners');
-const {signIn, WixAuth, WixRemote, SITE_URL} = require('./companion/wix');
+const {signIn, WixAuth, WixRemote, SITE_URL, setApiBase} = require('./companion/wix');
 const {isExcluded} = require('./companion/matcher');
 const core = require('./web/companion-core.js');
+const {translator, LANGS} = require('./companion/i18n');
+let t = s => s; // translates tray, notification and splash text into the language chosen in the app
 
 const ICON = path.join(__dirname, 'web', 'icon.png');
 const STARTUP_ARG = '--startup';
+// Test hooks: only when running from source (npm start / automated tests), never in the installed app.
+const TEST = !app.isPackaged ? {
+  userData: process.env.LEVELUP_USER_DATA, processes: process.env.LEVELUP_FAKE_PROCESSES, api: process.env.LEVELUP_WIX_API,
+  pollMs: Number(process.env.LEVELUP_POLL_MS) || 0, heartbeatMs: Number(process.env.LEVELUP_HEARTBEAT_MS) || 0, openExternal: process.env.LEVELUP_OPEN_EXTERNAL_HOOK === '1',
+} : {};
+if (TEST.userData) app.setPath('userData', TEST.userData);
+if (TEST.api) setApiBase(TEST.api);
 const launchedAtStartup = process.argv.includes(STARTUP_ARG);
 let mainWin = null, splashWin = null, tray = null, service = null, tracker = null, source = null;
-let quitting = false, updateReady = false, toldAboutTray = false, scanState = {running: false, last: 0, count: 0, errors: {}};
+let splashShownAt = 0, quitting = false, updateReady = false, toldAboutTray = false, scanState = {running: false, last: 0, count: 0, errors: {}};
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 else {
@@ -31,6 +40,7 @@ else {
 
 /* ---------- start-up: splash, updates, companion, window ---------- */
 async function start() {
+  loadLang();
   startCompanion();
   if (!launchedAtStartup) splashWin = createSplash();
   const result = await checkForUpdates(state => splashState(state));
@@ -45,16 +55,25 @@ async function start() {
   setInterval(() => checkForUpdates(() => {}, {background: true}), 6 * 60 * 60 * 1000); // look again every 6 hours
 }
 
+function langFile() { return path.join(app.getPath('userData'), 'companion', 'lang.json'); }
+function loadLang() { try { setLang(JSON.parse(fs.readFileSync(langFile(), 'utf8')).lang, false); } catch {} }
+function setLang(code, save = true) {
+  const lang = LANGS.includes(code) ? code : 'en';
+  t = translator(lang, path.join(__dirname, 'web'));
+  if (save) { try { fs.mkdirSync(path.dirname(langFile()), {recursive: true}); fs.writeFileSync(langFile(), JSON.stringify({lang})); } catch {} }
+  refreshTray();
+}
 function createSplash() {
   const w = new BrowserWindow({width: 440, height: 340, frame: false, resizable: false, maximizable: false, fullscreenable: false, show: false, center: true,
     backgroundColor: '#06060b', title: 'LevelUp Life', icon: ICON, skipTaskbar: false, webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}});
   w.loadFile(path.join(__dirname, 'companion', 'ui', 'splash.html'));
-  w.once('ready-to-show', () => { w.show(); splashState({version: app.getVersion()}); });
+  w.once('ready-to-show', () => { w.show(); splashShownAt = Date.now(); splashState({version: t(`Version ${app.getVersion()}`), tag: t('Level up your day'), skip: t('Start without updating'), text: t(pendingSplash.text || 'Starting…')}); });
   w.on('closed', () => { if (splashWin === w) splashWin = null; });
   return w;
 }
 let pendingSplash = {};
 function splashState(s) {
+  if (s.text) s = {...s, text: t(s.text)};
   pendingSplash = {...pendingSplash, ...s};
   if (splashWin && !splashWin.isDestroyed() && splashWin.webContents && !splashWin.webContents.isLoading()) splashWin.webContents.executeJavaScript(`setState(${JSON.stringify(pendingSplash)})`).catch(() => {});
 }
@@ -94,7 +113,10 @@ function createMain() {
     webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.js')},
   });
   mainWin.loadFile(path.join(__dirname, 'web', 'index.html'));
-  mainWin.once('ready-to-show', () => { mainWin.show(); if (splashWin) { splashWin.close(); splashWin = null; } });
+  mainWin.once('ready-to-show', () => {
+    const wait = Math.max(0, splashShownAt + 900 - Date.now()); // the splash stays at least 0.9 s, so it never just flashes
+    setTimeout(() => { mainWin.show(); if (splashWin) { splashWin.close(); splashWin = null; } }, wait);
+  });
   // Open external links (lessons, YouTube, charities, the website) in the user's normal browser.
   mainWin.webContents.setWindowOpenHandler(({url}) => { if (/^https?:/.test(url)) shell.openExternal(url); return {action: 'deny'}; });
   mainWin.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) { e.preventDefault(); if (/^https?:/.test(url)) shell.openExternal(url); } });
@@ -114,12 +136,14 @@ function showMain() {
 function startCompanion() {
   const dir = path.join(app.getPath('userData'), 'companion');
   const store = new JsonFileStore(dir);
-  source = createProcessSource();
+  source = TEST.processes ? createFileSource(TEST.processes) : createProcessSource();
   tracker = new Tracker({clock: {now: () => Date.now()}, source, store, newId: () => crypto.randomUUID(), systemTz: Intl.DateTimeFormat().resolvedOptions().timeZone});
+  if (TEST.pollMs) tracker.state.settings.pollMs = TEST.pollMs;
   service = new CompanionService({
     tracker, clock: {now: () => Date.now()}, notify,
     secrets: secretStore(dir), deviceId: deviceId(dir), deviceName: os.hostname(), appVersion: app.getVersion(),
     remoteFor: (refreshToken, onRefreshToken) => new WixRemote({auth: new WixAuth({refreshToken, onRefreshToken})}),
+    ...(TEST.heartbeatMs ? {heartbeatMs: TEST.heartbeatMs} : {}),
     onStatus: () => { refreshTray(); push(); },
   });
   tracker.onChange = () => { refreshTray(); push(); };
@@ -158,6 +182,8 @@ function secretStore(dir) {
 }
 
 function notify(title, body) {
+  title = t(title); body = t(body);
+  if (!app.isPackaged) (global.__levelupNotes ||= []).push({title, body, at: Date.now()}); // lets automated tests check reminders
   if (!Notification.isSupported()) return;
   const n = new Notification({title, body, icon: ICON, silent: false});
   n.on('click', () => showMain());
@@ -166,11 +192,11 @@ function notify(title, body) {
 
 /* ---------- tray: always shows whether tracking is on ---------- */
 function statusLine() {
-  if (!tracker) return 'Starting…';
+  if (!tracker) return t('Starting…');
   const s = tracker.snapshot();
-  if (s.paused) return 'Tracking paused';
-  if (s.playing.length) return 'Tracking on · ' + s.playing.map(p => `${p.name} ${core.fmtDuration(p.sessionMs)}`).join(', ');
-  return 'Tracking on · no game running';
+  if (s.paused) return t('Tracking paused');
+  if (s.playing.length) return t('Tracking on · {s}').replace('{s}', s.playing.map(p => `${p.name} ${core.fmtDuration(p.sessionMs)}`).join(', '));
+  return t('Tracking on · no game running');
 }
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(ICON).resize({width: 32, height: 32}));
@@ -180,19 +206,19 @@ function createTray() {
 function refreshTray() {
   if (!tray) return;
   const s = tracker.snapshot(), st = service.status;
-  const sync = st.state === 'connected' ? 'Connected to your account' : st.state === 'offline' ? 'Offline: will sync later' : st.state === 'signedOut' ? 'Sign-in expired: connect again' : 'Not connected (this PC only)';
-  tray.setToolTip(`LevelUp Life\n${statusLine()}\nToday ${core.fmtDuration(s.todayMs)}${s.overall.hasLimit ? ' of ' + core.fmtDuration(s.overall.limitMs) : ''}`);
+  const sync = t(st.state === 'connected' ? 'Connected to your account' : st.state === 'offline' ? 'Offline: will sync later' : st.state === 'signedOut' ? 'Sign-in expired: connect again' : 'Not connected (this PC only)');
+  tray.setToolTip(`LevelUp Life\n${statusLine()}\n${t('Today: {s}').replace('{s}', core.fmtDuration(s.todayMs) + (s.overall.hasLimit ? ' / ' + core.fmtDuration(s.overall.limitMs) : ''))}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     {label: 'LevelUp Life', enabled: false},
     {label: statusLine(), enabled: false},
     {label: sync, enabled: false},
     {type: 'separator'},
-    {label: 'Open LevelUp Life', click: () => showMain()},
-    {label: s.paused ? 'Resume tracking' : 'Pause tracking', click: () => { service.tracker.setPaused(!s.paused); service.syncSoon(500); refreshTray(); push(); }},
-    {label: 'Launch at Windows startup', type: 'checkbox', checked: startupOn(), click: i => setStartup(i.checked)},
-    ...(updateReady ? [{label: 'Restart to update', click: () => { quitting = true; require('electron-updater').autoUpdater.quitAndInstall(true, true); }}] : []),
+    {label: t('Open LevelUp Life'), click: () => showMain()},
+    {label: t(s.paused ? 'Resume tracking' : 'Pause tracking'), click: () => { service.tracker.setPaused(!s.paused); service.syncSoon(500); refreshTray(); push(); }},
+    {label: t('Launch at Windows startup'), type: 'checkbox', checked: startupOn(), click: i => setStartup(i.checked)},
+    ...(updateReady ? [{label: t('Restart to update'), click: () => { quitting = true; require('electron-updater').autoUpdater.quitAndInstall(true, true); }}] : []),
     {type: 'separator'},
-    {label: 'Quit (stops tracking)', click: () => { quitting = true; app.quit(); }},
+    {label: t('Quit (stops tracking)'), click: () => { quitting = true; app.quit(); }},
   ]));
 }
 const startupOn = () => app.getLoginItemSettings({args: [STARTUP_ARG]}).openAtLogin;
@@ -219,6 +245,7 @@ const handle = (name, fn) => ipcMain.handle('cmp:' + name, async (e, ...args) =>
   return fn(...args);
 });
 handle('snapshot', () => payload());
+handle('setLang', code => { setLang(String(code)); return true; });
 handle('setPaused', p => { tracker.setPaused(!!p); service.syncSoon(500); refreshTray(); return payload(); });
 handle('editGame', (id, patch) => { service.editGame(String(id), patch && typeof patch === 'object' ? patch : {}); return payload(); });
 handle('removeGame', id => { service.removeGame(String(id)); return payload(); });
@@ -232,7 +259,7 @@ handle('setSettings', s => {
 handle('setStartup', on => { setStartup(!!on); return payload(); });
 handle('rescan', async () => { await rescan(); return payload(); });
 handle('addGameFromFile', async () => {
-  const r = await dialog.showOpenDialog(mainWin, {title: 'Choose the game\'s program (.exe)', properties: ['openFile', 'multiSelections'], filters: [{name: 'Programs', extensions: ['exe']}]});
+  const r = await dialog.showOpenDialog(mainWin, {title: t("Choose the game's program (.exe)"), properties: ['openFile', 'multiSelections'], filters: [{name: t('Programs'), extensions: ['exe']}]});
   if (r.canceled || !r.filePaths.length) return {payload: payload(), added: null};
   const files = r.filePaths, first = path.win32.basename(files[0]).replace(/\.exe$/i, '');
   const g = {id: 'm-' + crypto.randomUUID(), name: first, source: 'manual', enabled: true, limitMin: 0, paths: files, exes: files.map(f => path.win32.basename(f).toLowerCase()), dirs: []};
@@ -257,12 +284,14 @@ handle('addGameFromProcess', (proc, name) => {
 });
 handle('addExeToGame', async id => {
   const g = tracker.games.find(x => x.id === String(id)); if (!g) return payload();
-  const r = await dialog.showOpenDialog(mainWin, {title: `Add another program for ${g.name}`, properties: ['openFile', 'multiSelections'], filters: [{name: 'Programs', extensions: ['exe']}]});
+  const r = await dialog.showOpenDialog(mainWin, {title: t('Add another program for {s}').replace('{s}', g.name), properties: ['openFile', 'multiSelections'], filters: [{name: t('Programs'), extensions: ['exe']}]});
   if (!r.canceled && r.filePaths.length) service.addGame({...g, paths: [...new Set([...(g.paths || []), ...r.filePaths])], exes: [...new Set([...(g.exes || []), ...r.filePaths.map(f => path.win32.basename(f).toLowerCase())])]});
   return payload();
 });
 handle('connect', async () => {
-  const member = await service.connect(() => signIn({openExternal: url => shell.openExternal(url)}));
+  // (in tests the "browser" is a plain request to the address the sign-in page would return to)
+  const open = TEST.openExternal ? async url => { const u = new URL(url); setTimeout(() => fetch(`${u.searchParams.get('redirectUri')}?code=TESTCODE&state=${u.searchParams.get('state')}`).catch(() => {}), 50); } : url => shell.openExternal(url);
+  const member = await service.connect(() => signIn({openExternal: open}));
   showMain(); return {payload: payload(), member};
 });
 handle('disconnect', async () => { await service.disconnect(); return payload(); });

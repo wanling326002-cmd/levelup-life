@@ -74,6 +74,11 @@ function createTasklistSource() {
   };
 }
 
+// Tests only: a JSON file listing pretend processes, re-read on every look (main.js allows it only when running from source).
+function createFileSource(file) {
+  return {kind: 'test-file', list: async () => { try { return JSON.parse(require('fs').readFileSync(file, 'utf8')); } catch { return []; } }};
+}
+
 function createProcessSource() {
   if (process.platform !== 'win32') return {kind: 'none', list: async () => []};
   try { return createWin32Source(); } catch { return createTasklistSource(); }
@@ -84,4 +89,4 @@ function readReg(key) {
   return new Promise((resolve, reject) => execFile('reg', ['query', key, '/s'], {windowsHide: true, maxBuffer: 32 * 1024 * 1024}, (err, out) => err ? reject(err) : resolve(out)));
 }
 
-module.exports = {createProcessSource, createWin32Source, createTasklistSource, readReg};
+module.exports = {createProcessSource, createWin32Source, createTasklistSource, createFileSource, readReg};

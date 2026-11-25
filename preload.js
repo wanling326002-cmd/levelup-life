@@ -5,6 +5,7 @@ const call = (name, ...args) => ipcRenderer.invoke('cmp:' + name, ...args);
 
 contextBridge.exposeInMainWorld('levelupDesktop', {
   isDesktop: true,
+  setLang: code => call('setLang', String(code)),
   snapshot: () => call('snapshot'),
   setPaused: paused => call('setPaused', !!paused),
   editGame: (id, patch) => call('editGame', String(id), patch),

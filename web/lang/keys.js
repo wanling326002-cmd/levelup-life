@@ -1064,4 +1064,202 @@ Build: ship your first app
 ## fixes
 Go
 Go: {s}
+## gametime
+Game Time
+Automatic game tracking and daily play limits, with the Windows app.
+Set up the Game Time companion
+A small Windows app counts the time you spend in games automatically, even when this website is closed, and shows your daily limits here.
+Download
+Get the free LevelUp Life app for Windows # and #.
+Download for Windows
+All versions
+Install
+Open the downloaded file. No administrator rights are needed. While the app is new, Windows may show "Windows protected your PC". If it does, choose "More info" and then "Run anyway".
+Connect
+Connecting needs an online account, so your PC and this website share your game time. You can also use the app on its own, without connecting.
+Create an online account in Settings
+In the app, open Game Time and choose "Connect to my account". Sign in with the same online account you use here.
+Choose games
+The app finds games from Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot. Turn off anything you don't want tracked and add other games by hand.
+Set limits
+Set a daily limit per game and an overall one. You get reminders at #, # and # minutes left. Limits never close or block a game.
+What can be detected
+Found automatically:
+Steam, Epic Games, the Xbox app (games in an XboxGames folder), GOG Galaxy, and EA app, Ubisoft Connect, Battle.net, Riot and Rockstar games that register with Windows.
+Needs adding by hand:
+older Xbox / Game Pass games in the protected WindowsApps folder, games without a launcher, emulators and games from other launchers. Use "Add a running program" while the game is open.
+Can't be detected:
+cloud gaming (Xbox Cloud Gaming, GeForce NOW), browser games, and games on consoles or phones.
+Some games protected by anti-cheat hide their folder. LevelUp Life then recognises them by program name. It never touches a game: no injecting, no reading game memory, no changing files.
+Launchers, updaters, crash reporters and anti-cheat programs never count as playtime. Games are checked every # seconds.
+Privacy
+The app only looks at the names and locations of running programs to recognise games, using the lowest access Windows allows. Only tracked games ever leave your PC: their names, program names, session times and your limits, never a list of your other programs, install folders, screenshots, keystrokes or game accounts.
+Read the full privacy notice (section #f)
+Track games automatically
+The free Windows app counts your game time on its own and reminds you of daily limits.
+Open Game Time
+Loading your game time…
+Your PCs
+No PC connected yet.
+No PC connected yet
+Delete my online game history
+Disconnecting stops that PC from syncing within about a minute. It keeps tracking on the PC itself until you connect it again.
+Now
+Companion connected
+Tracking paused on your PC
+Companion offline
+Install the Windows app and connect it to start.
+Current session
+Nothing is shown as playing while the app is offline.
+Tracking is paused. Nothing is being counted.
+No game running right now.
+Pause tracking
+Resume tracking
+Daily limit
+Remaining
+Overtime
+None
+Limit reached
+Daily limit reached
+{s} used ·
+{s} left
+of {s}
+· {s} overtime
+{s} today · no limit set
+Two games open at the same time count once toward this limit. Limits are reminders only: games are never closed or blocked.
+The day starts at midnight in this time zone:
+Time used
+Tracked games
+# tracked
+Playing now
+Steam
+Epic Games
+Added by you
+Installed game
+Not tracked
+Limit (min)
+Daily limit for {s} in minutes
+Track {s}
+Add another .exe for {s}
+Add another .exe for this game
+No games yet. Use "Find games" or "Add game".
+No games yet. They appear here once the Windows app finds them.
+Add game (.exe)
+Add a running program
+Find games again
+Looking for games…
+Last search: {s}
+Turn off anything that isn't a game you want to track. A game can have several programs: use + on games you added yourself.
+Last 7 days
+{s} in the last # days
+· red days went over your {s} limit
+Daily history
+Limits & settings
+Overall daily gaming limit (minutes)
+No limit
+Day starts at midnight in
+This computer's time zone
+This computer's time zone ({s})
+Reminders at #, # and # minutes left
+Desktop notifications, once each per day
+Limit reminders
+Launch at Windows startup
+Starts in the system tray so tracking is always on
+What counts:
+all the time a tracked game is running, including menus, loading screens and while it's minimised. Time while the computer sleeps is never counted.
+Connected · tracking on
+Connected · tracking paused
+Last seen {s}
+just now
+# min ago
+#h ago
+Disconnect
+Tracking on
+Tracking paused
+Not connected: this PC only
+Offline: will sync when back online
+Sign-in expired: connect again
+Disconnected from the website
+Your account
+This PC syncs with your online account:
+See your game time on the website, from any device.
+Last sync: {s}
+Connect again
+Open my dashboard
+Disconnect this PC
+Tracking works on this PC without an account. Connect your online account to see your game time and change limits on the website, from your phone too.
+Connect to my account
+Your browser opens the LevelUp Life sign-in page. Your password is typed there, never into this app.
+Your browser opens the LevelUp Life sign-in page. Your password is typed there, never into this app. This PC was disconnected from the website; connect again any time.
+Delete game history on this PC
+Delete game history (this PC and online)
+· An update installs the next time the app starts.
+Process list: Windows, limited access
+Process list: names only
+Process list: not available on this system
+Please connect again: the sign-in expired.
+Name to show (optional)
+For example: Minecraft
+Running programs on this PC (this list stays on your PC). Pick the game:
+launcher or helper
+Location hidden by Windows
+No programs found.
+Game added
+Added {s}. You can rename it in the list.
+This looks like a launcher or helper. It will be counted because you chose it.
+Pick a program from the list.
+Removed
+Tracking resumed
+Search finished
+Finish signing in in your browser
+Connected to your account
+Disconnected
+Game history deleted
+Online game history deleted
+PC disconnected
+Saved. Your PC updates within a minute.
+Connect the Windows app first
+Couldn't load your game time right now. It will try again.
+Couldn't disconnect that PC. Please try again.
+Stop tracking {s} and remove it from the list? Its history stays.
+Disconnect this PC? It stops syncing within about a minute.
+Disconnect this PC from your account? Tracking keeps working on this PC.
+Delete all game history on this PC? Your games and limits stay. This can't be undone.
+Delete all game history on this PC and online? Your games and limits stay. This can't be undone.
+Delete all game history stored online? Your PCs keep their own copy. This can't be undone.
+Game Time counts your game time automatically with the free Windows app and reminds you of your daily limits.
+counts your game time automatically with the free Windows app and reminds you of your daily limits.
+## desktop
+Starting…
+Checking for updates…
+Downloading update {s}…
+Downloading update… #%
+Installing update…
+Start without updating
+Level up your day
+Version {s}
+Tracking on · {s}
+Tracking on · no game running
+Offline: will sync later
+Not connected (this PC only)
+Today: {s}
+Open LevelUp Life
+Restart to update
+Quit (stops tracking)
+Choose the game's program (.exe)
+Add another program for {s}
+# minutes left
+# minutes of gaming left today.
+# minutes of {s} left today.
+You've reached today's gaming limit. Time keeps counting as overtime.
+You've reached today's limit for {s}. Time keeps counting as overtime.
+This PC was disconnected from your account on the website. Tracking continues on this PC only.
+Still tracking in the tray
+Tracking is paused. Right-click the LevelUp Life tray icon to resume or quit.
+LevelUp Life keeps tracking your games. Right-click the tray icon to pause or quit.
+LevelUp Life is running
+Game tracking is paused. Open the tray icon to resume.
+Game tracking is on. You can find LevelUp Life in the system tray.
+Update ready
+A new version of LevelUp Life will be installed the next time it starts. Use "Restart to update" in the tray to do it now.
 `);

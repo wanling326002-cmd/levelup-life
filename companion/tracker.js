@@ -116,7 +116,7 @@ class Tracker {
     });
     return {now, day, tz, paused: this.paused, overall: core.limitStatus(totals.overallMs, this.state.settings.overallLimitMin),
       todayMs: totals.overallMs, playing: Object.values(this.state.open).map(o => ({game: o.game, name: o.name, sessionMs: o.lastSeen - o.start, since: o.start})),
-      games, week: core.history(segs, day, 7)};
+      games, week: core.history(segs, day, 7), hist: core.history(segs, day, 14)};
   }
 
   _warnings(now) {

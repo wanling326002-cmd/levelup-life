@@ -577,3 +577,37 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .auth .seg button,.ol-seg button{flex:1 1 auto;min-width:0;padding:8px 8px;line-height:1.25;border-radius:12px;text-align:center}
 .lessons a{white-space:nowrap}
 @media (max-width:480px){.auth .seg button,.ol-seg button{font-size:14px;padding:8px 7px}}
+
+/* Game Time (desktop companion) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.btn.ghost{background:transparent;border-color:transparent}.btn.ghost:hover{background:var(--soft)}
+.gt-status{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:var(--soft);margin-bottom:12px}
+.gt-dot{width:10px;height:10px;border-radius:50%;background:var(--dim);flex:none;display:inline-block}
+.gt-status.ok .gt-dot,.gt-dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(95,211,165,.18)}
+.gt-status.warn .gt-dot,.gt-dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(242,196,109,.18)}
+.gt-status.off .gt-dot{background:var(--dim)}
+.gt-dot.live{background:var(--ok);animation:gtPulse 1.6s ease-in-out infinite}
+@keyframes gtPulse{50%{box-shadow:0 0 0 6px rgba(95,211,165,0)}0%,100%{box-shadow:0 0 0 0 rgba(95,211,165,.45)}}
+.gt-playing{display:flex;gap:12px;align-items:flex-start;padding:10px 2px}
+.gt-playing .gt-dot{margin-top:8px}
+.gt-clock{font-size:2rem;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;margin:2px 0}
+.gt-meter{margin:8px 0 4px}.gt-meter.over i{background:var(--bad)}
+.gt-lim{margin:2px 0 0}.gt-over{color:var(--bad)}
+.gt-games .item{align-items:flex-start;flex-wrap:wrap}.gt-games .item.off .t{color:var(--muted)}
+.gt-games .thumb{position:relative}.gt-games .thumb .gt-dot{position:absolute;inset:0;margin:auto}
+.gt-ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.gt-limit{display:grid;gap:2px}.gt-limit input{width:96px}
+.gt-bars{height:150px}
+.gt-top,.gt-hist{margin-top:10px}.gt-top li,.gt-hist li{padding:7px 2px;border-bottom:1px solid var(--line)}
+.gt-info{margin:0;padding-left:18px;display:grid;gap:8px;color:var(--muted)}.gt-info b{color:var(--text)}
+.gt-steps{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:14px}
+.gt-steps li{display:flex;gap:14px;align-items:flex-start}.gt-steps p{margin:4px 0 0}
+.gt-n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:linear-gradient(135deg,#8b5cf6,#22d3ee);color:#fff;font-weight:600}
+.gt-picker{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;display:grid;gap:10px}
+.gt-picker .list{max-height:320px;overflow:auto}
+.gt-hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+:root[data-theme="light"] .gt-over{color:#b3203a}
+@media (max-width:640px){.gt-ctrl{margin-left:0;width:100%}.gt-clock{font-size:1.6rem}}
+@media (prefers-reduced-motion:reduce){.gt-dot.live{animation:none}}
+.gt-promo{gap:14px;align-items:center}.gt-promo>svg{width:28px;height:28px;color:var(--accent2);flex:none}
+@media (max-width:640px){.gt-promo{flex-wrap:wrap}.gt-promo .btn{width:100%}}

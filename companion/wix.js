@@ -6,7 +6,8 @@
 const http = require('http'), crypto = require('crypto');
 
 const CLIENT_ID = '71e92457-9a77-4b96-8d3c-a3281c3bff9d';
-const API = 'https://www.wixapis.com';
+let API = 'https://www.wixapis.com';
+const setApiBase = url => { API = url; }; // tests only (main.js allows it only when running from source)
 const SITE_URL = 'https://headless-bjzqdbegqqy-wanling326002-140d.wix-site-host.com/';
 const PORTS = [47321, 47322, 47323]; // must match the allowed redirect addresses in the site's Headless settings
 const COL = {sessions: 'GameSessions', devices: 'CompanionDevices', config: 'CompanionConfig'};
@@ -145,4 +146,4 @@ class WixRemote {
   }
 }
 
-module.exports = {CLIENT_ID, API, SITE_URL, PORTS, COL, signIn, WixAuth, WixRemote, WixError};
+module.exports = {CLIENT_ID, get API() { return API; }, setApiBase, SITE_URL, PORTS, COL, signIn, WixAuth, WixRemote, WixError};

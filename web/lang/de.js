@@ -1064,4 +1064,202 @@ Projekt: deine erste App veröffentlichen
 ## fixes
 Los
 Los: {s}
+## gametime
+Spielzeit
+Automatische Spielzeiterfassung und tägliche Limits mit der Windows-App.
+Spielzeit-Begleit-App einrichten
+Eine kleine Windows-App zählt deine Spielzeit automatisch, auch wenn diese Website geschlossen ist, und zeigt deine Tageslimits hier an.
+Herunterladen
+Hol dir die kostenlose LevelUp Life App für Windows # und #.
+Für Windows herunterladen
+Alle Versionen
+Installieren
+Öffne die heruntergeladene Datei. Administratorrechte sind nicht nötig. Solange die App neu ist, zeigt Windows vielleicht „Der Computer wurde durch Windows geschützt“. Wähle dann „Weitere Informationen“ und anschließend „Trotzdem ausführen“.
+Verbinden
+Zum Verbinden brauchst du ein Online-Konto, damit dein PC und diese Website deine Spielzeit teilen. Du kannst die App auch ohne Verbindung allein nutzen.
+Online-Konto in den Einstellungen erstellen
+Öffne in der App „Spielzeit“ und wähle „Mit meinem Konto verbinden“. Melde dich mit demselben Online-Konto an wie hier.
+Spiele auswählen
+Die App findet Spiele von Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net und Riot. Schalte aus, was nicht erfasst werden soll, und füge andere Spiele selbst hinzu.
+Limits festlegen
+Lege ein Tageslimit pro Spiel und ein Gesamtlimit fest. Du wirst bei #, # und # verbleibenden Minuten erinnert. Limits schließen oder blockieren nie ein Spiel.
+Was erkannt werden kann
+Automatisch gefunden:
+Steam, Epic Games, die Xbox-App (Spiele in einem XboxGames-Ordner), GOG Galaxy sowie Spiele von EA app, Ubisoft Connect, Battle.net, Riot und Rockstar, die sich bei Windows registrieren.
+Muss selbst hinzugefügt werden:
+ältere Xbox-/Game-Pass-Spiele im geschützten WindowsApps-Ordner, Spiele ohne Launcher, Emulatoren und Spiele aus anderen Launchern. Nutze „Laufendes Programm hinzufügen“, während das Spiel offen ist.
+Kann nicht erkannt werden:
+Cloud-Gaming (Xbox Cloud Gaming, GeForce NOW), Browserspiele sowie Spiele auf Konsolen oder Handys.
+Manche durch Anti-Cheat geschützte Spiele verstecken ihren Ordner. LevelUp Life erkennt sie dann am Programmnamen. Es greift nie in ein Spiel ein: kein Einschleusen, kein Lesen des Spielspeichers, keine Dateiänderungen.
+Launcher, Updater, Absturzmelder und Anti-Cheat-Programme zählen nie als Spielzeit. Spiele werden alle # Sekunden geprüft.
+Datenschutz
+Die App schaut nur auf Namen und Speicherorte laufender Programme, um Spiele zu erkennen, mit dem geringsten Zugriff, den Windows erlaubt. Nur erfasste Spiele verlassen deinen PC: ihre Namen, Programmnamen, Sitzungszeiten und deine Limits, nie eine Liste deiner anderen Programme, Installationsordner, Screenshots, Tastatureingaben oder Spielkonten.
+Vollständige Datenschutzhinweise lesen (Abschnitt #f)
+Spiele automatisch erfassen
+Die kostenlose Windows-App zählt deine Spielzeit selbstständig und erinnert dich an Tageslimits.
+Spielzeit öffnen
+Deine Spielzeit wird geladen…
+Deine PCs
+Noch kein PC verbunden.
+Noch kein PC verbunden
+Meinen Online-Spielverlauf löschen
+Nach dem Trennen synchronisiert dieser PC innerhalb etwa einer Minute nicht mehr. Auf dem PC selbst wird weiter erfasst, bis du ihn wieder verbindest.
+Jetzt
+Begleit-App verbunden
+Erfassung auf deinem PC pausiert
+Begleit-App offline
+Installiere die Windows-App und verbinde sie, um zu starten.
+Aktuelle Sitzung
+Solange die App offline ist, wird nichts als „läuft gerade“ angezeigt.
+Die Erfassung ist pausiert. Es wird nichts gezählt.
+Gerade läuft kein Spiel.
+Erfassung pausieren
+Erfassung fortsetzen
+Tageslimit
+Verbleibend
+Überzeit
+Keins
+Limit erreicht
+Tageslimit erreicht
+{s} genutzt ·
+{s} übrig
+von {s}
+· {s} Überzeit
+{s} heute · kein Limit
+Zwei gleichzeitig geöffnete Spiele zählen für dieses Limit nur einmal. Limits sind nur Erinnerungen: Spiele werden nie geschlossen oder blockiert.
+Der Tag beginnt um Mitternacht in dieser Zeitzone:
+Genutzte Zeit
+Erfasste Spiele
+# erfasst
+Läuft gerade
+Steam
+Epic Games
+Von dir hinzugefügt
+Installiertes Spiel
+Nicht erfasst
+Limit (Min.)
+Tageslimit für {s} in Minuten
+{s} erfassen
+Weitere .exe für {s} hinzufügen
+Weitere .exe für dieses Spiel hinzufügen
+Noch keine Spiele. Nutze „Spiele suchen“ oder „Spiel hinzufügen“.
+Noch keine Spiele. Sie erscheinen hier, sobald die Windows-App sie findet.
+Spiel hinzufügen (.exe)
+Laufendes Programm hinzufügen
+Erneut nach Spielen suchen
+Spiele werden gesucht…
+Letzte Suche: {s}
+Schalte alles aus, was kein Spiel ist, das du erfassen willst. Ein Spiel kann mehrere Programme haben: Nutze + bei Spielen, die du selbst hinzugefügt hast.
+Letzte 7 Tage
+{s} in den letzten # Tagen
+· rote Tage lagen über deinem Limit von {s}
+Tagesverlauf
+Limits & Einstellungen
+Gesamtes tägliches Spiellimit (Minuten)
+Kein Limit
+Der Tag beginnt um Mitternacht in
+Zeitzone dieses Computers
+Zeitzone dieses Computers ({s})
+Erinnerungen bei #, # und # verbleibenden Minuten
+Desktop-Benachrichtigungen, jeweils einmal pro Tag
+Limit-Erinnerungen
+Mit Windows starten
+Startet im Infobereich, damit die Erfassung immer läuft
+Was zählt:
+die gesamte Zeit, in der ein erfasstes Spiel läuft, auch Menüs, Ladebildschirme und wenn es minimiert ist. Zeit, in der der Computer schläft, zählt nie.
+Verbunden · Erfassung an
+Verbunden · Erfassung pausiert
+Zuletzt gesehen {s}
+gerade eben
+vor # Min.
+vor # Std.
+Trennen
+Erfassung an
+Erfassung pausiert
+Nicht verbunden: nur dieser PC
+Offline: wird synchronisiert, sobald du wieder online bist
+Anmeldung abgelaufen: erneut verbinden
+Von der Website getrennt
+Dein Konto
+Dieser PC synchronisiert mit deinem Online-Konto:
+Sieh deine Spielzeit auf der Website, von jedem Gerät.
+Letzte Synchronisierung: {s}
+Erneut verbinden
+Mein Dashboard öffnen
+Diesen PC trennen
+Die Erfassung funktioniert auf diesem PC auch ohne Konto. Verbinde dein Online-Konto, um deine Spielzeit auf der Website zu sehen und Limits zu ändern, auch vom Handy aus.
+Mit meinem Konto verbinden
+Dein Browser öffnet die Anmeldeseite von LevelUp Life. Dein Passwort gibst du dort ein, nie in dieser App.
+Dein Browser öffnet die Anmeldeseite von LevelUp Life. Dein Passwort gibst du dort ein, nie in dieser App. Dieser PC wurde von der Website getrennt; du kannst ihn jederzeit wieder verbinden.
+Spielverlauf auf diesem PC löschen
+Spielverlauf löschen (dieser PC und online)
+· Ein Update wird beim nächsten Start der App installiert.
+Prozessliste: Windows, eingeschränkter Zugriff
+Prozessliste: nur Namen
+Prozessliste: auf diesem System nicht verfügbar
+Bitte erneut verbinden: Die Anmeldung ist abgelaufen.
+Anzeigename (optional)
+Zum Beispiel: Minecraft
+Laufende Programme auf diesem PC (diese Liste bleibt auf deinem PC). Wähle das Spiel:
+Launcher oder Hilfsprogramm
+Speicherort von Windows verborgen
+Keine Programme gefunden.
+Spiel hinzugefügt
+{s} hinzugefügt. Du kannst es in der Liste umbenennen.
+Das sieht nach einem Launcher oder Hilfsprogramm aus. Es wird gezählt, weil du es ausgewählt hast.
+Wähle ein Programm aus der Liste.
+Entfernt
+Erfassung fortgesetzt
+Suche abgeschlossen
+Schließe die Anmeldung in deinem Browser ab
+Mit deinem Konto verbunden
+Getrennt
+Spielverlauf gelöscht
+Online-Spielverlauf gelöscht
+PC getrennt
+Gespeichert. Dein PC übernimmt es innerhalb einer Minute.
+Verbinde zuerst die Windows-App
+Deine Spielzeit konnte gerade nicht geladen werden. Es wird erneut versucht.
+Dieser PC konnte nicht getrennt werden. Bitte versuche es erneut.
+{s} nicht mehr erfassen und aus der Liste entfernen? Der Verlauf bleibt erhalten.
+Diesen PC trennen? Er synchronisiert innerhalb etwa einer Minute nicht mehr.
+Diesen PC von deinem Konto trennen? Die Erfassung läuft auf diesem PC weiter.
+Den gesamten Spielverlauf auf diesem PC löschen? Deine Spiele und Limits bleiben. Das kann nicht rückgängig gemacht werden.
+Den gesamten Spielverlauf auf diesem PC und online löschen? Deine Spiele und Limits bleiben. Das kann nicht rückgängig gemacht werden.
+Den gesamten online gespeicherten Spielverlauf löschen? Deine PCs behalten ihre eigene Kopie. Das kann nicht rückgängig gemacht werden.
+Spielzeit zählt deine Spielzeit automatisch mit der kostenlosen Windows-App und erinnert dich an deine Tageslimits.
+zählt deine Spielzeit automatisch mit der kostenlosen Windows-App und erinnert dich an deine Tageslimits.
+## desktop
+Wird gestartet…
+Suche nach Updates…
+Update {s} wird heruntergeladen…
+Update wird heruntergeladen… #%
+Update wird installiert…
+Ohne Update starten
+Bring deinen Tag aufs nächste Level
+Version {s}
+Erfassung an · {s}
+Erfassung an · kein Spiel läuft
+Offline: wird später synchronisiert
+Nicht verbunden (nur dieser PC)
+Heute: {s}
+LevelUp Life öffnen
+Neu starten zum Aktualisieren
+Beenden (Erfassung stoppt)
+Wähle das Programm des Spiels (.exe)
+Weiteres Programm für {s} hinzufügen
+Noch # Minuten
+Heute noch # Minuten Spielzeit.
+Heute noch # Minuten {s}.
+Du hast dein heutiges Spiellimit erreicht. Die Zeit zählt als Überzeit weiter.
+Du hast dein heutiges Limit für {s} erreicht. Die Zeit zählt als Überzeit weiter.
+Dieser PC wurde auf der Website von deinem Konto getrennt. Die Erfassung läuft nur auf diesem PC weiter.
+Erfasst weiter im Infobereich
+Die Erfassung ist pausiert. Klicke mit rechts auf das LevelUp Life-Symbol im Infobereich, um fortzusetzen oder zu beenden.
+LevelUp Life erfasst deine Spiele weiter. Klicke mit rechts auf das Symbol im Infobereich, um zu pausieren oder zu beenden.
+LevelUp Life läuft
+Die Spielerfassung ist pausiert. Öffne das Symbol im Infobereich, um fortzusetzen.
+Die Spielerfassung ist an. Du findest LevelUp Life im Infobereich.
+Update bereit
+Eine neue Version von LevelUp Life wird beim nächsten Start installiert. Nutze „Neu starten zum Aktualisieren“ im Infobereich, um es jetzt zu tun.
 `);

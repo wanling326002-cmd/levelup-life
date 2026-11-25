@@ -29,7 +29,7 @@ h1{font-size:26px;font-weight:600;margin:16px 0 2px;letter-spacing:.01em}
 <main role="status" aria-live="polite">
   <img class="logo" src="../../web/icon.svg" alt="">
   <h1>LevelUp Life</h1>
-  <p class="tag">Level up your day</p>
+  <p class="tag" id="tag">Level up your day</p>
   <div class="bar wait" id="bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100"><i></i></div>
   <p id="status">Starting…</p>
   <button id="skip" type="button">Start without updating</button>
@@ -42,7 +42,9 @@ h1{font-size:26px;font-weight:600;margin:16px 0 2px;letter-spacing:.01em}
     if (s.text) document.getElementById('status').textContent = s.text;
     if (typeof s.progress === 'number') { bar.classList.remove('wait'); i.style.width = Math.round(Math.max(0, Math.min(1, s.progress)) * 100) + '%'; bar.setAttribute('aria-valuenow', Math.round(s.progress * 100)); }
     else if (s.progress === null) { bar.classList.add('wait'); i.style.width = ''; bar.removeAttribute('aria-valuenow'); }
-    if (s.version) document.getElementById('ver').textContent = 'Version ' + s.version;
+    if (s.version) document.getElementById('ver').textContent = s.version;
+    if (s.tag) document.getElementById('tag').textContent = s.tag;
+    if (s.skip) document.getElementById('skip').textContent = s.skip;
     if ('canSkip' in s) document.getElementById('skip').style.visibility = s.canSkip ? 'visible' : 'hidden';
   }
   document.getElementById('skip').onclick = () => { document.title = 'skip'; }; // the app watches the title
