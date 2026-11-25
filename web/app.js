@@ -2862,7 +2862,7 @@ function gtPaintPicker() {
   if (!GT.picker) { box.innerHTML = ''; return; }
   box.innerHTML = `<div class="gt-picker"><label class="field"><span>Name to show (optional)</span><input id="gtPickName" maxlength="80" placeholder="For example: Minecraft"></label>
     <p class="muted small" style="margin:0">Running programs on this PC (this list stays on your PC). Pick the game:</p>
-    <ul class="list">${GT.picker.map((p, i) => `<li class="item"><div class="grow"><div class="t" translate="no">${esc(p.name)}${p.helper ? ' <span class="tag">launcher or helper</span>' : ''}</div><div class="s" translate="no">${esc(p.path || 'Location hidden by Windows')}</div></div><button class="btn sm" data-gtpick="${i}">Add</button></li>`).join('') || emptyLi('No programs found.')}</ul>
+    <ul class="list">${GT.picker.map((p, i) => `<li class="item"><div class="grow"><div class="t"><span translate="no">${esc(p.name)}</span>${p.helper ? ' <span class="tag">launcher or helper</span>' : ''}</div><div class="s">${p.path ? `<span translate="no">${esc(p.path)}</span>` : 'Location hidden by Windows'}</div></div><button class="btn sm" data-gtpick="${i}">Add</button></li>`).join('') || emptyLi('No programs found.')}</ul>
     <button class="btn ghost" id="gtPickCancel">Cancel</button></div>`;
 }
 

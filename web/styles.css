@@ -67,7 +67,7 @@ h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em}
 .pillnav.fade-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px);mask-image:linear-gradient(90deg,transparent,#000 48px)}
 .pillnav.fade-l.fade-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent)}
 .pillnav.dragging{cursor:grabbing;user-select:none}.pillnav.dragging a{pointer-events:none}
-.pillnav a{display:flex;align-items:center;gap:8px;padding:10px 15px;border-radius:var(--pill);
+.pillnav a{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--pill);
   color:var(--muted);text-decoration:none;font-size:.98rem;white-space:nowrap;position:relative;transition:.2s}
 .pillnav a:hover{color:var(--text)}
 .pillnav a.active{color:var(--text);background:linear-gradient(180deg,var(--soft2),var(--soft));
@@ -265,7 +265,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 
 /* responsive */
 @media (max-width:1560px){.pillnav a svg{display:none}}
-@media (max-width:1360px){.pillnav a{padding:10px 12px}}
+@media (max-width:1500px){.pillnav a{padding:10px 9px}} /* 13 tabs still fit on a 1440px laptop */
 @media (max-width:1180px){.topbar{gap:8px}.profile .xpbar{display:none}.profile{padding-right:12px}.pillnav a{padding:9px 8px;font-size:.9rem}.round{width:46px;height:46px}}
 @media (max-width:980px){.profile .lv{display:none}.profile{padding-right:4px}.pillnav a{padding:8px 7px;font-size:.86rem}.frame{padding-left:18px;padding-right:18px}}
 @media (max-width:1200px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}.statrow{grid-template-columns:repeat(2,1fr)}.tiles.cols-4{grid-template-columns:repeat(2,1fr)}}
