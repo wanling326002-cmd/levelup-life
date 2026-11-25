@@ -45,7 +45,9 @@ const P = {
   smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0M9 9.5h.01M15 9.5h.01"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>', badge:'<circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/>',
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
-  download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>', upload:'<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
+  download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',
+  messages:'<path d="M4 6h16v10H8l-4 4z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/>', back:'<path d="M15 5l-7 7 7 7"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>', upload:'<path d="M12 21V9m-5 5 5-5 5 5M4 3h16"/>',
 };
 const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 
@@ -60,6 +62,7 @@ const ROUTES = [
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
   {id:'impact', name:'Help the World', short:'Impact', sub:'Small daily quests that make things better.', key:'8', main:true},
   {id:'chat', name:'Chat', sub:'Talk with everyone who has your invite code.', main:true},
+  {id:'messages', name:'Messages', sub:'Private, end-to-end encrypted chats with your friends.', main:true},
   {id:'players', name:'Players', sub:'Leaderboard, friends and player profiles.', main:true},
   {id:'badges', name:'Badges', sub:'Your level, rank and achievements.', key:'9'},
   {id:'options', name:'Settings', sub:'Your account, preferences and data.', key:'0'},
@@ -263,7 +266,7 @@ const DEFAULT = {
   quests:{},                      // date -> [index]
   questsTotal:0,
   run:{},                         // running timers, so a reload does not lose them
-  stats:{episodes:0},
+  stats:{episodes:0, chat:0, dm:0, group:0, wkAll:0},
   ownerProof:'',
   adminProof:'',
   adminBoost:false,
@@ -279,6 +282,15 @@ const DEFAULT = {
   toured:false,                   // saw the first-visit tour
   since:0, lastBackup:0, backupSnooze:0, // backup reminder
   repAt:[],                       // when I sent reports (a simple rate limit)
+  days:[],                        // days I opened the app (login streak)
+  wk:{id:'', xp:0, base:null, done:[]}, // this week: XP, counters at the start of the week, finished challenges
+  ach:{},                         // achievements: id -> date unlocked
+  bio:'', favs:[],                // shown on the public profile
+  season:'auto',                  // seasonal theme
+  notes:[],                       // notifications
+  seen:{at:0, req:[], fr:[], rep:[], repAt:0}, // what was already turned into a notification
+  dm:{}, dmRead:{}, dmDirty:false, // private messages per friend, when I last read each, unsent changes
+  group:'', gid:'',               // study group code, and this device's id in groups
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -307,7 +319,7 @@ function clean(raw) {
   for (const [k, v] of Object.entries(s.quests || {})) if (isDay(k)) d.quests[k] = [...new Set(arr(v).map(i => num(i, 0, 0, QUESTS.length - 1)))];
   d.questsTotal = num(s.questsTotal, 0);
   d.chatCode = str(s.chatCode, 64);
-  d.stats = {episodes:num((s.stats || {}).episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6)};
+  const st = s.stats || {}; d.stats = {episodes:num(st.episodes, d.series.reduce((a, x) => a + x.e, 0), 0, 1e6), chat:num(st.chat, 0, 0, 1e7), dm:num(st.dm, 0, 0, 1e7), group:num(st.group, 0, 0, 1e6), wkAll:num(st.wkAll, 0, 0, 1e5)};
   const seen = new Set(); d.emoji = arr(s.emoji).filter(x => x && typeof x.name === 'string' && /^[a-z0-9_]{2,24}$/.test(x.name) && !seen.has(x.name) && seen.add(x.name)).slice(0, 100).map(x => ({id:okId(x.id), name:x.name, live:x.live === true}));
   d.ownerProof = typeof s.ownerProof === 'string' && /^[0-9a-f]{64}$/.test(s.ownerProof) ? s.ownerProof : '';
   d.adminProof = typeof s.adminProof === 'string' && /^[0-9a-f]{64}$/.test(s.adminProof) ? s.adminProof : '';
@@ -315,8 +327,22 @@ function clean(raw) {
   const names = (v, max) => [...new Set(arr(v).filter(x => typeof x === 'string' && /^[a-z0-9_]{3,20}$/.test(x)))].slice(-max);
   d.pub = s.pub === true; d.pubHash = /^[0-9a-f]{64}$/.test(s.pubHash || '') ? s.pubHash : ''; d.pubAt = num(s.pubAt, 0, 0, 1e15);
   d.friends = names(s.friends, 200); d.ignored = names(s.ignored, 200); d.modHidden = names(s.modHidden, 500);
-  d.packHash = /^[0-9a-f]{64}$/.test(s.packHash || '') ? s.packHash : '';
+  d.packHash = /^[0-9a-f]{64}$/.test(s.packHash || '') ? s.packHash : ''; d.packPages = num(s.packPages, 1, 1, 9);
   d.staffAdds = names(s.staffAdds, 50);
+  const ctl = v => String(v).replace(/\p{Cc}/gu, ' ');
+  d.days = [...new Set(arr(s.days).filter(isDay))].sort().slice(-400);
+  const w = s.wk || {}; d.wk = {id:isDay(w.id) ? w.id : '', xp:num(w.xp, 0, 0, 1e7), base:null, done:[...new Set(arr(w.done).filter(x => typeof x === 'string' && /^[a-z]{2,12}$/.test(x)))].slice(0, 3)};
+  if (w.base && typeof w.base === 'object' && ['focus', 'lessons', 'deeds', 'vids', 'chat', 'dm', 'group'].every(k => Number.isFinite(Number(w.base[k])))) d.wk.base = Object.fromEntries(['focus', 'lessons', 'deeds', 'vids', 'chat', 'dm', 'group'].map(k => [k, num(w.base[k], 0, 0, 1e9)]));
+  for (const [k, v] of Object.entries(s.ach || {})) if (/^[a-z0-9]{2,20}$/.test(k) && isDay(v)) d.ach[k] = v;
+  d.bio = ctl(str(s.bio, 160)).trim(); d.favs = arr(s.favs).filter(x => typeof x === 'string').map(x => ctl(x).trim().slice(0, 40)).filter(Boolean).slice(0, 5);
+  d.season = ['auto', 'off', 'winter', 'spring', 'summer', 'autumn', 'halloween', 'festive', 'newyear'].includes(s.season) ? s.season : 'auto';
+  d.notes = arr(s.notes).filter(n => n && typeof n.t === 'string').slice(0, 60).map(n => ({id:okId(n.id), t:ctl(str(n.t, 160)), at:num(n.at, 0, 0, 1e15), r:n.r === true,
+    h:typeof n.h === 'string' && /^#[a-z]{2,12}$/.test(n.h) ? n.h : '', u:typeof n.u === 'string' && /^[a-z0-9_]{3,20}$/.test(n.u) ? n.u : ''}));
+  const sn = s.seen || {}; d.seen = {at:num(sn.at, 0, 0, 1e15), req:names(sn.req, 200), fr:names(sn.fr, 200), rep:arr(sn.rep).filter(x => typeof x === 'string' && /^[\w-]{1,60}$/.test(x)).slice(0, 200), repAt:num(sn.repAt, 0, 0, 1e15)};
+  for (const [u, list] of Object.entries(s.dm || {})) if (/^[a-z0-9_]{3,20}$/.test(u)) { const l = arr(list).filter(x => x && typeof x.t === 'string' && /^[0-9a-f]{8,32}$/.test(x.id)).map(x => ({id:x.id, f:x.f === true, t:ctl(str(x.t, 500)), at:num(x.at, 0, 0, 1e15)})).slice(-200); if (l.length) d.dm[u] = l; }
+  for (const [u, v] of Object.entries(s.dmRead || {})) if (/^[a-z0-9_]{3,20}$/.test(u)) d.dmRead[u] = num(v, 0, 0, 1e15);
+  d.dmDirty = s.dmDirty === true;
+  d.group = str(s.group, 40); d.gid = typeof s.gid === 'string' && /^[0-9a-f]{16}$/.test(s.gid) ? s.gid : randHex(8);
   d.toured = s.toured === true || d.xp >= 60; // people who already use the app don't need the tour
   d.since = num(s.since, 0, 0, 1e15) || Date.now(); d.lastBackup = num(s.lastBackup, 0, 0, 1e15); d.backupSnooze = num(s.backupSnooze, 0, 0, 1e15);
   d.repAt = arr(s.repAt).map(x => num(x, 0, 0, 1e15)).filter(x => x > Date.now() - 864e5).slice(-20);
@@ -328,7 +354,7 @@ function clean(raw) {
 let S;
 try { S = clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
 catch { S = clean({}); }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); queueProgress(); };
 
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
@@ -342,10 +368,10 @@ const level = () => {
   return lv >= MAX_LEVEL ? {lv:MAX_LEVEL, xp:1, need:1, max:true} : {lv, xp, need, max:false};
 };
 const displayName = () => (me() && me().username) || S.name || 'Player';
-const gainXP = (n, why) => {
+const gainXP = (n, why, quiet) => { // quiet: rewards that happen in the background don't cover a message that is showing
   if (isAdminOnly()) n *= 2; // admin perk: double XP (both ways, so unticking still balances out)
-  const before = level().lv; S.xp = Math.max(0, S.xp + n); save(); paintPlayer();
-  if (n > 0) toast(level().lv > before ? `🎉 Level up! You are now level ${level().lv}` : `+${n} XP${isAdminOnly() ? ' (2× admin)' : ''} · ${why}`);
+  const before = level().lv; S.xp = Math.max(0, S.xp + n); rollWeek(); S.wk.xp = Math.max(0, S.wk.xp + n); save(); paintPlayer();
+  if (n > 0 && !(quiet && $('#toast').classList.contains('show'))) toast(level().lv > before ? `🎉 Level up! You are now level ${level().lv}` : `+${n} XP${isAdminOnly() ? ' (2× admin)' : ''} · ${why}`);
 };
 const streak = () => { let n = 0; for (let i = 0; i < 365; i++) { if (minsOn(dayOffset(i), 'learn') > 0 || (S.quests[dayOffset(i)] || []).length) n++; else if (i > 0) break; } return n; };
 
@@ -389,7 +415,7 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+function render() { if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); if (current !== 'messages') stopDM(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
 
 /* show / hide buttons on every password box, so people can check what they typed */
 function addPeek(root = document) {
@@ -450,8 +476,9 @@ VIEWS.home = () => {
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
-    <div class="stat"><span class="k">Streak</span><span class="v">${streak()}🔥</span><span class="d">${S.questsTotal} good deeds</span></div></div>`,
+    <div class="stat"><span class="k">Learning streak</span><span class="v">${streak()}🔥</span><span class="d">${S.questsTotal} good deeds</span></div></div>`,
     `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`)}
+  ${ACC.current ? weeklyCard() : ''}
   ${card('c4', 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
     <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px">${esc(TRACKS[next.track].name)} · ${esc(next.module)}</p>
     <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
@@ -515,8 +542,9 @@ BIND.study = m => {
 /* focus (pomodoro) — timer survives navigation */
 const T = {mode:'work', end:0, left:S.focus.work*60, running:false, label:'', iv:null};
 const modeLen = m => S.focus[m] * 60;
-function startTicking() { clearInterval(T.iv); T.running = true; T.iv = setInterval(tick, 250); S.run.focus = {mode:T.mode, end:T.end}; save(); }
-function stopTicking() { T.running = false; clearInterval(T.iv); delete S.run.focus; save(); }
+function startTicking() { clearInterval(T.iv); T.running = true; T.iv = setInterval(tick, 250); S.run.focus = {mode:T.mode, end:T.end}; save(); groupSoon(); }
+function stopTicking() { T.running = false; clearInterval(T.iv); delete S.run.focus; save(); groupSoon(); }
+function groupSoon() { clearTimeout(groupSoon.t); groupSoon.t = setTimeout(() => { if (GR.key) sendGroupState().then(() => { if (current === 'focus') pullGroup(); }); }, 600); }
 function resumeFocus() { // pick up a timer that was running before the page was reloaded
   const f = S.run.focus; if (!f) return;
   T.mode = f.mode; T.end = f.end; T.left = Math.max(0, Math.round((f.end - Date.now()) / 1000)); startTicking();
@@ -531,6 +559,7 @@ function finishTimer() {
   stopTicking();
   if (T.mode === 'work') {
     addLog('learn', S.focus.work, 'focus'); S.focus.count++; save(); gainXP(S.focus.work, 'focus session');
+    if (GR.key && othersFocusing()) { S.stats.group++; gainXP(10, 'studied together'); }
     notify('Focus complete', 'Great work! Take a break: stretch and drink some water.');
     setMode(S.focus.count % 4 === 0 ? 'long' : 'short');
   } else { notify('Break over', 'Ready for another focus round?'); setMode('work'); }
@@ -556,6 +585,7 @@ VIEWS.focus = () => {
     <div class="row" style="justify-content:center"><button class="btn primary" id="tGo"></button><button class="btn" id="tReset">${icon('reset')}Reset</button><button class="btn" id="tSkip">Skip</button></div>
     <p class="muted small" style="margin-top:14px">Shortcut: <kbd>Space</kbd> start / pause on this tab</p></div>`)}
   <div class="c5" style="display:grid;gap:22px;align-content:start">
+  ${card('', 'Study group', '<div id="grpBox"></div>', '<span class="tag p">Live</span>')}
   ${card('', 'Today', `<div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Sessions</span><span class="v">${S.log.filter(x=>x.d===today()&&x.ref==='focus').length}</span></div><div class="stat"><span class="k">Learning time</span><span class="v">${fmtMin(todayF)}</span></div></div>
     <div class="meter" style="margin-top:16px"><i style="width:${Math.min(100,todayF/S.goals.learn*100)}%"></i></div><p class="muted small">${fmtMin(todayF)} of your ${fmtMin(S.goals.learn)} daily learning goal</p>`)}
   ${card('', 'Timer lengths (minutes)', `<div class="row">${[['work','Focus'],['short','Short'],['long','Long']].map(([k,n])=>`<label class="field" style="flex:1"><span>${n}</span><input type="number" min="1" max="120" data-len="${k}" value="${S.focus[k]}"></label>`).join('')}</div>`)}
@@ -563,7 +593,7 @@ VIEWS.focus = () => {
   </div></div>`;
 };
 BIND.focus = m => {
-  paintTimer();
+  paintTimer(); bindGroup(); if (GR.key) pullGroup();
   m.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   $('#tGo').onclick = toggleTimer;
   $('#tReset').onclick = () => setMode(T.mode);
@@ -789,6 +819,8 @@ VIEWS.badges = () => {
       <p class="muted small" style="margin:6px 0 0">${L.max ? 'Max level reached. Legendary.' : `${L.xp} / ${L.need} XP to level ${L.lv + 1}`}</p></div>
     ${u ? '' : '<button class="btn primary" data-open-auth="signup">Create account</button>'}</div>`)}
   ${studioCards()}
+  ${aboutCard()}
+  ${achievementsCard()}
   ${card('c12', 'Badges', `<div class="badges">
     ${isOwner ? `<div class="badge-tile tier-owner"><span class="medal">${icon('crown')}</span><b>Founder</b><span class="tier">Owner only</span><p class="muted small">Created LevelUp Life.</p></div>` : isAdmin ? `<div class="badge-tile tier-admin"><span class="medal">${icon('shield')}</span><b>Admin</b><span class="tier">Given by the owner</span><p class="muted small">Trusted helper of LevelUp Life.</p></div>` : ''}
     ${st.map(([b, x]) => { const r = RANKS[x.tier], nx = RANKS[x.tier + 1];
@@ -802,7 +834,8 @@ VIEWS.badges = () => {
     <p class="muted small" style="margin:12px 0 0">Every badge climbs ${RANKS.length} ranks, from Bronze III up to Challenger. Numbers count down as you climb: Gold V comes before Gold I. Study, focus, play, watch and help others to rank up. Level ${isOwner ? OWNER_LEVEL : MAX_LEVEL} is the max level.</p>`)}
   </div>`;
 };
-const emojiMax = () => isOwner ? 100 : 25;
+const emojiMax = () => isOwner ? 250 : 80;
+const PACK_PAGES = 3; // chat emoji are shared in up to 3 signed items per role
 const IMG_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,.png,.jpg,.jpeg,.gif,.webp';
 const MEDIA_ACCEPT = IMG_ACCEPT + ',video/mp4,video/webm,.mp4,.webm';
 const liveTag = on => on ? '<span class="tag p">Live</span>' : '';
@@ -823,6 +856,7 @@ function studioCards() {
 }
 BIND.badges = m => {
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  bindAbout();
   if (!isOwner && !isAdmin) return;
   const refresh = async () => { await loadMedia(); paintPlayer(); rerender(); if (S.pub) schedulePublish(3000); };
   const upload = (sel, kind, done) => { const inp = $(sel); inp.onchange = async () => {
@@ -1042,7 +1076,7 @@ BIND.chat = () => {
     try {
       const m = {k:'msg', n, t, ts:Date.now()};
       if (S.pub && me()) { m.u = myU(); m.ps = await signText((await profileKey()).priv, sigText(m) + '|' + m.u); } // links your name to your profile
-      await postChat(m);
+      await postChat(m); S.stats.chat++; save();
     } catch { inp.value = t; toast("Couldn't send. Check your connection and try again."); }
   };
   const pick = $('#emoPick'), eb = $('#emoBtn');
@@ -1180,7 +1214,10 @@ async function readProfile(item) { // a verified public profile, or null
     return {u:p.u, n:str(p.n, 24) || p.u, lv:role === 'owner' ? MAX_LEVEL : num(p.lv, 1, 1, MAX_LEVEL), xp:num(p.xp, 0, 0, 1e9),
       rk:BADGES.map((_, i) => role === 'owner' ? TOP : num(arr(p.rk)[i], -1, -1, TOP)),
       fr:[...new Set(arr(p.fr).filter(f => typeof f === 'string' && USER_OK.test(f) && f !== p.u))].slice(0, 200),
-      j:isDay(p.j) ? p.j : '', x:p.x, y:p.y, role, pf:role ? img(p.pf) : '', bn:role ? img(p.bn) : ''};
+      j:isDay(p.j) ? p.j : '', x:p.x, y:p.y, role, pf:role ? img(p.pf) : '', bn:role ? img(p.bn) : '',
+      bio:cleanText(str(p.bio, 160), 160), fg:arr(p.fg).filter(g => typeof g === 'string').map(g => cleanText(g, 40)).filter(Boolean).slice(0, 5),
+      ac:[...new Set(arr(p.ac).filter(a => typeof a === 'string' && /^[a-z0-9]{2,20}$/.test(a)))].slice(0, 60), wk:isDay(p.wk) ? p.wk : '', wx:num(p.wx, 0, 0, 1e7),
+      dx:typeof p.dx === 'string' && /^[\w-]{20,60}$/.test(p.dx) ? p.dx : '', dy:typeof p.dy === 'string' && /^[\w-]{20,60}$/.test(p.dy) ? p.dy : ''};
   } catch { return null; }
 }
 async function readStaff(item, prefix) { // an item signed with the owner or admin key
@@ -1188,7 +1225,8 @@ async function readStaff(item, prefix) { // an item signed with the owner or adm
     const d = item.data || {}, w = JSON.parse(String(d.payload || ''));
     if (typeof w.d !== 'string' || w.d.length > 480000 || typeof w.s !== 'string') return null;
     const p = JSON.parse(w.d);
-    if (!p || p.v !== 1 || !['owner', 'admin'].includes(p.role) || String(item.id || d._id) !== `${prefix}-${p.role}`) return null;
+    const pg = num(p && p.page, 1, 1, 9); // emoji packs can span several items
+    if (!p || p.v !== 1 || !['owner', 'admin'].includes(p.role) || String(item.id || d._id) !== `${prefix}-${p.role}${pg > 1 ? '-' + pg : ''}`) return null;
     return await verifyWith(p.role === 'owner' ? OWNER_PUB : ADMIN_PUB, w.s, w.d) ? p : null;
   } catch { return null; }
 }
@@ -1203,7 +1241,9 @@ async function sharedCopy(kind, w, h, max) { // the small public copy of my pict
 async function buildProfile() {
   const u = me(), L = level(), k = await profileKey();
   const p = {v:1, u:u.username.toLowerCase(), n:u.username.slice(0, 24), lv:L.lv, xp:isOwner ? 1e9 : S.xp, rk:BADGES.map(b => badgeState(b).tier),
-    fr:S.friends.slice(0, 200), j:u.created || '', x:k.x, y:k.y, role:'', rs:'', pf:'', bn:''};
+    fr:S.friends.slice(0, 200), j:u.created || '', x:k.x, y:k.y, role:'', rs:'', pf:'', bn:'',
+    bio:S.bio, fg:S.favs, ac:Object.keys(S.ach).slice(0, 60), wk:S.wk.id, wx:S.wk.xp};
+  try { const dk = await dmKey(); p.dx = dk.x; p.dy = dk.y; } catch {} // for private messages
   const st = isOwner || isAdmin ? await staffKey() : null;
   if (st) {
     p.role = st[0]; p.rs = await signText(st[1], `role|${p.role}|${p.u}|${p.x}`);
@@ -1258,7 +1298,7 @@ async function loadPlayers(force) {
         cleanLog(m.log).forEach(e => modlog.push({...e, role:m.role}));
         for (const u of arr(m.hidden)) { const p = by.get(u); if (!p || p.role === 'owner') continue; if (m.role === 'owner') hidden.set(u, 'owner'); else if (!p.role && !hidden.has(u)) hidden.set(u, 'admin'); } }
       list.sort((a, b) => b.lv - a.lv || b.xp - a.xp || a.n.localeCompare(b.n));
-      Object.assign(PL, {list, by, hidden, modlog, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot(); staffNotice();
+      Object.assign(PL, {list, by, hidden, modlog, at:Date.now(), status:PL.status === 'taken' ? 'taken' : ''}); reqDot(); staffNotice(); socialNotes();
     } catch { PL.status = 'offline'; if (!PL.at) PL.at = 0; }
     finally { PL.loading = null; }
     return PL.list;
@@ -1285,7 +1325,7 @@ const friendRequests = () => { const m = myU(); return m ? PL.list.filter(p => p
 function staffNotice() { // tell a player once when the owner or an admin added them
   const m = myU(); if (!m || !PL.at) return;
   const by = PL.list.filter(p => p.fr.includes(m) && canForce(p.role, myRole())).map(p => p.u), fresh = by.filter(u => !S.staffAdds.includes(u));
-  if (fresh.length) { const p = PL.by.get(fresh[0]); toast(`${p.n} (${p.role === 'owner' ? 'Owner' : 'Admin'}) added you as a friend`); }
+  if (fresh.length) { const p = PL.by.get(fresh[0]); toast(`${p.n} (${p.role === 'owner' ? 'Owner' : 'Admin'}) added you as a friend`); fresh.forEach(u => { const q = PL.by.get(u); addNote(`${q.n} (${q.role === 'owner' ? 'Owner' : 'Admin'}) added you as a friend`, '#players'); }); }
   if (fresh.length || by.length !== S.staffAdds.length) { S.staffAdds = by.slice(0, 50); save(); }
 }
 const canHidePlayer = p => !!p && p.u !== myU() && (isOwner ? p.role !== 'owner' : isAdminOnly() && !p.role);
@@ -1326,24 +1366,28 @@ async function setHidden(u, hide) {
 async function publishPack() {
   const st = await staffKey(); if (!st) return;
   try {
-    const list = []; let budget = 420e3;
+    const pages = [[]]; let budget = 420e3;
     for (const e of S.emoji) {
       const b = await mediaGet('emoji:' + e.id).catch(() => null); if (!b) continue;
       const src = e.live && b.size <= 48e3 ? await thumb(b, 64, 64, 'fit', 48e3) : await thumb(b, 64, 64, 'fit');
-      if (!src || src.length > budget) continue; budget -= src.length; list.push({n:e.name, src});
+      if (!src || src.length > 420e3) continue;
+      if (src.length > budget) { if (pages.length >= PACK_PAGES) continue; pages.push([]); budget = 420e3; }
+      budget -= src.length; pages[pages.length - 1].push({n:e.name, src});
     }
-    const h = await sha256(st[0] + JSON.stringify(list)); if (h === S.packHash) return;
-    const d = JSON.stringify({v:1, role:st[0], list, ts:Date.now()});
-    await saveItem('emo-' + st[0], 'emoji', sealed(d, await signText(st[1], d)));
-    S.packHash = h; save(); PL.packAt = 0;
+    const h = await sha256(st[0] + JSON.stringify(pages)); if (h === S.packHash) return;
+    for (let i = 0; i < PACK_PAGES; i++) { if (i >= pages.length && i >= (S.packPages || 1)) break; // empty pages that were used before are cleared
+      const d = JSON.stringify({v:1, role:st[0], page:i + 1, list:pages[i] || [], ts:Date.now()});
+      await saveItem('emo-' + st[0] + (i ? '-' + (i + 1) : ''), 'emoji', sealed(d, await signText(st[1], d))); }
+    S.packHash = h; S.packPages = pages.length; save(); PL.packAt = 0;
   } catch {}
 }
 async function loadPacks(force) {
   if (!force && Date.now() - PL.packAt < 60000) return; PL.packAt = Date.now();
   try {
-    for (const it of await queryItems({kind:'emoji'}, 10)) { const p = await readStaff(it, 'emo'); if (!p) continue;
-      const m = new Map(); for (const e of arr(p.list)) if (e && /^[a-z0-9_]{2,24}$/.test(e.n) && typeof e.src === 'string' && DATA_IMG.test(e.src)) m.set(e.n, e.src);
-      PL.packs[p.role] = m; }
+    const packs = {owner:new Map(), admin:new Map()}, got = {owner:false, admin:false};
+    for (const it of await queryItems({kind:'emoji'}, 10)) { const p = await readStaff(it, 'emo'); if (!p) continue; got[p.role] = true;
+      for (const e of arr(p.list)) if (e && /^[a-z0-9_]{2,24}$/.test(e.n) && typeof e.src === 'string' && DATA_IMG.test(e.src)) packs[p.role].set(e.n, e.src); }
+    for (const r of ['owner', 'admin']) if (got[r]) PL.packs[r] = packs[r];
     paintChat();
   } catch { PL.packAt = 0; }
 }
@@ -1398,11 +1442,15 @@ function profileHTML(u) {
   <div class="pm-head">${plAvatar(p, true)}<div class="grow"><div class="row" style="gap:8px"><h2>${esc(p.n)}</h2>${roleTag(p)}${u === myU() ? '<span class="tag">You</span>' : ''}</div>
     <p class="muted small" style="margin:2px 0 0">@${esc(p.u)}${p.j ? ` · joined ${esc(p.j)}` : ''}</p></div></div>
   <div class="pm-body">
-    <div class="statrow" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><span class="k">Level</span><span class="v">${p.lv}${L ? '' : ' MAX'}</span></div>
-      <div class="stat"><span class="k">Leaderboard</span><span class="v">${hid ? 'Hidden' : pos ? '#' + pos : '–'}</span></div><div class="stat"><span class="k">Friends</span><span class="v">${mutualCount(p)}</span></div></div>
+    ${p.bio ? `<p class="pm-bio">${esc(p.bio)}</p>` : ''}
+    <div class="statrow pm-stats"><div class="stat"><span class="k">Level</span><span class="v">${p.lv}${L ? '' : ' MAX'}</span></div>
+      <div class="stat"><span class="k">Leaderboard</span><span class="v">${hid ? 'Hidden' : pos ? '#' + pos : '–'}</span></div><div class="stat"><span class="k">Friends</span><span class="v">${mutualCount(p)}</span></div>
+      <div class="stat"><span class="k">This week</span><span class="v">${p.wk === weekId() ? p.wx : 0}<small> XP</small></span></div></div>
+    ${p.fg.length ? `<div><p class="small" style="margin:0 0 6px"><b>Favourite games</b></p><div class="row" style="gap:6px">${p.fg.map(g => `<span class="chip">${icon('gaming')}${esc(g)}</span>`).join('')}</div></div>` : ''}
+    ${p.ac.length ? `<div><p class="small" style="margin:0 0 6px"><b>Achievements</b> <span class="muted">${ACH.filter(a => p.ac.includes(a.id)).length}/${ACH.length}</span></p><div class="pm-ach">${ACH.filter(a => p.ac.includes(a.id)).map(a => `<span class="ach-ic" title="${a.n}: ${a.d}" role="img" aria-label="${a.n}">${icon(a.i)}</span>`).join('')}</div></div>` : ''}
     ${L && L.lv === p.lv ? `<div><div class="meter"><i style="width:${L.xp / L.need * 100}%"></i></div><p class="muted small" style="margin:6px 0 0">${L.xp} / ${L.need} XP to level ${p.lv + 1}</p></div>` : ''}
     <div class="mini-badges">${BADGES.map((b, i) => { const r = RANKS[p.rk[i]]; return `<div class="mini-badge${r ? '' : ' locked'}"${r ? ` style="--tc:${r.color}"` : ''}>${icon(b.icon)}<span><b>${b.name}</b><br><span class="muted">${r ? r.name : 'Locked'}</span></span></div>`; }).join('')}</div>
-    <div class="row">${friendButtons(u)}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}${u !== myU() && p.role !== 'owner' ? `<button type="button" class="linkbtn small" data-report="${u}" data-name="${esc(p.n)}">Report</button>` : ''}</div>
+    <div class="row">${friendButtons(u)}${canDM(p) ? `<a class="btn" href="#messages" data-dmgo="${u}" data-close-pm>${icon('messages')}Message</a>` : ''}${canHidePlayer(p) ? `<button type="button" class="btn danger" data-hidep="${hid ? 'show' : 'hide'}" data-u="${u}">${hid ? 'Show on leaderboard' : 'Hide from leaderboard'}</button>` : ''}${u !== myU() && p.role !== 'owner' ? `<button type="button" class="linkbtn small" data-report="${u}" data-name="${esc(p.n)}">Report</button>` : ''}</div>
     ${hid && u === myU() ? `<p class="err">A moderator hid you from the leaderboard.</p>` : ''}
     ${openNote ? `<p class="muted small" style="margin:0">${esc(openNote)}</p>` : ''}
   </div>`;
@@ -1425,7 +1473,10 @@ async function openProfile(u, note = '', name = '') {
 }
 const PM = {back:null};
 function closeProfile() { const m = $('#playerModal'), was = m && !m.hidden; if (m) m.hidden = true; openU = ''; openNote = ''; openName = '';
-  if (was && PM.back && document.body.contains(PM.back)) try { PM.back.focus(); } catch {} PM.back = null; }
+  if (was && PM.back) { let b = PM.back; // the list may have been redrawn while the window was open: find the same button again
+    if (!document.body.contains(b)) { const k = b.dataset && (b.dataset.player || b.dataset.cm); b = k ? $(`[data-player="${CSS.escape(k)}"], [data-cm="${CSS.escape(k)}"]`) : b.id ? $('#' + CSS.escape(b.id)) : null; }
+    if (b) try { b.focus(); } catch {} }
+  PM.back = null; }
 const chatPlayer = m => { // the verified profile behind a chat message, if there is one
   if (m.pv) return PL.by.get(m.u) || null;
   if (m.owner || m.admin) { const p = PL.by.get(m.n.toLowerCase()); if (p && p.role === (m.owner ? 'owner' : 'admin')) return p; } // signed by the owner/admin key
@@ -1450,12 +1501,13 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-player]'); if (b) { e.preventDefault(); openProfile(b.dataset.player); return; }
   const c = e.target.closest('[data-cm]'); if (c) { e.preventDefault(); openChatPerson(c.dataset.cm); return; }
   const f = e.target.closest('[data-fr]'); if (f) changeFriend(f.dataset.u, f.dataset.fr);
+  const dg = e.target.closest('[data-dmgo]'); if (dg) { DM.open = dg.dataset.dmgo; if (current === 'messages') rerender(); }
 });
 
 /* players page */
 const pubStatusHTML = () => !me() ? 'Make an account to get a public profile.' : PL.status === 'taken' ? `<span class="err">Another player already uses the name ${esc(me().username)} on the leaderboard.</span>`
   : S.pub ? `You're public as <b>${esc(me().username)}</b>.${S.pubAt ? ` Last synced ${fmtTime(S.pubAt)}.` : ' Syncing…'} <button type="button" class="linkbtn" data-player="${myU()}">View my profile</button>` : 'Your profile is private. Only you can see your progress.';
-const SHARED_INFO = 'Shared: your username, level, XP, badge ranks, friends list and join date. Never your tasks, games, series, videos, email or password.';
+const SHARED_INFO = 'Shared: your username, level, XP (total and this week), badge ranks, achievements, friends list, join date, and your bio and favourite games if you add them. Never your tasks, games list, series, videos, email or password.';
 async function goPublic() {
   if (!me()) return openAuth('signup');
   S.pub = true; PL.status = ''; save(); toast('Joining the leaderboard…');
@@ -1469,20 +1521,22 @@ async function goPrivate() {
   try { await unpublishProfile(); toast('Your public profile was removed'); } catch { toast("Couldn't reach the leaderboard to remove your profile. Try again later."); }
   await loadPlayers(true); rerender();
 }
-function lbRow(p, i) {
+function lbRow(p, i, wk) {
   const s = friendState(p.u);
   return `<li><button type="button" class="lb-row${p.u === myU() ? ' me' : ''}" data-player="${p.u}"><span class="lb-pos${i < 3 ? ' g' + (i + 1) : ''}">#${i + 1}</span>${plAvatar(p)}
     <span class="grow lb-name"><span class="row" style="gap:6px"><b>${esc(p.n)}</b>${roleTag(p)}${p.u === myU() ? '<span class="tag">You</span>' : isFriend(s) ? '<span class="tag g">Friend</span>' : ''}</span>
-    <span class="muted small">${bestRank(p)}</span></span><span class="lb-lv">Lv ${p.lv}</span></button></li>`;
+    <span class="muted small">${wk ? `Level ${p.lv}` : bestRank(p)}</span></span><span class="lb-lv">${wk ? `${p.wx} XP` : `Lv ${p.lv}`}</span></button></li>`;
 }
 function paintPlayers() {
   const box = $('#lbList'); if (!box) return;
   const all = visiblePlayers(), q = PL.q.trim().toLowerCase();
-  let list = all.map((p, i) => [p, i]);
+  const wk = PL.tab === 'week';
+  let list = (wk ? weekBoard() : all).map((p, i) => [p, i]);
   if (PL.tab === 'friends') list = list.filter(([p]) => p.u === myU() || isFriend(friendState(p.u)));
   if (q) list = list.filter(([p]) => p.u.includes(q) || p.n.toLowerCase().includes(q));
   box.innerHTML = !PL.at && PL.loading ? `<li class="empty">Loading players…</li>` : PL.status === 'offline' && !PL.list.length ? `<li class="empty">Can't reach the leaderboard right now.</li>`
-    : list.slice(0, 200).map(([p, i]) => lbRow(p, i)).join('') || `<li class="empty">${PL.tab === 'friends' ? 'No friends yet. Open a player and press Add friend.' : q ? 'Nobody matches that name.' : 'No public players yet. Be the first!'}</li>`;
+    : list.slice(0, 200).map(([p, i]) => lbRow(p, i, wk)).join('') || `<li class="empty">${PL.tab === 'friends' ? 'No friends yet. Open a player and press Add friend.' : q ? 'Nobody matches that name.' : wk ? 'Nobody has earned XP this week yet. Be the first!' : 'No public players yet. Be the first!'}</li>`;
+  const lh = $('#lbHint'); if (lh) lh.textContent = wk ? `XP earned since Monday. Resets in ${daysLeft()} day${daysLeft() === 1 ? '' : 's'}.` : 'Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player\'s own app, so moderators can hide cheaters.';
   $('#lbCount').textContent = `${all.length} player${all.length === 1 ? '' : 's'}`;
   const fb = $('#friendsBox'); if (fb) {
     const reqs = friendRequests(), mine = S.friends.map(u => PL.by.get(u) || {u, n:u, role:'', pf:'', fr:[], rk:[], lv:0});
@@ -1504,10 +1558,10 @@ VIEWS.players = () => {
   ${!S.pub ? card('c12', 'Join the leaderboard', `<p class="muted" style="margin-top:-6px">${u ? `Make your profile public to show up on the leaderboard, let people click your name, and add friends. ${SHARED_INFO} You can turn it off any time in Settings.` : 'Create an account to join the leaderboard, get a profile other players can open, and add friends.'}</p>
     ${u && PL.status === 'taken' ? `<p class="err">Another player already uses the name ${esc(u.username)} on the leaderboard. Make a new account with a different username to join.</p>` : ''}
     <div class="row">${u ? `<button type="button" class="btn primary" id="goPublic">${icon('globe')}Make my profile public</button>` : `<button type="button" class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button type="button" class="btn" data-open-auth="login">Log in</button>`}</div>`) : ''}
-  ${card('c8', 'Leaderboard', `<div class="row lb-tools"><div class="seg" role="tablist"><button type="button" role="tab" data-lbtab="all" class="${PL.tab === 'all' ? 'on' : ''}" aria-selected="${PL.tab === 'all'}">Everyone</button><button type="button" role="tab" data-lbtab="friends" class="${PL.tab === 'friends' ? 'on' : ''}" aria-selected="${PL.tab === 'friends'}">Friends</button></div>
+  ${card('c8', 'Leaderboard', `<div class="row lb-tools"><div class="seg" role="tablist"><button type="button" role="tab" data-lbtab="all" class="${PL.tab === 'all' ? 'on' : ''}" aria-selected="${PL.tab === 'all'}">Everyone</button><button type="button" role="tab" data-lbtab="week" class="${PL.tab === 'week' ? 'on' : ''}" aria-selected="${PL.tab === 'week'}">This week</button><button type="button" role="tab" data-lbtab="friends" class="${PL.tab === 'friends' ? 'on' : ''}" aria-selected="${PL.tab === 'friends'}">Friends</button></div>
       <input id="lbSearch" class="grow" placeholder="Find a player" aria-label="Find a player" value="${esc(PL.q)}" maxlength="24"><button type="button" class="iconbtn" id="lbRefresh" aria-label="Refresh" title="Refresh">${icon('reset')}</button></div>
     <ol class="lb" id="lbList"></ol>
-    <p class="muted small" style="margin:12px 0 0">Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player's own app, so moderators can hide cheaters.</p>`, `<span class="tag p" id="lbCount"></span>`)}
+    <p class="muted small" style="margin:12px 0 0" id="lbHint">Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player's own app, so moderators can hide cheaters.</p>`, `<span class="tag p" id="lbCount"></span>`)}
   <div class="c4" style="display:grid;gap:22px;align-content:start">
   ${card('', 'Friends', u ? `<form class="row" id="addFriendForm"><input id="addFriendIn" class="grow" placeholder="Username" maxlength="20" aria-label="Friend's username" autocomplete="off"><button class="btn">${icon('userplus')}Add</button></form>
     <div id="friendsBox" style="margin-top:14px"></div>` : '<p class="muted" style="margin-top:-6px">Make an account to add friends.</p>', '<span class="tag p" id="reqCount" hidden></span>')}
@@ -1571,6 +1625,7 @@ VIEWS.options = () => `<div class="grid">
   ${card('c6', 'Profile & look', `<div class="form">
     <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
     <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-label="Dark mode" aria-checked="${S.theme==='dark'}"><i></i></button></div>
+    <label class="field"><span>Seasonal theme <span class="dim">(Automatic decorates for Halloween, December and New Year)</span></span><select id="stSeason">${Object.entries(SEASONS).map(([k, n]) => `<option value="${k}"${S.season === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-label="Show YouTube thumbnails" aria-checked="${S.thumbs}"><i></i></button></div>
     <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-label="Desktop notifications" aria-checked="${S.notify}"><i></i></button></div>
     <p class="muted small">Level ${level().lv} · ${S.xp} total XP</p></div>`)}
@@ -1626,6 +1681,7 @@ BIND.options = m => {
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
   const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
+  $('#stSeason').onchange = e => { S.season = e.target.value; save(); applySeason(); toast('Theme updated'); };
   $('#stExport').onclick = () => { S.lastBackup = Date.now(); save(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
   $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
   let armed = false;
@@ -1648,6 +1704,8 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Chat</b> with friends in the Chat tab using an invite code from the owner.</li>
     <li><b style="color:var(--text)">Collect badges</b> in the Badges tab. Each one climbs 24 ranks, from Bronze III to Challenger.</li>
     <li><b style="color:var(--text)">Make an account</b> with a username and password so everyone on this device has their own progress. Email is optional.</li>
+    <li><b style="color:var(--text)">Every week</b> brings 3 new challenges (see Home), and opening the app every day builds your login streak. Achievements are on the Badges page.</li>
+    <li><b style="color:var(--text)">Friends</b> can send each other private, encrypted messages (Messages) and study together in a study group (Focus). The bell shows friend requests, messages and more.</li>
     <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is uploaded unless you join the chat or make your profile public.</li></ol>
     <div class="row" style="margin-top:16px"><button type="button" class="btn primary" id="tourBtn">${icon('play')}Take the tour</button><a class="btn" href="#options">Install the app</a></div>`)}
   ${card('c5', 'Keyboard shortcuts', `<div class="keys">
@@ -1676,9 +1734,13 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <h2>4a. Public profile, leaderboard and friends (optional, off by default)</h2>
   <p>If you turn on "Show me on the leaderboard", the app publishes a small public profile to the website host's database (Wix) that <b>anyone can see</b>: your username, level, XP, badge ranks, the usernames you added as friends, and the date you made your account. The owner's and admins' profile picture and banner are shared too. Your tasks, games, series, videos, notes, email and password are <b>never</b> shared.</p>
   <p>Your profile is signed with a key made on your device, so nobody else can edit it. If chat is on, messages you send while public carry your username so others can open your profile. Levels are reported by your own app; the owner and admins can hide a profile from the leaderboard. The owner can add any player as a friend without a request, and admins can do the same for regular players; you'll be told when this happens. Turning the setting off, deleting your account or deleting all your data replaces your public profile with an empty "removed" note.</p>
-  <h2>4c. Reports</h2>
+  <h2>4b. Reports</h2>
   <p>If you report a message or a player, the report (the reason, your note, the message, the names involved and your name) is stored on the website host's database <b>encrypted so only the owner and admins can read it</b>. Please only report real problems.</p>
-  <h2>4b. Third-party content</h2>
+  <h2>4c. Private messages (friends only)</h2>
+  <p>Private messages are <b>end-to-end encrypted</b>: they are locked with a key that only your device and your friend's device have, so nobody else can read them, not the owner, admins or Wix. The locked messages are stored on the website host's database together with who they are for and when they were sent. A copy is kept on your device. If you report a message, you choose to share it with the owner and admins.</p>
+  <h2>4d. Study groups</h2>
+  <p>If you join a study group, your display name, your focus timer (focusing, on a break or paused, and when it ends) and how many sessions you did today are shared with everyone who has the group code, encrypted with that code. When you leave, it is removed from the group.</p>
+  <h2>4e. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
   <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
@@ -1686,7 +1748,7 @@ VIEWS.privacy = () => card('c12', '', `<div class="prose">
   <li><b>Offline copy:</b> on the website, your browser keeps a copy of the app's own files (not your data) so it opens fast and works offline. Clearing site data removes it.</li>
   <li><b>Website hosting:</b> the website version is hosted by Wix, which may record page visits and show a cookie notice. The desktop app does not do this.</li></ul>
   <h2>5. Notifications</h2>
-  <p>If you turn on notifications, they are created locally by your device for timers and break reminders. Nothing is sent over the internet.</p>
+  <p>Notifications (the bell) are created on your device for timers, break reminders, friend requests, messages, challenges and achievements. If you turn on desktop notifications, your device shows them as pop-ups. Nothing extra is sent over the internet.</p>
   <h2>6. Your control</h2>
   <ul><li><b>Accounts are per device:</b> an account only exists in the browser or app where it was created. Anyone with access to this device's files could copy the stored data, so use a device password.</li><li><b>Access & portability:</b> export all your data as a JSON file in Settings.</li><li><b>Deletion:</b> "Delete account" or "Delete all my data" in Settings removes it instantly. Uninstalling the desktop app or clearing site data also removes it.</li><li><b>Correction:</b> edit or delete any item directly in the app.</li></ul>
   <h2>7. Children</h2>
@@ -1712,6 +1774,8 @@ const ACTIONS = () => [
   {n:'Toggle light / dark mode', h:'Action', i:'eye', run:() => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); }},
   ...(me() ? [{n:'Log out', h:'Account', i:'logout', run:() => logout()}] : [{n:'Create account or log in', h:'Account', i:'user', run:() => openAuth('signup')}]),
   {n:'Take the tour', h:'Help', i:'help', run:() => startTour()},
+  {n:'Notifications', h:'Open', i:'bell', run:() => toggleNotes(true)},
+  {n:'Create or join a study group', h:'Action', i:'focus', run:() => { location.hash = '#focus'; setTimeout(() => $('#grpCode')?.focus(), 80); }},
   ...(APP.install ? [{n:'Install LevelUp Life', h:'App', i:'download', run:() => installApp()}] : []),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
   ...S.series.map(s => ({n:s.title, h:'Series', i:'series', run:() => location.hash = '#series'})),
@@ -1729,6 +1793,391 @@ function paintPalette() {
 }
 function runPal(i) { const a = pal[i]; if (!a) return; closePalette(); a.run(); }
 
+/* ---------- login streak and weekly challenges ---------- */
+const weekStart = (d = new Date()) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; };
+const weekId = (d = new Date()) => today(weekStart(d)); // the Monday of the week, YYYY-MM-DD
+const weekDays = () => { const s = weekStart(); return Array.from({length:7}, (_, i) => { const x = new Date(s); x.setDate(s.getDate() + i); return today(x); }); };
+const learnVids = s => s.yt.filter(y => y.watched && y.kind === 'learn').length;
+const counters = (s = S) => ({focus:s.focus.count, lessons:Object.keys(s.lessons).length, deeds:s.questsTotal, vids:learnVids(s), chat:s.stats.chat, dm:s.stats.dm, group:s.stats.group});
+function loginStreak() { let n = 0; for (let i = 0; i < 400; i++) { if (S.days.includes(dayOffset(i))) n++; else if (i > 0) break; } return n; }
+function bestLogin() {
+  let best = 0, run = 0, prev = null;
+  for (const d of [...S.days].sort()) { const t = Date.parse(d + 'T12:00'); run = prev !== null && Math.round((t - prev) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = t; }
+  return best;
+}
+const STREAK_BONUS = {7:25, 30:100, 100:300, 365:1000};
+function markDay() { // the first visit of the day: +5 XP, with a bonus on streak milestones
+  if (!ACC.current) return;
+  const fresh = rollWeek();
+  if (fresh && S.days.length) addNote('New weekly challenges are here. Good luck!', '#home', false);
+  if (S.days.includes(today())) { if (fresh) save(); return; }
+  S.days.push(today()); S.days = S.days.slice(-400);
+  const n = loginStreak(), bonus = STREAK_BONUS[n] || 0;
+  gainXP(5 + bonus, bonus ? `${n}-day login streak!` : `daily check-in · ${n}-day streak`, true);
+  if (bonus) addNote(`🔥 ${n}-day login streak! +${bonus} bonus XP`, '#home');
+}
+function rollWeek() { // a new week: fresh challenges and weekly XP
+  const id = weekId(); if (S.wk.id === id && S.wk.base) return false;
+  const first = !S.wk.id; S.wk = {id, xp:S.wk.id === id ? S.wk.xp : 0, base:counters(), done:S.wk.id === id ? S.wk.done : []}; return !first;
+}
+const CHALLENGES = [
+  {id:'learn', n:x => `Learn for ${fmtMin(x)}`, x:[120, 180, 240], v:() => weekDays().reduce((a, d) => a + minsOn(d, 'learn'), 0), href:'#study'},
+  {id:'focus', n:x => `Finish ${x} focus sessions`, x:[4, 6, 8], v:b => S.focus.count - b.focus, href:'#focus'},
+  {id:'lessons', n:x => `Complete ${x} lessons`, x:[2, 3, 5], v:b => Object.keys(S.lessons).length - b.lessons, href:'#study'},
+  {id:'deeds', n:x => `Do ${x} good deeds`, x:[3, 5, 7], v:b => S.questsTotal - b.deeds, href:'#impact'},
+  {id:'days', n:x => `Open LevelUp Life on ${x} days`, x:[4, 5, 6], v:() => weekDays().filter(d => S.days.includes(d)).length, href:'#home'},
+  {id:'balance', n:x => `Stay within your gaming limit on ${x} days`, x:[3, 4, 5], v:() => weekDays().filter(d => S.days.includes(d) && minsOn(d, 'play') <= S.goals.play).length, href:'#balance'},
+  {id:'videos', n:x => `Watch ${x} learning videos`, x:[2, 3, 4], v:b => learnVids(S) - b.vids, href:'#youtube'},
+  {id:'social', n:x => `Send ${x} chat or private messages`, x:[5, 10, 15], v:b => S.stats.chat - b.chat + S.stats.dm - b.dm, href:'#chat'},
+  {id:'group', n:x => `Finish ${x} focus session${x === 1 ? '' : 's'} in a study group`, x:[1, 2, 3], v:b => S.stats.group - b.group, href:'#focus'},
+];
+const CH_XP = 75, CH_ALL_XP = 100;
+function weekChallenges() { // the same three challenges for everyone this week
+  let x = [...(S.wk.id || weekId())].reduce((a, c) => (Math.imul(a, 31) + c.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => { x = (Math.imul(x, 1103515245) + 12345) >>> 0; return x / 4294967296; };
+  const pool = CHALLENGES.slice(), out = [], b = S.wk.base || counters();
+  while (out.length < 3) { const c = pool.splice(Math.floor(rnd() * pool.length), 1)[0], goal = c.x[Math.floor(rnd() * c.x.length)];
+    const val = Math.max(0, c.v(b) || 0); out.push({id:c.id, name:c.n(goal), goal, val, href:c.href, done:S.wk.done.includes(c.id)}); }
+  return out;
+}
+const daysLeft = () => 7 - (new Date().getDay() + 6) % 7;
+
+/* ---------- achievements (one-time unlocks, many of them social) ---------- */
+const friendCount = () => PL.list.length ? new Set([...S.friends.filter(u => isFriend(friendState(u))), ...PL.list.filter(p => friendState(p.u) === 'forced').map(p => p.u)]).size : 0;
+const myRank = () => { const i = visiblePlayers().findIndex(p => p.u === myU()); return i + 1; };
+const weekBoard = () => visiblePlayers().filter(p => p.wk === weekId() && p.wx > 0).sort((a, b) => b.wx - a.wx || a.n.localeCompare(b.n));
+const ACH = [
+  {id:'streak7', n:'Regular', d:'Open LevelUp Life 7 days in a row', i:'balance', xp:50, ok:() => bestLogin() >= 7},
+  {id:'streak30', n:'Dedicated', d:'Open LevelUp Life 30 days in a row', i:'balance', xp:150, ok:() => bestLogin() >= 30},
+  {id:'weekly', n:'Week champion', d:'Finish all 3 weekly challenges in one week', i:'star', xp:50, ok:() => S.stats.wkAll >= 1},
+  {id:'weekly5', n:'Unstoppable', d:'Finish every weekly challenge 5 times', i:'star', xp:200, ok:() => S.stats.wkAll >= 5},
+  {id:'public', n:'Out there', d:'Make your profile public', i:'globe', xp:20, ok:() => S.pub && !!S.pubAt},
+  {id:'aboutme', n:'About me', d:'Add a bio and a favourite game', i:'user', xp:20, ok:() => !!S.bio && S.favs.length > 0},
+  {id:'friend1', n:'First friend', d:'Become friends with another player', i:'userplus', xp:30, ok:() => friendCount() >= 1},
+  {id:'friend5', n:'Squad', d:'Have 5 friends', i:'players', xp:75, ok:() => friendCount() >= 5},
+  {id:'friend25', n:'Popular', d:'Have 25 friends', i:'crown', xp:200, ok:() => friendCount() >= 25},
+  {id:'chat1', n:'Hello world', d:'Send your first chat message', i:'chat', xp:15, ok:() => S.stats.chat >= 1},
+  {id:'chat100', n:'Chatterbox', d:'Send 100 chat messages', i:'chat', xp:75, ok:() => S.stats.chat >= 100},
+  {id:'dm1', n:'Pen pal', d:'Send a private message to a friend', i:'messages', xp:20, ok:() => S.stats.dm >= 1},
+  {id:'dm100', n:'Best buds', d:'Send 100 private messages', i:'messages', xp:75, ok:() => S.stats.dm >= 100},
+  {id:'group1', n:'Study buddy', d:'Finish a focus session in a study group', i:'focus', xp:30, ok:() => S.stats.group >= 1},
+  {id:'group10', n:'Study crew', d:'Finish 10 focus sessions in a study group', i:'focus', xp:100, ok:() => S.stats.group >= 10},
+  {id:'top10', n:'Top 10', d:'Reach the top 10 on a leaderboard of 11 or more players', i:'players', xp:100, ok:() => S.pub && visiblePlayers().length > 10 && myRank() > 0 && myRank() <= 10},
+  {id:'podium', n:'Weekly podium', d:'Finish a week in the top 3 (at least 4 players that week)', i:'players', xp:75, ok:() => { const w = weekBoard(), i = w.findIndex(p => p.u === myU()); return S.pub && w.length >= 4 && i >= 0 && i < 3; }},
+];
+function queueProgress() { if (!queueProgress.t) queueProgress.t = setTimeout(() => { queueProgress.t = 0; checkProgress(); }, 300); } // a declaration, so save() can call it early
+function checkProgress() {
+  if (!ACC.current) return;
+  rollWeek(); let changed = false;
+  for (const c of weekChallenges()) if (!c.done && c.val >= c.goal) {
+    S.wk.done.push(c.id); changed = true; gainXP(CH_XP, 'weekly challenge', true); addNote(`✅ Weekly challenge done: ${c.name} (+${CH_XP} XP)`, '#home');
+    if (S.wk.done.length === 3) { S.stats.wkAll++; gainXP(CH_ALL_XP, 'all weekly challenges', true); addNote(`🏆 You finished all 3 weekly challenges! +${CH_ALL_XP} bonus XP`, '#home'); }
+  }
+  for (const a of ACH) if (!S.ach[a.id] && a.ok()) {
+    S.ach[a.id] = today(); gainXP(a.xp, `achievement: ${a.n}`, true); addNote(`🏅 Achievement unlocked: ${a.n} (+${a.xp} XP)`, '#badges'); changed = true;
+  }
+  if (changed && (current === 'home' || current === 'badges') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) rerender(); // show the new progress
+}
+function weeklyCard() {
+  const ch = weekChallenges(), n = loginStreak(), next = Object.keys(STREAK_BONUS).map(Number).find(x => x > n);
+  return card('c12', 'This week', `<div class="week-wrap"><div class="streak-box"><span class="streak-n">${n}<small>🔥</small></span><b>Day login streak</b>
+      <span class="muted small">${next ? `${next - n} more day${next - n === 1 ? '' : 's'} for a +${STREAK_BONUS[next]} XP bonus` : 'Legendary streak!'}<br>Best: ${bestLogin()} days · ${S.wk.xp} XP this week</span></div>
+    <ul class="challenges">${ch.map(c => `<li class="${c.done ? 'done' : ''}"><a href="${c.href}" class="ch-row"><span class="ch-ic">${icon(c.done ? 'check' : 'star')}</span><span class="grow"><b>${esc(c.name)}</b>
+      <span class="meter"><i style="width:${Math.min(100, c.val / c.goal * 100)}%"></i></span><span class="muted small">${c.done ? `Done · +${CH_XP} XP` : `${Math.min(c.val, c.goal)} / ${c.goal}${c.id === 'learn' ? ' minutes' : ''} · +${CH_XP} XP`}</span></span></a></li>`).join('')}</ul></div>
+    <p class="muted small" style="margin:12px 0 0">Everyone gets the same 3 challenges. Finish all of them for a +${CH_ALL_XP} XP bonus. New challenges in ${daysLeft()} day${daysLeft() === 1 ? '' : 's'}.</p>`,
+    `<span class="tag p">${ch.filter(c => c.done).length}/3</span>`);
+}
+function achievementsCard() {
+  const got = ACH.filter(a => S.ach[a.id]).length;
+  return card('c12', 'Achievements', `<div class="ach-grid">${ACH.map(a => { const d = S.ach[a.id];
+    return `<div class="ach${d ? ' on' : ''}"><span class="ach-ic">${icon(a.i)}</span><span><b>${a.n}</b><br><span class="muted small">${a.d}</span><br><span class="small ${d ? 'ok-t' : 'dim'}">${d ? `Unlocked ${esc(d)}` : `+${a.xp} XP`}</span></span></div>`; }).join('')}</div>`,
+    `<span class="tag p">${got}/${ACH.length}</span>`);
+}
+
+/* ---------- bio and favourite games ---------- */
+const cleanText = (v, max) => String(v || '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+function aboutCard() {
+  if (!me()) return '';
+  const games = [...new Set(S.backlog.map(b => b.title))].slice(0, 50);
+  return card('c6', 'About you', `<form class="form" id="aboutForm">
+    <label class="field"><span>Bio <span class="dim">(shown on your public profile)</span></span><textarea id="abBio" maxlength="160" rows="3" placeholder="e.g. Learning web design, love racing games">${esc(S.bio)}</textarea></label>
+    <div class="field"><span id="fgLbl">Favourite games (up to 5)</span><div class="row" style="gap:6px">${S.favs.map((g, i) => `<span class="chip on">${esc(g)}<button type="button" class="chip-x" data-fgdel="${i}" aria-label="Remove ${esc(g)}">${icon('x')}</button></span>`).join('') || '<span class="muted small">None yet</span>'}</div>
+      ${S.favs.length < 5 ? `<div class="row"><input id="abGame" class="grow" maxlength="40" list="abGames" placeholder="Add a game" aria-labelledby="fgLbl"><datalist id="abGames">${games.map(g => `<option value="${esc(g)}">`).join('')}</datalist><button type="button" class="btn" id="abAdd">${icon('plus')}Add</button></div>` : ''}</div>
+    <div class="row"><button class="btn primary">Save</button><span class="muted small">${S.pub ? 'Updates your public profile.' : 'Only visible to others if your profile is public.'}</span></div></form>`);
+}
+function bindAbout() {
+  const f = $('#aboutForm'); if (!f) return;
+  const add = () => { const v = cleanText($('#abGame').value, 40); if (!v) return; if (S.favs.some(g => g.toLowerCase() === v.toLowerCase())) return toast('Already in your list');
+    S.bio = cleanText($('#abBio').value, 160); S.favs.push(v); S.favs = S.favs.slice(0, 5); save(); rerender(); setTimeout(() => { const g = $('#abGame'); if (g) g.focus(); }, 30); };
+  const ab = $('#abAdd'); if (ab) ab.onclick = add;
+  const gi = $('#abGame'); if (gi) gi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); add(); } };
+  f.querySelectorAll('[data-fgdel]').forEach(b => b.onclick = () => { S.bio = cleanText($('#abBio').value, 160); S.favs.splice(+b.dataset.fgdel, 1); save(); rerender(); });
+  f.onsubmit = e => { e.preventDefault(); S.bio = cleanText($('#abBio').value, 160); save(); toast(S.pub ? 'Saved · your public profile updates in a moment' : 'Saved'); if (S.pub) schedulePublish(1500); };
+}
+
+/* ---------- seasonal themes ---------- */
+const SEASONS = {auto:'Automatic (holidays)', off:'Off', winter:'Winter ❄️', spring:'Spring 🌸', summer:'Summer ☀️', autumn:'Autumn 🍂', halloween:'Halloween 🎃', festive:'Festive 🎄', newyear:'New Year 🎆'};
+const FX = {winter:['❄', '❅', '❆'], spring:['🌸', '❀', '🌼'], summer:['✦', '☀', '✧'], autumn:['🍂', '🍁', '🍃'], halloween:['🦇', '🎃', '✦'], festive:['❄', '✦', '❅'], newyear:['✦', '✧', '✺']};
+function currentSeason() {
+  if (S.season !== 'auto') return S.season === 'off' ? '' : S.season;
+  const d = new Date(), m = d.getMonth() + 1, day = d.getDate();
+  if (m === 10 && day >= 20) return 'halloween';
+  if (m === 12) return 'festive';
+  if (m === 1 && day <= 6) return 'newyear';
+  return '';
+}
+function applySeason() {
+  const s = currentSeason(); document.documentElement.dataset.season = s;
+  let fx = $('#seasonFx'); if (!s) { if (fx) fx.remove(); return; }
+  if (fx && fx.dataset.s === s) return;
+  if (!fx) { fx = document.createElement('div'); fx.id = 'seasonFx'; fx.className = 'season-fx'; fx.setAttribute('aria-hidden', 'true'); ($('.space') || document.body).append(fx); }
+  fx.dataset.s = s; const set = FX[s];
+  fx.innerHTML = Array.from({length:18}, (_, i) => `<i style="left:${(i * 37 + 11) % 100}%;--d:${9 + (i * 7) % 9}s;--w:${-(i * 1.7) % 12}s;--s:${0.7 + (i % 4) * 0.25}rem;--dx:${(i % 2 ? 1 : -1) * (20 + i % 5 * 12)}px">${set[i % set.length]}</i>`).join('');
+}
+
+/* ---------- notifications ---------- */
+function addNote(t, h = '', desk = true, u = '') {
+  S.notes.unshift({id:uid(), t:cleanText(t, 160), at:Date.now(), r:false, h, u}); S.notes = S.notes.slice(0, 60); save(); paintBell();
+  if (desk && S.notify && 'Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') try { new Notification('LevelUp Life', {body:t, icon:'icon.svg'}); } catch {}
+}
+const unreadNotes = () => S.notes.filter(n => !n.r).length;
+function paintBell() {
+  const b = $('#bellN'), n = unreadNotes(); if (b) { b.textContent = n > 9 ? '9+' : n; b.hidden = !n; }
+  const btn = $('#bellBtn'); if (btn) btn.setAttribute('aria-label', n ? `Notifications, ${n} unread` : 'Notifications');
+  const p = $('#notePanel'); if (p && !p.hidden) paintNotes();
+}
+function paintNotes() {
+  const p = $('#notePanel'); if (!p) return;
+  p.innerHTML = `<div class="np-h"><b>Notifications</b><span class="spacer"></span>${S.notes.length ? `<button type="button" class="linkbtn small" id="npRead">Mark all read</button><button type="button" class="linkbtn small" id="npClear">Clear</button>` : ''}</div>
+    <ul class="np-list">${S.notes.map(n => `<li><button type="button" class="np-item${n.r ? '' : ' new'}" data-note="${n.id}"><span>${esc(n.t)}</span><span class="dim small">${fmtTime(n.at)}</span></button></li>`).join('') || '<li class="muted small np-empty">Nothing yet. Friend requests, messages, challenges and achievements show up here.</li>'}</ul>
+    ${S.notify ? '' : `<p class="muted small np-foot">Want pop-ups when the app is in the background? <a href="#options">Turn on desktop notifications</a>.</p>`}`;
+}
+function toggleNotes(open) {
+  let p = $('#notePanel'); const btn = $('#bellBtn'); if (!p && open === false) return;
+  if (!p) { p = document.createElement('div'); p.id = 'notePanel'; p.className = 'note-panel'; p.hidden = true; p.setAttribute('role', 'region'); p.setAttribute('aria-label', 'Notifications'); document.body.append(p);
+    p.addEventListener('click', e => {
+      if (e.target.closest('#npRead')) { S.notes.forEach(n => n.r = true); save(); paintBell(); return; }
+      if (e.target.closest('#npClear')) { S.notes = []; save(); paintBell(); return; }
+      if (e.target.closest('a[href]')) { toggleNotes(false); return; }
+      const it = e.target.closest('[data-note]'); if (!it) return; const n = S.notes.find(x => x.id === it.dataset.note); if (!n) return;
+      n.r = true; save(); paintBell(); toggleNotes(false); if (n.u) DM.open = n.u; if (n.h) { if (location.hash === n.h) rerender(); else location.hash = n.h; } }); }
+  open = open === undefined ? p.hidden : open;
+  if (open) { const r = btn.getBoundingClientRect(); p.style.top = `${r.bottom + 10}px`; p.style.right = `${Math.max(12, innerWidth - r.right - 8)}px`; paintNotes(); p.hidden = false; const f = p.querySelector('button, a'); if (f) f.focus(); }
+  else if (!p.hidden) { p.hidden = true; if (p.contains(document.activeElement)) btn.focus(); }
+  btn.setAttribute('aria-expanded', String(open));
+}
+/* friend requests, new friends and new reports become notifications (the first sync only remembers what is there) */
+function socialNotes() {
+  const m = myU(); if (!m || !PL.at) return;
+  const reqs = friendRequests().map(p => p.u), mutual = S.friends.filter(u => friendState(u) === 'friends'), first = !S.seen.at;
+  if (!first) {
+    reqs.filter(u => !S.seen.req.includes(u)).forEach(u => addNote(`${(PL.by.get(u) || {n:u}).n} sent you a friend request`, '#players'));
+    mutual.filter(u => !S.seen.fr.includes(u)).forEach(u => addNote(`You and ${(PL.by.get(u) || {n:u}).n} are now friends`, '#players'));
+  }
+  S.seen.req = reqs.slice(0, 200); S.seen.fr = mutual.slice(0, 200); S.seen.at = Date.now(); save(); queueProgress();
+}
+function reportNotes() {
+  const ids = RP.list.map(r => r.id), first = !S.seen.rep.length && !S.seen.repAt;
+  if (!first) RP.list.filter(r => !S.seen.rep.includes(r.id)).forEach(r => addNote(`New report about ${r.name}: ${r.reason}`, '#players'));
+  S.seen.rep = ids.slice(0, 200); S.seen.repAt = Date.now(); save();
+}
+function startSocialPoll() { // friend requests and private messages arrive even when you're on another page
+  clearInterval(startSocialPoll.t);
+  startSocialPoll.t = setInterval(async () => { if (!me() || !S.pub) return; await loadPlayers(true); if (current === 'players') paintPlayers(); pullDMs(); }, 60000);
+}
+
+/* ---------- private messages ----------
+   End-to-end encrypted between two friends. Each player has an ECDH key made on their device, and its public half
+   is in their signed public profile. Two friends derive the same AES key from their own private key and the other's
+   public key, so only their two devices can read the messages, not the owner and not Wix. Everything I send lives in
+   one "outbox" item signed with my profile key, so nobody can fake a message from me. */
+const DM = {open:'', keys:new Map(), timer:null, busy:false, lastSend:0, status:'', pulling:false};
+async function dmKey() {
+  let k = null; try { k = await mediaGet('dmkey'); } catch {}
+  if (k && k.priv && k.x) return k;
+  const pair = await crypto.subtle.generateKey({name:'ECDH', namedCurve:'P-256'}, false, ['deriveKey']);
+  const pub = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  k = {priv:pair.privateKey, x:pub.x, y:pub.y}; await mediaPut('dmkey', k); return k;
+}
+async function pairKey(p) {
+  const id = p.u + '|' + p.dx; if (DM.keys.has(id)) return DM.keys.get(id);
+  const mine = await dmKey(), pub = await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:p.dx, y:p.dy}, {name:'ECDH', namedCurve:'P-256'}, false, []);
+  const k = await crypto.subtle.deriveKey({name:'ECDH', public:pub}, mine.priv, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+  DM.keys.set(id, k); return k;
+}
+const dmAad = (from, to, x) => enc.encode(`dm|${from}|${to}|${x.id}|${x.at}`);
+const dmFriends = () => PL.list.filter(p => p.u !== myU() && isFriend(friendState(p.u)));
+const canDM = p => !!(p && p.dx && p.dy && isFriend(friendState(p.u)) && S.pub);
+const dmUnread = u => (S.dm[u] || []).filter(x => !x.f && x.at > (S.dmRead[u] || 0)).length;
+const dmUnreadAll = () => Object.keys(S.dm).reduce((a, u) => a + dmUnread(u), 0);
+function dmDot() { const n = dmUnreadAll(); $$('[data-route="messages"], .tile[href="#messages"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Messages · ${n} unread` : 'Messages'; }); }
+async function publishOutbox() {
+  if (!me() || !S.pub || DM.busy) return false; DM.busy = true;
+  try {
+    const k = await profileKey(), u = myU(), m = [];
+    for (const [to, list] of Object.entries(S.dm)) { const p = PL.by.get(to); if (!p || !p.dx) continue; const key = await pairKey(p);
+      for (const x of list.filter(x => x.f).slice(-40)) { const iv = crypto.getRandomValues(new Uint8Array(12));
+        m.push({to, id:x.id, at:x.at, iv:b64(iv), ct:b64(await crypto.subtle.encrypt({name:'AES-GCM', iv, additionalData:dmAad(u, to, x)}, key, enc.encode(JSON.stringify({t:x.t}))))}); } }
+    m.sort((a, b) => a.at - b.at);
+    const d = JSON.stringify({v:1, u, m:m.slice(-200), ts:Date.now()});
+    await saveItem('dm-' + u, 'dm', sealed(d, await signText(k.priv, d)));
+    S.dmDirty = false; save(); return true;
+  } catch { S.dmDirty = true; save(); return false; }
+  finally { DM.busy = false; }
+}
+async function readOutbox(item, p, me_) { // the messages a friend sent me, after checking their signature
+  try {
+    const w = JSON.parse(String((item.data || {}).payload || '')); if (typeof w.d !== 'string' || w.d.length > 480000 || typeof w.s !== 'string') return [];
+    const o = JSON.parse(w.d); if (!o || o.v !== 1 || o.u !== p.u || String(item.id) !== 'dm-' + p.u || !(await verifyWith(p, w.s, w.d))) return [];
+    const key = await pairKey(p), out = [];
+    for (const x of arr(o.m)) { if (!x || x.to !== me_ || !/^[0-9a-f]{8,32}$/.test(x.id) || typeof x.iv !== 'string' || typeof x.ct !== 'string') continue;
+      try { const at = num(x.at, 0, 0, 1e15), r = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(x.iv), additionalData:dmAad(p.u, me_, {id:x.id, at})}, key, unb64(x.ct))));
+        if (r && typeof r.t === 'string') out.push({id:x.id, f:false, t:cleanText(r.t, 500), at}); } catch {} }
+    return out;
+  } catch { return []; }
+}
+async function pullDMs(only) {
+  const me_ = myU(); if (!me_ || !S.pub || DM.pulling) return; DM.pulling = true;
+  try {
+    if (!PL.at) await loadPlayers();
+    if (S.dmDirty) await publishOutbox();
+    const fr = (only ? [PL.by.get(only)] : dmFriends()).filter(canDM); if (!fr.length) return;
+    const items = await queryItems({_id:{$in:fr.map(p => 'dm-' + p.u)}}, 100), fresh = new Map();
+    for (const it of items) { const p = fr.find(x => 'dm-' + x.u === String(it.id)); if (!p) continue;
+      const have = new Set((S.dm[p.u] || []).map(x => x.id));
+      for (const x of await readOutbox(it, p, me_)) if (!have.has(x.id)) { (S.dm[p.u] ||= []).push(x); fresh.set(p.u, (fresh.get(p.u) || 0) + 1); } }
+    for (const [u, n] of fresh) { S.dm[u].sort((a, b) => a.at - b.at); S.dm[u] = S.dm[u].slice(-200);
+      const looking = current === 'messages' && DM.open === u && document.visibilityState === 'visible';
+      if (looking) S.dmRead[u] = Date.now(); else addNote(`${n === 1 ? 'New message' : `${n} new messages`} from ${(PL.by.get(u) || {n:u}).n}`, '#messages', true, u); }
+    if (fresh.size) { save(); if (current === 'messages') paintDM(); }
+    DM.status = '';
+  } catch { DM.status = "Can't reach the server right now. Trying again…"; }
+  finally { DM.pulling = false; dmDot(); }
+}
+async function sendDM(u, text) {
+  const t = cleanText(text, 500); if (!t) return false;
+  if (Date.now() - DM.lastSend < 1000) { toast('Slow down a little.'); return false; }
+  DM.lastSend = Date.now();
+  (S.dm[u] ||= []).push({id:randHex(8), f:true, t, at:Date.now()}); S.dm[u] = S.dm[u].slice(-200); S.dmRead[u] = Date.now(); S.stats.dm++; save(); paintDM();
+  const ok = await publishOutbox(); if (!ok) toast("Saved here, but couldn't send yet. It will try again."); paintDM(); return true;
+}
+function dmListHTML() {
+  const fr = dmFriends().sort((a, b) => ((S.dm[b.u] || []).slice(-1)[0] || {at:0}).at - ((S.dm[a.u] || []).slice(-1)[0] || {at:0}).at);
+  return fr.map(p => { const last = (S.dm[p.u] || []).slice(-1)[0], n = dmUnread(p.u);
+    return `<li><button type="button" class="dm-who${DM.open === p.u ? ' on' : ''}" data-dm="${p.u}"${DM.open === p.u ? ' aria-current="true"' : ''}>${plAvatar(p)}<span class="grow"><b>${esc(p.n)}</b><span class="muted small dm-last">${last ? `${last.f ? 'You: ' : ''}${esc(last.t)}` : canDM(p) ? 'Say hi!' : 'Needs to open the app once'}</span></span>${n ? `<span class="tag p">${n}</span>` : ''}</button></li>`; }).join('')
+    || `<li class="empty">${PL.at ? 'No friends yet. Add friends on the Players page, then message them here.' : PL.status === 'offline' ? "Can't reach the server right now." : 'Loading friends…'}</li>`;
+}
+function dmConvHTML() {
+  const p = PL.by.get(DM.open); if (!p) return `<div class="dm-empty muted">${icon('messages')}<p>Pick a friend to start a private conversation.</p></div>`;
+  const list = S.dm[p.u] || [];
+  return `<div class="dm-head"><button type="button" class="iconbtn dm-back" data-dmback aria-label="Back to conversations">${icon('back')}</button><button type="button" class="friend-who" data-player="${p.u}">${plAvatar(p)}<span><b>${esc(p.n)}</b><br><span class="muted small">🔒 End-to-end encrypted</span></span></button></div>
+    <ol class="dm-msgs" id="dmMsgs" aria-live="polite">${list.map(x => `<li class="dm-msg${x.f ? ' me' : ''}"><span class="dm-t">${esc(x.t)}</span><span class="dim small">${fmtTime(x.at)}${x.f ? '' : ` · <button type="button" class="linkbtn small" data-dmrep="${x.id}">Report</button>`}</span></li>`).join('') || '<li class="empty">No messages yet. Say hi! 👋</li>'}</ol>
+    ${canDM(p) ? `<form class="row dm-form" id="dmForm"><input id="dmIn" class="grow" maxlength="500" autocomplete="off" placeholder="Message ${esc(p.n)}" aria-label="Message ${esc(p.n)}"><button class="btn primary">Send</button></form>`
+      : `<p class="muted small" style="margin:0">${isFriend(friendState(p.u)) ? `${esc(p.n)} needs to open the new version of LevelUp Life once before you can message them.` : `You can only message friends.`}</p>`}`;
+}
+function paintDM() {
+  const l = $('#dmList'), c = $('#dmConv'); if (!l || !c) return;
+  l.innerHTML = dmListHTML();
+  const keep = $('#dmIn') ? $('#dmIn').value : '', had = document.activeElement && document.activeElement.id === 'dmIn';
+  c.innerHTML = dmConvHTML(); $('#dmWrap').classList.toggle('open', !!DM.open);
+  const inp = $('#dmIn'); if (inp) { inp.value = keep; if (had) inp.focus(); }
+  const ms = $('#dmMsgs'); if (ms) ms.scrollTop = ms.scrollHeight;
+  if (DM.open && document.visibilityState === 'visible') { const before = dmUnread(DM.open); S.dmRead[DM.open] = Date.now(); if (before) { save(); l.innerHTML = dmListHTML(); } }
+  const st = $('#dmStatus'); if (st) st.textContent = DM.status; dmDot();
+}
+VIEWS.messages = () => {
+  if (!me()) return `<div class="grid">${card('c12', 'Private messages', `<p class="muted" style="margin-top:-6px">Make an account and add friends to send private, end-to-end encrypted messages.</p><div class="row"><button type="button" class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button type="button" class="btn" data-open-auth="login">Log in</button></div>`)}</div>`;
+  if (!S.pub) return `<div class="grid">${card('c12', 'Private messages', `<p class="muted" style="margin-top:-6px">Private messages are for friends. Make your profile public first so friends can find you; your messages stay end-to-end encrypted.</p><div class="row"><button type="button" class="btn primary" id="dmGoPublic">${icon('globe')}Make my profile public</button><a class="btn" href="#players">Players</a></div>`)}</div>`;
+  return `<div class="grid"><section class="card c12 dm-card"><div class="dm-wrap${DM.open ? ' open' : ''}" id="dmWrap"><div class="dm-side"><div class="card-h"><h2>Friends</h2></div><ul class="dm-list" id="dmList"></ul></div><div class="dm-main" id="dmConv"></div></div>
+    <p class="muted small" style="margin:12px 0 0"><span id="dmStatus"></span> 🔒 Only you and your friend can read these messages, not even the owner. They are readable on the device you use LevelUp Life on.</p></section></div>`;
+};
+function stopDM() { clearInterval(DM.timer); DM.timer = null; }
+BIND.messages = m => {
+  m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  const gp = $('#dmGoPublic'); if (gp) gp.onclick = goPublic;
+  if (!$('#dmWrap')) return;
+  m.addEventListener('click', e => {
+    const w = e.target.closest('[data-dm]'); if (w) { DM.open = w.dataset.dm; paintDM(); pullDMs(DM.open); const i = $('#dmIn'); if (i) i.focus(); return; }
+    if (e.target.closest('[data-dmback]')) { DM.open = ''; paintDM(); return; }
+    const r = e.target.closest('[data-dmrep]'); if (r) { const x = (S.dm[DM.open] || []).find(y => y.id === r.dataset.dmrep), p = PL.by.get(DM.open); if (x && p) openReport({u:p.u, name:p.n, msg:{t:x.t, at:x.at}}); }
+  });
+  m.addEventListener('submit', async e => { if (e.target.id !== 'dmForm') return; e.preventDefault(); const i = $('#dmIn'), v = i.value; i.value = ''; if (!(await sendDM(DM.open, v))) i.value = v; const j = $('#dmIn'); if (j) j.focus(); });
+  paintDM();
+  loadPlayers().then(() => { if (DM.open && !PL.by.has(DM.open)) DM.open = ''; paintDM(); pullDMs(); });
+  stopDM(); DM.timer = setInterval(() => { if (document.visibilityState === 'visible' && current === 'messages') pullDMs(); }, 6000);
+};
+
+/* ---------- study groups: see each other's focus timers live ----------
+   Like the chat, a group is joined with a code: the code makes the encryption key, and the group id is a hash of it.
+   Each device keeps one status item (name, timer mode and end time) that it updates while you're in a group. */
+const GR = {code:'', kind:'', key:null, members:[], timer:null, tick:null, beat:0, status:'', loading:false};
+const normGroup = c => String(c).trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
+async function openGroup(code) {
+  const n = normGroup(code); if (n.length < 6) throw new Error('short');
+  GR.code = n; GR.kind = 'grp-' + (await sha256('levelup-group-v1|' + n)).slice(0, 32);
+  const base = await crypto.subtle.importKey('raw', enc.encode(n), 'PBKDF2', false, ['deriveKey']);
+  GR.key = await crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-group-v1'), iterations:100000}, base, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+  GR.members = []; GR.status = 'Loading the group…';
+}
+const myGroupState = () => ({st:T.running ? (T.mode === 'work' ? 'focus' : 'break') : T.left < modeLen(T.mode) ? 'paused' : 'idle', end:T.running ? T.end : 0, left:T.running ? 0 : T.left});
+async function sendGroupState(leaving) {
+  if (!GR.key && !leaving) return;
+  try {
+    if (leaving) { await saveItem('gs-' + S.gid, 'grp-left', ''); return; }
+    const iv = crypto.getRandomValues(new Uint8Array(12)), s = {n:displayName().slice(0, 24), ...myGroupState(), c:S.log.filter(x => x.d === today() && x.ref === 'focus').length, ts:Date.now()};
+    await saveItem('gs-' + S.gid, GR.kind, b64(iv) + '.' + b64(await crypto.subtle.encrypt({name:'AES-GCM', iv}, GR.key, enc.encode(JSON.stringify(s)))));
+    GR.beat = Date.now();
+  } catch {}
+}
+async function pullGroup() {
+  if (!GR.key || GR.loading) return; GR.loading = true;
+  try {
+    const items = await queryItems({kind:GR.kind}, 50), list = [];
+    for (const it of items) { try { const [iv, ct] = String((it.data || {}).payload || '').split('.'); if (!iv || !ct || ct.length > 4000) continue;
+      const s = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(iv)}, GR.key, unb64(ct))));
+      const ts = num(s.ts, 0, 0, 1e15); if (!s || Date.now() - ts > 180000) continue; // gone quiet for 3 minutes: not here any more
+      list.push({id:String(it.id), me:String(it.id) === 'gs-' + S.gid, n:cleanText(s.n, 24) || 'Player', st:['focus', 'break', 'paused', 'idle'].includes(s.st) ? s.st : 'idle', end:num(s.end, 0, 0, 1e15), left:num(s.left, 0, 0, 1e5), c:num(s.c, 0, 0, 999), ts}); } catch {} }
+    GR.members = list.sort((a, b) => b.me - a.me || a.n.localeCompare(b.n)); GR.status = '';
+  } catch { GR.status = "Can't reach the group right now. Trying again…"; }
+  GR.loading = false; paintGroup();
+}
+const othersFocusing = () => GR.members.some(m => !m.me && (m.st === 'focus' || Date.now() - m.ts < 120000));
+function memberTime(m) { const left = m.st === 'focus' || m.st === 'break' ? Math.max(0, Math.round((m.end - Date.now()) / 1000)) : m.left; return `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
+const ST_NAME = {focus:'Focusing', break:'On a break', paused:'Paused', idle:'Not started'};
+function paintGroup() {
+  const box = $('#grpBox'); if (!box) return;
+  if (!GR.key) { box.innerHTML = `<p class="muted" style="margin-top:-6px">Study with friends: everyone in a group sees each other's focus timers live. Share the code only with people you know.</p>
+    <div class="row"><button type="button" class="btn primary" id="grpNew">${icon('plus')}Create a group</button></div>
+    <form class="row" id="grpJoin" style="margin-top:10px"><input id="grpCode" class="grow" maxlength="40" autocomplete="off" placeholder="Group code" aria-label="Group code"><button class="btn">Join</button></form><p class="err" id="grpErr" role="alert"></p>`; return; }
+  box.innerHTML = `<div class="row" style="gap:8px"><span class="muted small">Code</span><code class="grp-code">${esc(GR.code)}</code><button type="button" class="btn sm" id="grpCopy">${icon('link')}Copy</button><span class="spacer"></span><button type="button" class="btn sm" id="grpLeave">Leave</button></div>
+    <ul class="grp-list" id="grpList">${GR.members.map(m => `<li class="grp-m ${m.st}"><span class="avatar" style="background:${hue(m.n)}">${esc(m.n.charAt(0).toUpperCase())}</span><span class="grow"><b>${esc(m.n)}</b>${m.me ? ' <span class="tag">You</span>' : ''}<br><span class="muted small">${ST_NAME[m.st]}${m.c ? ` · ${m.c} session${m.c === 1 ? '' : 's'} today` : ''}</span></span><span class="grp-time" data-gm="${esc(m.id)}">${m.st === 'idle' ? '' : memberTime(m)}</span></li>`).join('') || `<li class="muted small">${GR.status || 'Nobody here yet.'}</li>`}</ul>
+    <p class="muted small" style="margin:10px 0 0">${GR.status ? esc(GR.status) + ' ' : ''}Shared with the group: your name and your timer. Finish a focus session while someone else is studying for +10 bonus XP.</p>`;
+}
+function groupTick() { for (const el of $$('[data-gm]')) { const m = GR.members.find(x => x.id === el.dataset.gm); if (m && (m.st === 'focus' || m.st === 'break')) el.textContent = memberTime(m); } }
+function stopGroup() { clearInterval(GR.timer); clearInterval(GR.tick); GR.timer = GR.tick = null; }
+function startGroup() {
+  stopGroup(); if (!GR.key) return; pullGroup();
+  GR.timer = setInterval(() => { if (document.visibilityState !== 'visible') return; if (Date.now() - GR.beat > 45000) sendGroupState(); if (current === 'focus') pullGroup(); }, 8000);
+  GR.tick = setInterval(groupTick, 1000);
+}
+async function joinGroup(code) {
+  const n = displayName();
+  if (!isOwner && !isAdmin && /owner|admin/i.test(n)) { toast('Names with "owner" or "admin" can\'t join groups. Change your nickname in Settings.'); return false; }
+  await openGroup(code); S.group = GR.code; save(); await sendGroupState(); startGroup(); paintGroup(); return true;
+}
+async function leaveGroup() { stopGroup(); GR.key = null; GR.code = ''; GR.members = []; S.group = ''; save(); paintGroup(); await sendGroupState(true); }
+function bindGroup() {
+  const box = $('#grpBox'); if (!box) return; paintGroup();
+  box.onclick = async e => {
+    if (e.target.closest('#grpNew')) { const w = ['focus', 'study', 'brain', 'level', 'quest', 'pixel']; const c = `${w[crypto.getRandomValues(new Uint8Array(1))[0] % w.length]}-${randHex(3)}-${randHex(3)}`;
+      if (await joinGroup(c)) toast('Group created. Share the code with your friends.'); }
+    if (e.target.closest('#grpCopy')) { try { await navigator.clipboard.writeText(GR.code); toast('Code copied'); } catch { toast(`The code is ${GR.code}`); } }
+    if (e.target.closest('#grpLeave')) { await leaveGroup(); toast('You left the group'); }
+  };
+  box.onsubmit = async e => { if (e.target.id !== 'grpJoin') return; e.preventDefault(); const v = $('#grpCode').value, err = $('#grpErr');
+    if (normGroup(v).length < 6) return err.textContent = 'Group codes are at least 6 characters.';
+    if (await joinGroup(v)) toast('Joined the group'); };
+}
 
 /* ---------- app shell: offline, updates and installing ---------- */
 const APP = {install:null, update:false};
@@ -1922,7 +2371,7 @@ async function loadReports(force) {
           }
         } catch {}
       }
-      RP.list = list.sort((a, b) => b.ts - a.ts); RP.log = log; RP.at = Date.now();
+      RP.list = list.sort((a, b) => b.ts - a.ts); RP.log = log; RP.at = Date.now(); if (dh) reportNotes();
     } catch {}
     finally { RP.loading = null; }
     reqDot();
@@ -1956,7 +2405,7 @@ function paintMod() {
     if (!ok) return toast('That key is not right.'); await loadReports(true); paintMod(); toast('Reports unlocked'); };
   if (!lg) return;
   const all = [...PL.modlog, ...RP.log, ...(C.modlog || [])].filter(e => e.ts).sort((a, b) => b.ts - a.ts).slice(0, 60);
-  lg.innerHTML = all.map(e => `<li>${e.role === 'owner' ? icon('crown') : icon('shield')}<span><b>${esc(e.by || (e.role === 'owner' ? 'Owner' : 'Admin'))}</b> ${MOD_WORDS[e.a] || esc(e.a)} <b>${esc(e.u)}</b>${e.chat ? ' <span class="muted">in chat</span>' : ''}</span><span class="dim small">${fmtTime(e.ts)}</span></li>`).join('')
+  lg.innerHTML = all.map(e => `<li>${e.role === 'owner' ? icon('crown') : icon('shield')}<span><b>${esc(e.by || (e.role === 'owner' ? 'Owner' : 'Admin'))}</b> ${MOD_WORDS[e.a] || esc(e.a)} <b>${esc((PL.by.get(String(e.u).toLowerCase()) || {}).n || e.u)}</b>${e.chat ? ' <span class="muted">in chat</span>' : ''}</span><span class="dim small">${fmtTime(e.ts)}</span></li>`).join('')
     || '<li class="muted small">Nothing yet. Hides, mutes and handled reports show up here.</li>';
 }
 document.addEventListener('click', e => {
@@ -2006,8 +2455,10 @@ function events() {
   document.addEventListener('keydown', trapFocus);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
+  $('#bellBtn').onclick = () => toggleNotes();
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
   document.addEventListener('click', e => {
+    const np = $('#notePanel'); if (np && !np.hidden && !np.contains(e.target) && !e.target.closest('#bellBtn')) toggleNotes(false);
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
     else if (e.target.id === 'sheet') $('#sheet').hidden = true;
     if (e.target.id === 'palette') closePalette();
@@ -2020,7 +2471,7 @@ function events() {
     else if (e.key === 'Enter') runPal(palSel);
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { endTour(); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
+    if (e.key === 'Escape') { endTour(); toggleNotes(false); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;
     if (typing || e.ctrlKey || e.metaKey) return;
@@ -2108,7 +2559,9 @@ function resetTimers() {
   clearInterval(G.iv); G.start = 0;
 }
 function init() {
-  applyTheme(); paintPlayer(); route();
+  stopGroup(); GR.key = null; GR.code = ''; GR.members = []; DM.keys.clear(); DM.open = ''; // a different account may have logged in
+  applyTheme(); applySeason(); markDay(); paintPlayer(); route(); paintBell(); dmDot(); startSocialPoll(); checkProgress();
+  if (S.group) openGroup(S.group).then(() => { sendGroupState(); startGroup(); paintGroup(); }).catch(() => {});
   if (me() && (S.pub || S.friends.length || S.staffAdds.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
   maybeTour();
   if (ACC.current) $('#consent').hidden = true; else openAuth('signup');

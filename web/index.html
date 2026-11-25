@@ -27,6 +27,9 @@ if (location.protocol !== 'file:') { var l = document.createElement('link'); l.r
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     </button>
     <div class="spacer"></div>
+    <button class="round bell" id="bellBtn" aria-label="Notifications" aria-expanded="false" aria-controls="notePanel" title="Notifications">
+      <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bell-n" id="bellN" hidden></span>
+    </button>
     <button class="switch" id="themeBtn" role="switch" aria-checked="true" aria-label="Dark mode"><i></i></button>
     <a class="profile" href="#badges" title="Your profile and badges">
       <span class="avatar" id="avatar">P</span>
