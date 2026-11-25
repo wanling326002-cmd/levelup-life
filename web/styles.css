@@ -561,3 +561,9 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 :root[data-theme="light"][data-season="halloween"]{--accent2:#9a4700}
 :root[data-theme="light"][data-season="festive"]{--accent2:#b3203a}
 :root[data-theme="light"][data-season="newyear"]{--accent2:#7d5200}
+
+/* fonts for Japanese, Korean and Chinese (Outfit only covers Latin letters) */
+:root:lang(ja) body{font-family:"Outfit","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif}
+:root:lang(ko) body{font-family:"Outfit","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif}
+:root:lang(zh-Hans) body{font-family:"Outfit","PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif}
+:root:lang(ja) body,:root:lang(ko) body,:root:lang(zh-Hans) body{word-break:normal;line-break:strict}

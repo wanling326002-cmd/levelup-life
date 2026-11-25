@@ -16,6 +16,62 @@ const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.pro
 const ytId = u => { try { const x = new URL(u); if (x.hostname.includes('youtu.be')) return x.pathname.slice(1, 12);
   if (x.hostname.includes('youtube.com')) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || ''; } catch {} return ''; };
 
+/* ---------- languages ----------
+   The app is written in English. For another language, index.html first loads lang/keys.js (the English phrases)
+   and lang/<code>.js (the same phrases translated, line by line), and every text on screen is swapped as it appears.
+   In a phrase, "#" stands for a number and "{s}" for any other text (a name, or a phrase that is translated on its own).
+   Anything inside an element with translate="no" (chat messages, bios, the Privacy Terms) stays as it is. */
+const LANGS = {en:'English', de:'Deutsch', nl:'Nederlands', ja:'日本語', ko:'한국어', zh:'中文（简体）'};
+const LANG = (() => { try { const l = localStorage.getItem('levelup-lang'); return l && Object.hasOwn(LANGS, l) ? l : 'en'; } catch { return 'en'; } })();
+const I18 = {dict:null, pats:[], done:new WeakMap(), attr:new WeakMap()};
+const I18_ATTRS = ['placeholder', 'title', 'aria-label'];
+const i18Fill = (v, vals) => { if (/\{\d+\}/.test(v)) return v.replace(/\{(\d+)\}/g, (_, i) => vals[+i] ?? ''); let i = 0; return v.replace(/\{s\}|#/g, () => vals[i++] ?? ''); };
+function tr(s, depth = 0) {
+  if (!I18.dict) return s;
+  const core = s.replace(/\s+/g, ' ').trim(); if (!core || !/\p{L}/u.test(core)) return s;
+  const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0], v = I18.dict.get(core.replace(/\d+/g, '#'));
+  if (v !== undefined) return lead + i18Fill(v, core.match(/\d+/g) || []) + trail;
+  if (depth < 3) for (const p of I18.pats) { const m = p.re.exec(core); if (m) return lead + i18Fill(p.v, m.slice(1).map(x => /^\d+$/.test(x) ? x : tr(x, depth + 1))) + trail; }
+  return s;
+}
+const i18Skip = el => !!(el && el.closest('[translate="no"], script, style, textarea, code'));
+function trText(n) {
+  const v = n.nodeValue; if (I18.done.get(n) === v || i18Skip(n.parentElement)) return;
+  const o = tr(v); if (o !== v) n.nodeValue = o; I18.done.set(n, n.nodeValue);
+}
+function trAttrs(el) {
+  if (!el.getAttribute) return;
+  for (const a of I18_ATTRS) { const v = el.getAttribute(a); if (!v) continue; const d = I18.attr.get(el) || {}; if (d[a] === v) continue;
+    const o = tr(v); if (o !== v) el.setAttribute(a, o); d[a] = o; I18.attr.set(el, d); }
+}
+function trTree(root) {
+  if (root.nodeType === 3) return trText(root);
+  if (root.nodeType !== 1) return;
+  if (root.tagName === 'TEXTAREA' && !i18Skip(root.parentElement)) return trAttrs(root); // its placeholder, not what was typed
+  if (i18Skip(root)) return;
+  trAttrs(root);
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode:n => { if (n.nodeType !== 1) return NodeFilter.FILTER_ACCEPT; if (n.tagName === 'TEXTAREA') { trAttrs(n); return NodeFilter.FILTER_REJECT; }
+    return n.getAttribute('translate') === 'no' || /^(SCRIPT|STYLE|CODE)$/.test(n.tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; }});
+  let n; while ((n = w.nextNode())) n.nodeType === 3 ? trText(n) : trAttrs(n);
+}
+(function i18nSetup() {
+  document.documentElement.lang = LANG === 'zh' ? 'zh-Hans' : LANG;
+  const src = window.LEVELUP_I18N || {}, keys = src.keys, vals = src[LANG];
+  if (LANG === 'en' || typeof keys !== 'string' || typeof vals !== 'string') return;
+  const lines = s => s.split('\n').map(x => x.trim()).filter(x => x && !x.startsWith('##'));
+  const K = lines(keys), V = lines(vals); if (K.length !== V.length) return; // an incomplete download: stay in English
+  I18.dict = new Map();
+  K.forEach((k, i) => {
+    if (!k.includes('{s}')) { I18.dict.set(k, V[i]); return; }
+    const re = new RegExp('^' + k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{s\}/g, '(.+?)').replace(/#/g, '(\\d+)') + '$');
+    I18.pats.push({re, v:V[i], n:k.replace(/\{s\}|#/g, '').length});
+  });
+  I18.pats.sort((a, b) => b.n - a.n); // the most specific phrase wins
+  trTree(document.documentElement);
+  new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') trText(m.target); else if (m.type === 'attributes') trAttrs(m.target); else m.addedNodes.forEach(trTree); } })
+    .observe(document.documentElement, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:I18_ATTRS});
+})();
+
 /* ---------- icons ---------- */
 const P = {
   home:'<rect x="3" y="3" width="7" height="7" rx="3.5"/><rect x="14" y="3" width="7" height="7" rx="3.5"/><rect x="3" y="14" width="7" height="7" rx="3.5"/><rect x="14" y="14" width="7" height="7" rx="3.5"/>',
@@ -1017,7 +1073,7 @@ function paintChat() {
     return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? shared(p.pf) : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
     <div class="grow"><div class="msg-h"><button type="button" class="name-btn"${cm} title="View profile · add friend"><b>${esc(m.n)}</b></button>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
     <span class="msg-tools">${canMod() && canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMod() && canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}${m.n !== displayName() && !m.owner ? `<button type="button" class="linkbtn small rep-btn" data-repmsg="${esc(m.id)}" aria-label="Report this message">Report</button>` : ''}</span></div>
-    <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
+    <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}" translate="no">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
   $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
   const ml = $('#mutedList');
@@ -1442,11 +1498,11 @@ function profileHTML(u) {
   <div class="pm-head">${plAvatar(p, true)}<div class="grow"><div class="row" style="gap:8px"><h2>${esc(p.n)}</h2>${roleTag(p)}${u === myU() ? '<span class="tag">You</span>' : ''}</div>
     <p class="muted small" style="margin:2px 0 0">@${esc(p.u)}${p.j ? ` · joined ${esc(p.j)}` : ''}</p></div></div>
   <div class="pm-body">
-    ${p.bio ? `<p class="pm-bio">${esc(p.bio)}</p>` : ''}
+    ${p.bio ? `<p class="pm-bio" translate="no">${esc(p.bio)}</p>` : ''}
     <div class="statrow pm-stats"><div class="stat"><span class="k">Level</span><span class="v">${p.lv}${L ? '' : ' MAX'}</span></div>
       <div class="stat"><span class="k">Leaderboard</span><span class="v">${hid ? 'Hidden' : pos ? '#' + pos : '–'}</span></div><div class="stat"><span class="k">Friends</span><span class="v">${mutualCount(p)}</span></div>
       <div class="stat"><span class="k">This week</span><span class="v">${p.wk === weekId() ? p.wx : 0}<small> XP</small></span></div></div>
-    ${p.fg.length ? `<div><p class="small" style="margin:0 0 6px"><b>Favourite games</b></p><div class="row" style="gap:6px">${p.fg.map(g => `<span class="chip">${icon('gaming')}${esc(g)}</span>`).join('')}</div></div>` : ''}
+    ${p.fg.length ? `<div><p class="small" style="margin:0 0 6px"><b>Favourite games</b></p><div class="row" style="gap:6px">${p.fg.map(g => `<span class="chip" translate="no">${icon('gaming')}${esc(g)}</span>`).join('')}</div></div>` : ''}
     ${p.ac.length ? `<div><p class="small" style="margin:0 0 6px"><b>Achievements</b> <span class="muted">${ACH.filter(a => p.ac.includes(a.id)).length}/${ACH.length}</span></p><div class="pm-ach">${ACH.filter(a => p.ac.includes(a.id)).map(a => `<span class="ach-ic" title="${a.n}: ${a.d}" role="img" aria-label="${a.n}">${icon(a.i)}</span>`).join('')}</div></div>` : ''}
     ${L && L.lv === p.lv ? `<div><div class="meter"><i style="width:${L.xp / L.need * 100}%"></i></div><p class="muted small" style="margin:6px 0 0">${L.xp} / ${L.need} XP to level ${p.lv + 1}</p></div>` : ''}
     <div class="mini-badges">${BADGES.map((b, i) => { const r = RANKS[p.rk[i]]; return `<div class="mini-badge${r ? '' : ' locked'}"${r ? ` style="--tc:${r.color}"` : ''}>${icon(b.icon)}<span><b>${b.name}</b><br><span class="muted">${r ? r.name : 'Locked'}</span></span></div>`; }).join('')}</div>
@@ -1607,7 +1663,7 @@ function accountCard() {
 }
 function ownerCard() {
   if (isAdminOnly()) return card('c6', 'Admin', `<p class="muted" style="margin-top:-6px">Admin status is on for this ${me() ? 'account' : 'profile'}. Your perks:</p>
-    <ul class="tips"><li>Free boost to level ${ADMIN_LEVEL_BOOST} (once), then double XP on everything</li><li>Profile picture, banner and up to 25 custom emoji (still or animated) on the Badges page</li><li>The Admin badge, and a blue Admin tag in chat that can't be faked</li><li>In chat: hide messages and mute regular members</li></ul>
+    <ul class="tips"><li>Free boost to level ${ADMIN_LEVEL_BOOST} (once), then double XP on everything</li><li>Profile picture, banner and up to 80 custom emoji (still or animated) on the Badges page</li><li>The Admin badge, and a blue Admin tag in chat that can't be faked</li><li>In chat: hide messages and mute regular members</li></ul>
     <button class="btn" id="admOff" style="margin-top:14px">Turn off admin status</button>`, `<span class="tag adm">${icon('shield')}Admin</span>`);
   return card('c6', isOwner ? 'Owner' : 'Owner or admin key', isOwner
     ? `<p class="muted" style="margin-top:-6px">Owner status is on for this ${me() ? 'account' : 'profile'}: level ${OWNER_LEVEL}, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).</p><button class="btn" id="ownOff">Turn off owner status</button>`
@@ -1624,6 +1680,7 @@ VIEWS.options = () => `<div class="grid">
     <p class="muted small" style="margin:0">${SHARED_INFO}</p></div>`)}
   ${card('c6', 'Profile & look', `<div class="form">
     <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
+    <label class="field"><span>Language</span><select id="stLang" translate="no">${Object.entries(LANGS).map(([k, n]) => `<option value="${k}" lang="${k}"${LANG === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-label="Dark mode" aria-checked="${S.theme==='dark'}"><i></i></button></div>
     <label class="field"><span>Seasonal theme <span class="dim">(Automatic decorates for Halloween, December and New Year)</span></span><select id="stSeason">${Object.entries(SEASONS).map(([k, n]) => `<option value="${k}"${S.season === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-label="Show YouTube thumbnails" aria-checked="${S.thumbs}"><i></i></button></div>
@@ -1681,6 +1738,7 @@ BIND.options = m => {
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
   const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
+  $('#stLang').onchange = e => { try { localStorage.setItem('levelup-lang', e.target.value); } catch {} location.reload(); };
   $('#stSeason').onchange = e => { S.season = e.target.value; save(); applySeason(); toast('Theme updated'); };
   $('#stExport').onclick = () => { S.lastBackup = Date.now(); save(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
   $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
@@ -1720,7 +1778,7 @@ VIEWS.help = () => `<div class="grid">
 </div>`;
 
 /* privacy */
-VIEWS.privacy = () => card('c12', '', `<div class="prose">
+VIEWS.privacy = () => card('c12', '', `${LANG !== 'en' ? '<p class="muted" style="margin-top:0">The Privacy Terms are shown in English.</p>' : ''}<div class="prose" translate="no">
   <p class="dim small">Last updated: 24 November 2026 (public profiles, leaderboard and friends added)</p>
   <h2>1. The short version</h2>
   <p>LevelUp Life is a local-first app. <b>Everything you type stays on your own device.</b> We do not have servers that store your data, we do not require an account, and we do not use analytics, trackers, cookies for advertising, or sell anything about you.</p>
@@ -1775,6 +1833,7 @@ const ACTIONS = () => [
   ...(me() ? [{n:'Log out', h:'Account', i:'logout', run:() => logout()}] : [{n:'Create account or log in', h:'Account', i:'user', run:() => openAuth('signup')}]),
   {n:'Take the tour', h:'Help', i:'help', run:() => startTour()},
   {n:'Notifications', h:'Open', i:'bell', run:() => toggleNotes(true)},
+  {n:'Language', h:'Settings', i:'globe', run:() => { location.hash = '#options'; setTimeout(() => $('#stLang')?.focus(), 80); }},
   {n:'Create or join a study group', h:'Action', i:'focus', run:() => { location.hash = '#focus'; setTimeout(() => $('#grpCode')?.focus(), 80); }},
   ...(APP.install ? [{n:'Install LevelUp Life', h:'App', i:'download', run:() => installApp()}] : []),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
@@ -2071,7 +2130,7 @@ function dmConvHTML() {
   const p = PL.by.get(DM.open); if (!p) return `<div class="dm-empty muted">${icon('messages')}<p>Pick a friend to start a private conversation.</p></div>`;
   const list = S.dm[p.u] || [];
   return `<div class="dm-head"><button type="button" class="iconbtn dm-back" data-dmback aria-label="Back to conversations">${icon('back')}</button><button type="button" class="friend-who" data-player="${p.u}">${plAvatar(p)}<span><b>${esc(p.n)}</b><br><span class="muted small">🔒 End-to-end encrypted</span></span></button></div>
-    <ol class="dm-msgs" id="dmMsgs" aria-live="polite">${list.map(x => `<li class="dm-msg${x.f ? ' me' : ''}"><span class="dm-t">${esc(x.t)}</span><span class="dim small">${fmtTime(x.at)}${x.f ? '' : ` · <button type="button" class="linkbtn small" data-dmrep="${x.id}">Report</button>`}</span></li>`).join('') || '<li class="empty">No messages yet. Say hi! 👋</li>'}</ol>
+    <ol class="dm-msgs" id="dmMsgs" aria-live="polite">${list.map(x => `<li class="dm-msg${x.f ? ' me' : ''}"><span class="dm-t" translate="no">${esc(x.t)}</span><span class="dim small">${fmtTime(x.at)}${x.f ? '' : ` · <button type="button" class="linkbtn small" data-dmrep="${x.id}">Report</button>`}</span></li>`).join('') || '<li class="empty">No messages yet. Say hi! 👋</li>'}</ol>
     ${canDM(p) ? `<form class="row dm-form" id="dmForm"><input id="dmIn" class="grow" maxlength="500" autocomplete="off" placeholder="Message ${esc(p.n)}" aria-label="Message ${esc(p.n)}"><button class="btn primary">Send</button></form>`
       : `<p class="muted small" style="margin:0">${isFriend(friendState(p.u)) ? `${esc(p.n)} needs to open the new version of LevelUp Life once before you can message them.` : `You can only message friends.`}</p>`}`;
 }

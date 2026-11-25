@@ -1,0 +1,948 @@
+## nav
+Skip to content
+Home
+Study
+Focus
+Gaming
+Series
+Balance
+Impact
+Chat
+Messages
+Players
+Badges
+Settings
+Help
+More
+Study Path
+Help the World
+Privacy Terms
+Your day at a glance.
+Learn Web Design & App Development, step by step.
+Pomodoro timer — deep work, then a real break.
+Track sessions, your backlog and healthy breaks.
+Never forget which episode you are on.
+Save videos to learn from — or just enjoy.
+Play, watch and learn — see how your week adds up.
+Small daily quests that make things better.
+Talk with everyone who has your invite code.
+Private, end-to-end encrypted chats with your friends.
+Leaderboard, friends and player profiles.
+Your level, rank and achievements.
+Your account, preferences and data.
+How to use LevelUp Life, and keyboard shortcuts.
+Short version: your data stays on your device.
+{s} · LevelUp Life
+{s} (#)
+Main navigation
+LevelUp Life home
+Search (Ctrl+K)
+Search and jump (Ctrl+K)
+Notifications
+Notifications, # unread
+Dark mode
+Help & Shortcuts
+Private by design · your data stays on your device · no tracking
+Quick navigation
+Search
+Jump to a tab or action… (Esc to close)
+Search pages and actions
+Results
+Close
+#:# · Focus
+#:# · Break
+## topbar
+Lv
+XP
+{s} · #/# XP to level #
+{s} · Max level
+Player (guest)
+Player
+Guest
+Your profile and badges
+## auth
+Welcome to LevelUp Life
+Track games, series and YouTube, study App Development & Web Design, and do a bit of good every day.
+Create account
+Log in
+Account
+Username
+Password
+Confirm password
+Email (optional)
+#–# letters, numbers or _
+At least # characters
+Show
+Hide
+Show password
+Hide password
+Type it again
+Stays on this device
+I agree to the
+Continue as guest
+Accounts live on this device only. Your password is hashed and never leaves your device. Continuing as a guest means you agree to the
+Passwords do not match yet
+Passwords match
+Usernames are #–# letters, numbers or underscores.
+That username is already used on this device. Pick another or log in.
+Use a password with at least # characters.
+The passwords do not match.
+That email does not look right. You can also leave it empty.
+Please agree to the Privacy Terms to continue.
+Account created. Your progress moved into {s}.
+Welcome, {s}! +# XP
+Could not create the account in this browser. Try another browser.
+Too many tries. Wait {s} seconds.
+Wrong username or password. Accounts only exist on the device where they were made.
+Welcome back, {s}!
+Logged out
+## shell
+A new version of LevelUp Life is ready.
+Reload
+Later
+Offline · your progress is still saved on this device
+Back online
+LevelUp Life is installed
+Installing LevelUp Life…
+## home
+Analytics
+Last # days
+Your first week of tracking
++#% learning vs last week
+-#% learning vs last week
+Learn
+Play
+Watch
+Good morning, {s}
+Good afternoon, {s}
+Good evening, {s}
+Start focus
+Learned today
+Played today
+Watched today
+goal {s}
+limit {s}
+Learning streak
+# good deeds
+Continue learning
+#% done
+Open lesson
+Up next
+No series in progress
+Add one in Series
+Season # · Episode #
+No game marked as playing
+Add one in Gaming
+No saved videos
+Save one in YouTube
+Add
+Open
+Today's quest
+Complete +# XP
+Done ✓
+All quests
+Programs
+## weekly
+This week
+Day login streak
+# more days for a +# XP bonus
+# more day for a +# XP bonus
+Legendary streak!
+Best: # days · # XP this week
+Best: # day · # XP this week
+# / # · +# XP
+# / # minutes · +# XP
+Done · +# XP
+Everyone gets the same # challenges. Finish all of them for a +# XP bonus. New challenges in # days.
+Everyone gets the same # challenges. Finish all of them for a +# XP bonus. New challenges in # day.
+Learn for {s}
+Finish # focus sessions
+Complete # lessons
+Do # good deeds
+Open LevelUp Life on # days
+Stay within your gaming limit on # days
+Watch # learning videos
+Send # chat or private messages
+Finish # focus session in a study group
+Finish # focus sessions in a study group
+New weekly challenges are here. Good luck!
+🔥 #-day login streak! +# bonus XP
+✅ Weekly challenge done: {s} (+# XP)
+🏆 You finished all # weekly challenges! +# bonus XP
+🏅 Achievement unlocked: {s} (+# XP)
+## xp
+🎉 Level up! You are now level #
++# XP · {s}
++# XP (2× admin) · {s}
+daily check-in · #-day streak
+#-day login streak!
+weekly challenge
+all weekly challenges
+achievement: {s}
+focus session
+studied together
+quest
+lesson
+good deed
+welcome
+game finished
+learning video
+## study
+#% complete
+#/# lessons
++# XP each
+Open ↗
+Study tasks
+No tasks yet. Add your first one above.
+Study tips
+Build tiny projects. You learn fastest by making things.
+Use #-minute Focus sessions, then take a real break.
+Recreate a menu or HUD from your favourite game in HTML & CSS.
+Watch a tutorial once, then rebuild it without looking.
+Share your work. Feedback is a power-up.
+e.g. Finish flexbox exercise
+New task
+Add task
+Done
+Delete
+Mark lesson done
+## focus
+Short break
+Long break
+Focus time
+Break time
+Start
+Resume
+Pause
+Reset
+Skip
+Shortcut:
+Space
+start / pause on this tab
+Today
+Sessions
+Learning time
+{s} of your {s} daily learning goal
+Timer lengths (minutes)
+Short
+Long
+Why it works
+Short, focused blocks beat long distracted ones. Every #th break is a long one. Each finished focus session gives XP and counts toward your learning goal.
+What are you working on? (optional)
+Focus complete
+Great work! Take a break: stretch and drink some water.
+Break over
+Ready for another focus round?
+## group
+Study group
+Live
+Study with friends: everyone in a group sees each other's focus timers live. Share the code only with people you know.
+Create a group
+Join
+Group code
+Code
+Copy
+Leave
+You
+Focusing
+On a break
+Paused
+Not started
+{s} · # sessions today
+{s} · # session today
+Nobody here yet.
+Loading the group…
+Can't reach the group right now. Trying again…
+Shared with the group: your name and your timer. Finish a focus session while someone else is studying for +# bonus XP.
+Group created. Share the code with your friends.
+Joined the group
+You left the group
+Code copied
+The code is {s}
+Group codes are at least # characters.
+Names with "owner" or "admin" can't join groups. Change your nickname in Settings.
+Create or join a study group
+## gaming
+Session tracker
+Start session
+Stop & log
+Break reminder every
+· change in Settings
+Log
+Games finished
+Within your daily limit. GG!
+Over your daily limit. Time for a break?
+Game library
+Backlog
+Playing
+Finished
+Add game
+Your library is empty. Add the games you are playing or want to play.
+Which game?
+Log past session: game
+min
+Game title
+Platform (PC, PS#, Switch…)
+Platform
+Status
+Session started: {s}. GL HF!
+Saved {s} of {s}
+Enter the minutes you played
+Session logged
+Enter a game title
+Break time
+You've played {s}. Stand up, stretch, rest your eyes.
+Start gaming session
+## series
+Add a series
+Title
+Where you watch it
+Season
+Episodes seen
+Watching
+Plan to watch
+Add series
+Your watchlist
+All
+Nothing here yet. Add the series you are watching.
+Healthy binge tip
+Every episode you mark counts # minutes of watch time (change it in Settings). Try "one episode = one task": finish a study task, then reward yourself with an episode.
+e.g. Arcane
+Netflix, Prime, Crunchyroll…
++# episode
+{s}: S#E# watched
+Enter a title
+## youtube
+Save a video
+YouTube link
+Title (so you remember it)
+Type
+📚 Learning
+🍿 Fun
+Minutes
+Save video
+Learning videos give XP and count as study time when watched.
+Watch later
+Not watched
+Learning
+Fun
+Watched
+Unwatch
+No videos saved. Paste a link to start your list.
+Learn on YouTube — quick searches
+e.g. CSS Grid in # minutes
+Paste a link or a title
+Save a YouTube video
+## balance
+Mon
+Tue
+Wed
+Thu
+Fri
+Sat
+Sun
+Learn · {s}
+Play · {s}
+Watch · {s}
+Balance score
+Let's add more learning
+Nice balance!
+Great balance!
+Where your time goes
+Daily goals
+Learning goal (min / day)
+Gaming limit (min / day)
+Watching limit (min / day)
+Save goals
+Goal saved
+## impact
+Today's quests
+New quests every day. Small actions, multiplied by many people, change the world.
+World
+Planet
+Kindness
+Health
++# XP
+Complete {s}
+Your impact
+Good deeds
+Streak
+Gamers & learners helping the world
+Thank someone
+Send a genuine thank-you message to a friend, teammate or creator.
+Be a good teammate
+Play one match where you only give positive comms. No flame.
+Teach what you learn
+Explain one thing you learned today to someone (or write it down).
+Lights & power
+Switch off your PC/console fully instead of standby tonight.
+Refill, not rebuy
+Use a reusable bottle or cup all day.
+Report, don't rage
+Report toxic behaviour in a game instead of fighting it.
+#-#-# for your eyes
+Every # min, look # feet away for # seconds — # times today.
+Walk it off
+Take a #-minute walk outside between sessions.
+Support a small creator
+Like and leave a kind comment on a small YouTuber's video.
+Answer a question
+Help a beginner on a forum, Discord or Reddit.
+Donate idle GPU time
+Run Folding@home while you are away to help disease research.
+Freerice round
+Answer # questions on Freerice — each one donates rice.
+Declutter digitally
+Unsubscribe from # emails/channels you never open.
+Hydrate
+Drink #+ glasses of water today.
+Accessibility check
+Turn on subtitles and notice how many people rely on them.
+Pick up #
+Pick up # pieces of litter on your next walk.
+Use your gaming PC's spare power for disease research.
+Helps people with disabilities play games.
+Gamers bringing games & toys to children's hospitals.
+Answer quiz questions to donate food (UN WFP).
+Do real science from your browser.
+Volunteer to help blind people over video.
+Games that make a positive social impact.
+Learn to code for free — and help others learn.
+## chat
+Join the chat
+The chat is private. Enter the invite code you got from the owner. Messages are encrypted with the code, so only people who have it can read them.
+You're the owner: make a code, join with it, then share it only with people you trust. A new code opens a new, empty room.
+Make an invite code
+Invite code
+Chat rules
+Be kind. No bullying, hate or spam.
+Never share personal info: your real name, address, school, phone number or passwords.
+Don't click links from people you don't know.
+The owner and admins can hide messages and mute names for everyone.
+Click a name to open that player's profile (players with a public profile).
+See something wrong? Press
+Report
+on a message. Only the owner and admins can read reports.
+Names with "owner" or "admin" in them can't post.
+Global chat
+Encrypted
+No messages yet. Say hi!
+Loading messages…
+Can't reach the chat right now. Trying again…
+Encrypted room · # messages · updates every # seconds
+Encrypted room · # message · updates every # seconds
+Room
+Everyone with the same invite code is in this room.
+Copy invite code
+Muted names
+Nobody is muted.
+Muted by the owner
+Unmute
+Emoji
+Faces
+Hands
+Hearts
+Things
+Your emoji
+Send
+Message
+Message as {s}
+Hide
+Mute
+Report this message
+View profile · add friend
+Open {s}'s profile
+Enable my crown
+Enable my admin tag
+Enter your owner key once on this device so your messages get the crown and you can hide and mute.
+Enter your admin key once on this device so your messages get the Admin tag and you can hide and mute.
+Owner key
+Admin key
+Code made. Press Join, then share it.
+Names with "owner" or "admin" can't post. Change your nickname in Settings.
+Slow down a little.
+Couldn't send. Check your connection and try again.
+Message is too long
+Message hidden for everyone
+{s} is muted
+Couldn't reach the chat. Try again.
+{s} can post again
+Invite code copied
+Code: {s}
+Checking key…
+Crown enabled
+Admin tag enabled
+That key is not right.
+in chat
+## messages
+Private messages
+Make an account and add friends to send private, end-to-end encrypted messages.
+Private messages are for friends. Make your profile public first so friends can find you; your messages stay end-to-end encrypted.
+Make my profile public
+No friends yet. Add friends on the Players page, then message them here.
+Loading friends…
+Can't reach the server right now.
+Pick a friend to start a private conversation.
+🔒 End-to-end encrypted
+🔒 Only you and your friend can read these messages, not even the owner. They are readable on the device you use LevelUp Life on.
+Message {s}
+No messages yet. Say hi! 👋
+Say hi!
+You: {s}
+Needs to open the app once
+{s} needs to open the new version of LevelUp Life once before you can message them.
+You can only message friends.
+Back to conversations
+Saved here, but couldn't send yet. It will try again.
+Can't reach the server right now. Trying again…
+Messages · # unread
+New message from {s}
+# new messages from {s}
+## players
+Join the leaderboard
+Create an account to join the leaderboard, get a profile other players can open, and add friends.
+Make your profile public to show up on the leaderboard, let people click your name, and add friends. {s} You can turn it off any time in Settings.
+Shared: your username, level, XP (total and this week), badge ranks, achievements, friends list, join date, and your bio and favourite games if you add them. Never your tasks, games list, series, videos, email or password.
+Leaderboard
+# players
+# player
+Everyone
+Friends
+Find a player
+Refresh
+No public players yet. Be the first!
+No friends yet. Open a player and press Add friend.
+Nobody matches that name.
+Nobody has earned XP this week yet. Be the first!
+Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player's own app, so moderators can hide cheaters.
+XP earned since Monday. Resets in # days.
+XP earned since Monday. Resets in # day.
+Loading players…
+Can't reach the leaderboard right now.
+Make an account to add friends.
+Friend's username
+No friends yet.
+Friend requests
+Sent requests
+Accept
+Decline
+Cancel
+Remove
+Remove {s}
+Add friend
+Go public & add friend
+Go public & accept
+Request sent
+Edit my profile
+Added by the {s}
+Added by the owner
+Added by the admin
+owner
+admin
+Friend
+No badges yet
+Best rank: {s}
+Level #
+# XP
+Lv #
+Hidden players
+Nobody is hidden.
+Hidden by {s}
+Hide from leaderboard
+Show on leaderboard
+A moderator hid you from the leaderboard.
+Players · {s}
+# friend request
+# friend requests
+# open report
+# open reports
+Leaderboard updated
+Joining the leaderboard…
+You're on the leaderboard!
+Couldn't reach the leaderboard. It will try again later.
+Your public profile was removed
+Couldn't reach the leaderboard to remove your profile. Try again later.
+Couldn't reach the leaderboard. Try again.
+That's you!
+No public player called {s}.
+Another player already uses the name {s} on the leaderboard.
+Another player already uses the name {s} on the leaderboard. Make a new account with a different username to join.
+Make your profile public first (Players page or Settings), so others can see your request.
+Saved here. It will sync when the leaderboard can be reached.
+You and {s} are now friends!
+Friend request sent to {s}
+Friend request sent to {s} · your profile is now public
+Removed {s}
+{s} is hidden from the leaderboard
+{s} is back on the leaderboard
+{s} sent you a friend request
+You and {s} are now friends
+{s} (Owner) added you as a friend
+{s} (Admin) added you as a friend
+Open Chat and enter your owner key once on this device first.
+Open Chat and enter your admin key once on this device first.
+## profile
+Player profile
+Leaderboard
+Friends
+This week
+Favourite games
+Achievements
+@{s} · joined {s}
+@{s} · no public profile yet
+# / # XP to level #
+# MAX
+Message
+Can't reach the leaderboard right now. Try again in a moment.
+Loading profile…
+Heads up: this chat message wasn't signed by @{s}'s profile, so it could be someone else using the same name.
+{s} is chatting as a guest (no account), so they can't be added as a friend yet. Ask them to make an account.
+This is you. Make your profile public on the Players page so others can open it and add you.
+You're public as
+. Last synced {s}.
+Syncing…
+View my profile
+Your profile is private. Only you can see your progress.
+Make an account to get a public profile.
+## report
+Report {s}
+Reports go privately to the owner and admins. Only they can read them.
+What's wrong?
+Spam
+Bullying or hate
+Inappropriate name or picture
+Cheating
+Something else
+Anything else the owner should know? (optional)
+Send report
+Please wait a minute before sending another report.
+You've sent a lot of reports today. Please try again tomorrow.
+Report sent. Thank you for helping keep LevelUp Life friendly.
+Couldn't send the report. Check your connection and try again.
+Reports
+No open reports. 🎉
+Loading reports…
+About
+reported by
+Mark handled
+Enter your owner key once on this device to open reports. Reports are encrypted so only the owner and admins can read them.
+Enter your admin key once on this device to open reports. Reports are encrypted so only the owner and admins can read them.
+Unlock reports
+Reports unlocked
+Report handled · {s} is hidden from the leaderboard
+Report marked as handled
+Couldn't reach the server. Try again.
+New report about {s}: {s}
+Moderation log
+Nothing yet. Hides, mutes and handled reports show up here.
+hid
+showed again
+muted
+unmuted
+handled a report about
+hid (after a report)
+## badges
+Level # · #/# badges · # Elite · # Challenger
+Level # (max) · #/# badges · # Elite · # Challenger
+Max level reached. Legendary.
+Create account
+Challenger
+#/# Challenger
+Locked
+# / # {s} for {s}
+Level # of # for {s}
+Top rank · # {s}
+Top rank · Level #
+{s} · Regular
+{s} · Elite
+Regular
+Elite
+focus sessions
+lessons
+days at your learning goal
+day best streak
+good deeds
+hours played
+games finished
+episodes
+learning videos
+Focus Master
+Scholar
+Goal Getter
+On Fire
+World Helper
+Gamer
+Completionist
+Series Buff
+Video Learner
+Level Up
+How ranks work
+Every badge climbs # ranks, from Bronze III up to Challenger. Numbers count down as you climb: Gold V comes before Gold I. Study, focus, play, watch and help others to rank up. Level # is the max level.
+Founder
+Owner only
+Created LevelUp Life.
+Admin
+Given by the owner
+Trusted helper of LevelUp Life.
+Admin perk
+## achievements
+Regular
+Open LevelUp Life # days in a row
+Dedicated
+Week champion
+Finish all # weekly challenges in one week
+Unstoppable
+Finish every weekly challenge # times
+Out there
+Make your profile public
+About me
+Add a bio and a favourite game
+First friend
+Become friends with another player
+Squad
+Have # friends
+Popular
+Hello world
+Send your first chat message
+Chatterbox
+Send # chat messages
+Pen pal
+Send a private message to a friend
+Best buds
+Send # private messages
+Study buddy
+Finish a focus session in a study group
+Study crew
+Finish # focus sessions in a study group
+Top #
+Reach the top # on a leaderboard of # or more players
+Weekly podium
+Finish a week in the top # (at least # players that week)
+Unlocked {s}
+## about
+About you
+Bio
+(shown on your public profile)
+Favourite games (up to #)
+None yet
+Save
+Updates your public profile.
+Only visible to others if your profile is public.
+e.g. Learning web design, love racing games
+Add a game
+Already in your list
+Saved
+Saved · your public profile updates in a moment
+## studio
+Customize profile
+Profile picture
+A picture, an animated GIF/WebP, or a short MP#/WebM clip. Up to # MB.
+Upload
+Remove
+No banner
+Banner
+A picture, an animated GIF/WebP, or a short MP#/WebM clip. Wide (#:#) looks best. Up to # MB.
+Custom emoji
+Choose image
+Still images and animated GIFs both work (up to # MB). Type
+in tasks, game, series or video titles to use one. Click an emoji to copy its code.
+No emoji yet. Type a name, then choose an image.
+Name, e.g. gg
+Emoji name
+Still
+Profile picture updated
+Banner updated
+{s} (animated)
+{s}. This GIF has only one frame, so it can't move.
+Type a name first: #–# letters, numbers or _.
+You have # emoji, the limit. Delete one first.
+Could not save that image in this browser.
+Copied {s}
+Type {s} to use it
+## settings
+Language
+You're using a guest profile. Create an account so each person on this device has their own progress, protected by a password. Your current progress moves into the new account.
+Owner or admin key
+Got an owner or admin key? Enter it to unlock its perks on this profile.
+Got an owner or admin key? Enter it to unlock its perks on this account.
+Unlock
+Owner unlocked: max level and every badge
+Admin unlocked: level #, double XP and admin perks
+Owner status is on for this account: level #, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).
+Owner status is on for this profile: level #, every badge at Challenger, the Founder badge, and your profile picture, banner and custom emoji (on the Badges page).
+Turn off owner status
+Admin status is on for this account. Your perks:
+Admin status is on for this profile. Your perks:
+Free boost to level # (once), then double XP on everything
+Profile picture, banner and up to # custom emoji (still or animated) on the Badges page
+The Admin badge, and a blue Admin tag in chat that can't be faked
+In chat: hide messages and mute regular members
+Turn off admin status
+Owner status turned off
+Admin status turned off
+Owner
+App
+To install: in Chrome or Edge, use the install icon at the right of the address bar, or open the browser menu and choose
+Install LevelUp Life
+. On Windows you can also use the desktop installer.
+Install LevelUp Life to open it from your desktop or home screen like a normal app. It works offline too.
+Install app
+You're using the installed app. It opens from your desktop or home screen and works offline.
+To install on iPhone or iPad: tap the
+Share
+button in Safari, then
+Add to Home Screen
+After your first visit the app opens offline too. Chat and Players need the internet.
+Public profile
+Show me on the leaderboard
+Lets others open your profile and add you as a friend
+Profile & look
+Nickname
+Nickname (your username is shown instead)
+Seasonal theme
+(Automatic decorates for Halloween, December and New Year)
+Automatic (holidays)
+Off
+Winter ❄️
+Spring 🌸
+Summer ☀️
+Autumn 🍂
+Halloween 🎃
+Festive 🎄
+New Year 🎆
+Theme updated
+Show YouTube thumbnails
+Loads images from YouTube's servers
+Desktop notifications
+For timers & break reminders
+Level # · # total XP
+Healthy habits
+Gaming break reminder every (minutes, # = off)
+Average episode length (minutes)
+Edit daily goals →
+Your data
+Last backup: never
+Last backup: {s}
+This profile's data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.
+This account's data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.
+Export backup (.json)
+Import backup
+Copy backup
+Delete all my data
+Backup text
+Email
+Not set
+Change password
+Current password
+New password
+New password (#+ characters)
+Confirm new password
+Save new password
+Log out
+Delete account
+Name saved
+Saved
+Email saved
+Email removed
+That email does not look right
+Your current password is not right.
+Use at least # characters.
+The new passwords do not match.
+Password changed
+Account deleted
+Backup downloaded
+Backup restored
+That file is not a valid backup
+All data deleted
+Select all and copy the text below
+Backup copied — paste it into a text file to keep it
+Back up your progress
+You have never made a backup. Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.
+Your last backup was # days ago.
+Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.
+Download backup
+Remind me next week
+OK, I'll remind you next week
+Backup downloaded. Keep the file somewhere safe.
+## help
+How to use LevelUp Life
+Pick a study track
+in Study Path (Web Design or App Development) and tick lessons as you finish them.
+Start a Focus session
+when you study. Finished sessions give XP and count toward your goal.
+Track your fun
+: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.
+Check Balance
+to see how your week splits between learning, playing and watching.
+Do daily quests
+in Help the World — good deeds earn XP too.
+with friends in the Chat tab using an invite code from the owner.
+Collect badges
+in the Badges tab. Each one climbs # ranks, from Bronze III to Challenger.
+Make an account
+with a username and password so everyone on this device has their own progress. Email is optional.
+Every week
+brings # new challenges (see Home), and opening the app every day builds your login streak. Achievements are on the Badges page.
+can send each other private, encrypted messages (Messages) and study together in a study group (Focus). The bell shows friend requests, messages and more.
+Back up
+from Settings any time. Nothing is uploaded unless you join the chat or make your profile public.
+Take the tour
+Install the app
+Keyboard shortcuts
+or
+Search & jump anywhere
+Go to tab #–# (# is Badges)
+Previous / next tab
+Start / pause the focus timer (Focus tab)
+Toggle light / dark
+Open this help page
+All tabs
+The Privacy Terms are shown in English.
+## tour
+Step # of #
+Welcome to LevelUp Life! 👋
+Here is a quick tour of where everything is. It takes about # seconds, and you can skip it any time.
+Skip tour
+Back
+Next
+Finish
+Pages
+Study, Focus, Gaming, Series, YouTube and more. On a computer you can scroll this menu with your mouse wheel.
+Your level
+Earn XP by studying, focusing, finishing games and doing good deeds. Click here to see your badges.
+Search everything
+Find any page or action. Shortcut: Ctrl + K. The number keys # to # jump between pages.
+Players and chat
+Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.
+Light or dark mode, your account, public profile, backups and installing the app.
+You're ready! 🎮
+Start with today’s quests on the Help the World page, or open Study to pick a track. Have fun!
+## palette
+Go to tab
+Action
+Account
+Open
+Game
+Create account or log in
+Start / pause focus timer
+Add a study task
+Toggle light / dark mode
+Export backup
+## notes
+Nothing yet. Friend requests, messages, challenges and achievements show up here.
+Want pop-ups when the app is in the background?
+Turn on desktop notifications
+Mark all read
+Clear
+## extra
+Settings · LevelUp Life
+Copy
+Coming soon
+Yes
+No
+#m
+#h
+#h #m
+# days
+# day
+Level
