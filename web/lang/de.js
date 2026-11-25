@@ -948,4 +948,117 @@ Nein
 # Tage
 # Tag
 Level
+## online
+Online
+Online-Konto
+Nutze dein Konto auf jedem Gerät. Dein Fortschritt wird vor dem Hochladen mit deinem Passwort verschlossen, sodass nur du ihn lesen kannst.
+Neues Online-Konto
+Online anmelden
+Online-Konto erstellen
+Bitte bestätige zuerst „Ich bin kein Roboter“.
+Bitte warten…
+Online-Konto bereit, {s}! Dein Fortschritt wird jetzt synchronisiert.
+Willkommen zurück, {s}! Dein Fortschritt ist da.
+Synchronisiert
+Synchronisiert {s}
+Noch nicht synchronisiert
+Offline: Änderungen werden synchronisiert, sobald du wieder online bist.
+Melde dich auf diesem Gerät erneut online an, um deinen gespeicherten Fortschritt zu entsperren.
+Du wurdest abgemeldet. Melde dich erneut online an, um weiter zu synchronisieren.
+Synchronisieren ist gerade nicht möglich. Es wird erneut versucht.
+Deine gespeicherten Daten sind zu groß zum Synchronisieren. Lösche einige alte Einträge und versuche es erneut.
+Jetzt synchronisieren
+Erneut online anmelden
+Passwort per E-Mail zurücksetzen
+„Ich bin kein Roboter“ wird geladen…
+„Ich bin kein Roboter“ konnte nicht geladen werden. Prüfe deine Internetverbindung oder deinen Werbeblocker und versuche es erneut.
+Passwort vergessen?
+Falsche E-Mail oder falsches Passwort.
+Dein Fortschritt von deinem anderen Gerät ist da
+Dein Online-Fortschritt und der Fortschritt dieses Geräts wurden zusammengeführt
+Dein Fortschritt ist entsperrt und mit deinem neuen Passwort gespeichert
+Wir haben einen Passwort-Link an {s} gesendet
+Der Server ist nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.
+Etwas ist schiefgelaufen. Bitte versuche es erneut.
+Gespeicherten Fortschritt entsperren
+Dein Online-Fortschritt wurde mit deinem vorherigen Passwort verschlossen. Gib es einmal ein, um ihn zu entsperren, oder starte neu mit dem, was auf diesem Gerät ist.
+Vorheriges Passwort
+Neu starten mit dem Fortschritt dieses Geräts
+Mit diesem Passwort ließ es sich nicht entsperren. Versuche es erneut oder starte neu.
+Nutze dieses Konto auf jedem Gerät. Dein Fortschritt wird vor dem Hochladen mit deinem Passwort verschlossen.
+Zum Online-Konto machen
+Ich habe schon eins
+Dein Fortschritt auf diesem Gerät wird in dieses Online-Konto übertragen:
+Wenn dieses Gerät und dein Online-Konto beide Fortschritt haben, werden sie zusammengeführt.
+Melde dich ab jetzt mit dem Online-Passwort an.
+Gib den Code ein, den wir gesendet haben an:
+Bestätigungscode
+Bestätigen
+Dieser Code hat nicht funktioniert. Prüfe die E-Mail und versuche es erneut.
+Fast geschafft!
+Dein Online-Konto wartet auf die Freigabe durch den Inhaber. Sobald es freigegeben ist, kannst du dich online anmelden.
+Diese E-Mail hat schon ein Online-Konto. Wähle stattdessen „Online anmelden“.
+Sieh in deine E-Mails
+Falls diese E-Mail ein Online-Konto hat, haben wir einen Link für ein neues Passwort gesendet an:
+Melde dich danach mit dem neuen Passwort online an.
+Online-Konten funktionieren auf der Website, wo die Prüfung „Ich bin kein Roboter“ laufen kann. Öffne die Website, erstelle dort dein Online-Konto und nutze es auf jedem Gerät.
+Website öffnen
+Gib zuerst oben deine E-Mail ein.
+Auf diesem Gerät gibt es schon ein lokales Konto namens {s}. Melde dich zuerst dort an und nutze dann Einstellungen → Zum Online-Konto machen.
+Anmeldung läuft
+OK
+Diese E-Mail sieht nicht richtig aus.
+Zum Löschen des Kontos erneut klicken
+## tracks
+Webdesign
+App-Entwicklung
+HTML-Grundlagen
+So funktioniert das Web
+HTML-Elemente & Struktur
+Formulare & semantisches HTML
+Projekt: eine persönliche Profilseite
+CSS & Layout
+Selektoren, Box-Modell, Farben
+Flexbox
+Grid
+Responsives Design
+Projekt: ein Dashboard wie diese App nachbauen
+Design-Grundsätze
+Typografie & Abstände
+Farbe & Kontrast
+Gesetze der UX
+Figma-Grundlagen
+JavaScript
+Variablen, Funktionen, Schleifen
+DOM & Events
+Fetch & APIs
+Projekt: eine To-do-App
+Barrierefreiheit & Veröffentlichen
+Einführung in Barrierefreiheit
+Git & GitHub
+Eine Website kostenlos veröffentlichen
+Projekt: dein Portfolio
+Programmier-Grundlagen
+Denken wie ein Programmierer (JS)
+Grundlagen der Datenstrukturen
+Versionskontrolle mit Git
+Moderne Oberflächen mit React
+React: Schnellstart
+In React denken
+State & Effects
+Projekt: eine Watchlist-App
+Mobile Apps
+React Native: Einstieg
+Flutter: Einstieg
+Android-Kurse (Kotlin)
+iOS: SwiftUI-Tutorials
+Desktop-Apps
+Electron: deine erste App bauen
+Einen .exe-Installer erstellen
+Projekt: eine Website in eine App verwandeln
+Backend & Veröffentlichen
+HTTP & REST-APIs
+Einführung in Datenbanken (SQL)
+In App-Stores veröffentlichen
+Projekt: deine erste App veröffentlichen
 `);

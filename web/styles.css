@@ -567,3 +567,13 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 :root:lang(ko) body{font-family:"Outfit","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif}
 :root:lang(zh-Hans) body{font-family:"Outfit","PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif}
 :root:lang(ja) body,:root:lang(ko) body,:root:lang(zh-Hans) body{word-break:normal;line-break:strict}
+
+/* online accounts */
+.cloud-box{display:grid;gap:8px;padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:var(--soft)}
+.cloud-box svg{width:18px;height:18px}
+.captcha{min-height:78px;display:grid;place-items:center start}
+.ol-seg{justify-self:center}
+.auth .seg,.ol-seg{display:flex;flex-wrap:nowrap;justify-self:stretch;border-radius:16px}
+.auth .seg button,.ol-seg button{flex:1 1 auto;min-width:0;padding:8px 8px;line-height:1.25;border-radius:12px;text-align:center}
+.lessons a{white-space:nowrap}
+@media (max-width:480px){.auth .seg button,.ol-seg button{font-size:14px;padding:8px 7px}}

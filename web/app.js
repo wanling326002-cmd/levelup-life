@@ -347,6 +347,8 @@ const DEFAULT = {
   seen:{at:0, req:[], fr:[], rep:[], repAt:0}, // what was already turned into a notification
   dm:{}, dmRead:{}, dmDirty:false, // private messages per friend, when I last read each, unsent changes
   group:'', gid:'',               // study group code, and this device's id in groups
+  savedAt:0, syncedAt:0,          // online accounts: when this copy last changed, and which online copy it matches
+  syncBase:{},                    // counters at the last sync, so two devices' gains can be added together
 };
 /* Every value read from storage or a backup file is checked, so a broken or edited file can't crash the app or inject HTML. */
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
@@ -398,6 +400,8 @@ function clean(raw) {
   for (const [u, list] of Object.entries(s.dm || {})) if (/^[a-z0-9_]{3,20}$/.test(u)) { const l = arr(list).filter(x => x && typeof x.t === 'string' && /^[0-9a-f]{8,32}$/.test(x.id)).map(x => ({id:x.id, f:x.f === true, t:ctl(str(x.t, 500)), at:num(x.at, 0, 0, 1e15)})).slice(-200); if (l.length) d.dm[u] = l; }
   for (const [u, v] of Object.entries(s.dmRead || {})) if (/^[a-z0-9_]{3,20}$/.test(u)) d.dmRead[u] = num(v, 0, 0, 1e15);
   d.dmDirty = s.dmDirty === true;
+  d.savedAt = num(s.savedAt, 0, 0, 1e15); d.syncedAt = num(s.syncedAt, 0, 0, 1e15);
+  for (const [k, v] of Object.entries(s.syncBase || {})) if (/^[a-z]{2,12}$/.test(k)) d.syncBase[k] = num(v, 0, 0, 1e9);
   d.group = str(s.group, 40); d.gid = typeof s.gid === 'string' && /^[0-9a-f]{16}$/.test(s.gid) ? s.gid : randHex(8);
   d.toured = s.toured === true || d.xp >= 60; // people who already use the app don't need the tour
   d.since = num(s.since, 0, 0, 1e15) || Date.now(); d.lastBackup = num(s.lastBackup, 0, 0, 1e15); d.backupSnooze = num(s.backupSnooze, 0, 0, 1e15);
@@ -410,7 +414,7 @@ function clean(raw) {
 let S;
 try { S = clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
 catch { S = clean({}); }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); queueProgress(); };
+const save = () => { S.savedAt = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); queueProgress(); cloudSoon(); };
 
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
@@ -536,7 +540,7 @@ VIEWS.home = () => {
     `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
   ${card('c4', 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px">${esc(TRACKS[next.track].name)} · ${esc(next.module)}</p>
+    <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px"><span>${esc(TRACKS[next.track].name)}</span> · <span>${esc(next.module)}</span></p>
     <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
     : empty('🏆 You finished every lesson! Build something and share it.'), `<span class="tag p">${pctDone()}% done</span>`)}
   ${card('c4', 'Up next', `<ul class="list">
@@ -1322,7 +1326,7 @@ async function publishProfile(force) {
     const {p, k} = await buildProfile(), h = await sha256(JSON.stringify(p));
     if (!force && h === S.pubHash && Date.now() - S.pubAt < 6 * 3600e3) return true;
     const cur = (await queryItems({_id:pid(p.u)}, 1))[0], old = cur && await readProfile(cur);
-    if (old && !old.gone && old.x !== p.x) { // somebody else already uses this username on the leaderboard
+    if (old && !old.gone && old.x !== p.x && old.x !== k.prevX) { // somebody else already uses this username on the leaderboard (prevX: our own old key)
       S.pub = false; save(); PL.status = 'taken'; toast(`Another player already uses the name ${me().username} on the leaderboard.`); repaintSocial(); return false;
     }
     p.ts = Date.now(); const d = JSON.stringify(p);
@@ -1650,15 +1654,20 @@ BIND.players = m => {
 function accountCard() {
   const u = me();
   if (!u) return card('c6', 'Account', `<p class="muted" style="margin-top:-6px">You're using a guest profile. Create an account so each person on this device has their own progress, protected by a password. Your current progress moves into the new account.</p>
-    <div class="row"><button class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button class="btn" data-open-auth="login">Log in</button></div>`);
+    <div class="row"><button class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button class="btn" data-open-auth="login">Log in</button><button class="btn" data-online="signup">${icon('globe')}Online account</button></div>`);
   return card('c6', 'Account', `<div class="form">
     <label class="field"><span>Username</span><input id="acUser" value="${esc(u.username)}" disabled></label>
-    <label class="field"><span>Email (optional)</span><input id="acEmail" type="email" maxlength="120" value="${esc(u.email || '')}" placeholder="Not set"></label>
-    <details class="pw"><summary class="btn sm">Change password</summary><form class="form" id="pwForm" style="margin-top:12px">
+    ${u.online ? `<div class="cloud-box"><div class="row" style="gap:8px">${icon('globe')}<b>Online account</b><span class="muted small" translate="no">${esc(u.online.email)}</span></div>
+      <p class="muted small" style="margin:0"><span id="cloudStatus"></span></p>
+      <div class="row"><button type="button" class="btn sm" id="cloudSync">${icon('reset')}Sync now</button><button type="button" class="btn sm" id="cloudRelog" data-online="login" hidden>Log in online again</button><button type="button" class="btn sm" id="cloudReset">Reset password by email</button></div></div>`
+    : `<label class="field"><span>Email (optional)</span><input id="acEmail" type="email" maxlength="120" value="${esc(u.email || '')}" placeholder="Not set"></label>
+    <div class="cloud-box"><div class="row" style="gap:8px">${icon('globe')}<b>Online account</b></div><p class="muted small" style="margin:0">Use this account on any device. Your progress is locked with your password before it's uploaded.</p>
+      <div class="row"><button type="button" class="btn sm primary" data-online="connect">Make it an online account</button><button type="button" class="btn sm" data-online="connect-login">I already have one</button></div></div>`}
+    ${u.online ? '' : `<details class="pw"><summary class="btn sm">Change password</summary><form class="form" id="pwForm" style="margin-top:12px">
       <input id="pwOld" type="password" autocomplete="current-password" placeholder="Current password" aria-label="Current password">
       <input id="pwNew" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" aria-label="New password">
       <input id="pwNew2" type="password" autocomplete="new-password" placeholder="Confirm new password" aria-label="Confirm new password">
-      <p class="err" id="pwErr" role="alert"></p><button class="btn primary">Save new password</button></form></details>
+      <p class="err" id="pwErr" role="alert"></p><button class="btn primary">Save new password</button></form></details>`}
     <div class="row"><button class="btn" id="acLogout">${icon('logout')}Log out</button><button class="btn danger" id="acDelete">${icon('trash')}Delete account</button></div></div>`);
 }
 function ownerCard() {
@@ -1699,11 +1708,12 @@ VIEWS.options = () => `<div class="grid">
 </div>`;
 BIND.options = m => {
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
+  m.querySelectorAll('[data-online]').forEach(b => b.onclick = () => { const v = b.dataset.online; openOnline(v === 'connect-login' ? 'login' : v === 'connect' ? 'signup' : v, v.startsWith('connect') && me() ? me().username : ''); });
   const sp = $('#stPublic'); if (sp) sp.onclick = () => S.pub ? goPrivate() : goPublic();
   const u = me();
   if (u) {
-    $('#acEmail').onchange = e => { const v = e.target.value.trim(); if (v && !EMAIL_RE.test(v)) return toast('That email does not look right'); u.email = v; saveAcc(); toast(v ? 'Email saved' : 'Email removed'); };
-    $('#pwForm').onsubmit = async e => {
+    const ae = $('#acEmail'); if (ae) ae.onchange = e => { const v = e.target.value.trim(); if (v && !EMAIL_RE.test(v)) return toast('That email does not look right'); u.email = v; saveAcc(); toast(v ? 'Email saved' : 'Email removed'); };
+    const pf = $('#pwForm'); if (pf) pf.onsubmit = async e => {
       e.preventDefault(); const err = $('#pwErr'); err.textContent = '';
       if (!(await checkPassword(u, $('#pwOld').value))) return err.textContent = 'Your current password is not right.';
       const p = $('#pwNew').value; if (p.length < 8) return err.textContent = 'Use at least 8 characters.';
@@ -1711,9 +1721,13 @@ BIND.options = m => {
       await setPassword(u, p); saveAcc(); toast('Password changed'); rerender();
     };
     $('#acLogout').onclick = logout;
+    const cs = $('#cloudSync'); if (cs) cs.onclick = () => cloudSync({announce:true});
+    const cr = $('#cloudReset'); if (cr) cr.onclick = async () => { try { await wixPost('/_api/iam/recovery/v1/send-email', {email:u.online.email, redirect:{url:SITE_URL, clientId:CLIENT_ID}}); toast(`We sent a password link to ${u.online.email}`); } catch { toast("Couldn't reach the server. Try again."); } };
+    paintCloud();
     let armedDel = false;
     $('#acDelete').onclick = async () => {
       if (!armedDel) { armedDel = true; $('#acDelete').innerHTML = `${icon('trash')}Click again to delete account`; setTimeout(() => { armedDel = false; const b = $('#acDelete'); if (b) b.innerHTML = `${icon('trash')}Delete account`; }, 5000); return; }
+      if (u.online) await cloudTombstone(u); // the online copy is cleared too (the login itself stays with Wix)
       if (S.pub) { $('#acDelete').disabled = true; S.pub = false; await Promise.race([unpublishProfile().catch(() => {}), new Promise(r => setTimeout(r, 8000))]); } // take the public profile down too
       try { localStorage.removeItem(keyFor(u.username)); } catch {}
       await mediaWipe();
@@ -1798,7 +1812,9 @@ VIEWS.privacy = () => card('c12', '', `${LANG !== 'en' ? '<p class="muted" style
   <p>Private messages are <b>end-to-end encrypted</b>: they are locked with a key that only your device and your friend's device have, so nobody else can read them, not the owner, admins or Wix. The locked messages are stored on the website host's database together with who they are for and when they were sent. A copy is kept on your device. If you report a message, you choose to share it with the owner and admins.</p>
   <h2>4d. Study groups</h2>
   <p>If you join a study group, your display name, your focus timer (focusing, on a break or paused, and when it ends) and how many sessions you did today are shared with everyone who has the group code, encrypted with that code. When you leave, it is removed from the group.</p>
-  <h2>4e. Third-party content</h2>
+  <h2>4e. Online accounts (optional)</h2>
+  <p>If you make an online account, your email address and password are handled by Wix (the website host) so you can log in on other devices. Before your progress is uploaded, it is <b>encrypted on your device with a key made from your password</b>, so Wix and the owner can't read it. If you reset your password, you can unlock your saved progress once with the old password, or start fresh. The sign-up and login form uses Google reCAPTCHA (“I'm not a robot”), which loads only on that form and follows Google's privacy policy. Deleting your account here clears your online copy; to remove the login itself, ask the owner.</p>
+  <h2>4f. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
   <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
@@ -2237,6 +2253,299 @@ function bindGroup() {
     if (normGroup(v).length < 6) return err.textContent = 'Group codes are at least 6 characters.';
     if (await joinGroup(v)) toast('Joined the group'); };
 }
+/* ---------- online accounts (Wix members, optional) ----------
+   Sign-up and login go to Wix (email and password, with Google reCAPTCHA against bots). Progress is compressed and
+   encrypted on this device with a key made from the password, then stored in the "MemberData" collection, where each
+   member can only read and write their own item. Wix and the owner only ever see locked data.
+   Local accounts keep working exactly as before; an online account is also kept on each device it's used on. */
+const SITE_URL = 'https://headless-bjzqdbegqqy-wanling326002-140d.wix-site-host.com/';
+const RECAPTCHA_KEY = '6Ld0J8IcAAAAANyrnxzrRlX1xrrdXsOmsepUYosy', MEMBER_DATA = 'MemberData';
+const OL = {mode:'signup', step:'form', widget:null, captchaReady:null, token:'', tokenFor:'', tokenExp:0, busy:false, syncing:false, pending:null, connect:'', status:'', syncAt:0, msg:''};
+const canOnline = () => location.origin === new URL(SITE_URL).origin || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); // the robot check only works on the website itself
+const isOnlineAcc = () => !!(me() && me().online);
+function cloudSoon(ms = 15000) { clearTimeout(cloudSoon.t); cloudSoon.t = setTimeout(() => { if (isOnlineAcc()) cloudSync(); }, ms); } // a declaration, so save() can call it early
+
+/* "I'm not a robot" (reCAPTCHA Enterprise with Wix's site key, loaded only when the online form opens) */
+function loadCaptcha() {
+  if (OL.captchaReady) return OL.captchaReady;
+  OL.captchaReady = new Promise((res, rej) => {
+    window.levelupCaptcha = () => res(window.grecaptcha && window.grecaptcha.enterprise);
+    const s = document.createElement('script'); s.src = 'https://www.google.com/recaptcha/enterprise.js?onload=levelupCaptcha&render=explicit'; s.async = true;
+    s.onerror = () => { OL.captchaReady = null; rej(new Error('captcha')); }; document.head.append(s);
+  });
+  return OL.captchaReady;
+}
+async function renderCaptcha() {
+  const box = $('#olCaptcha'); if (!box) return;
+  try { const g = await loadCaptcha(); const b = $('#olCaptcha'); if (!b) return; b.innerHTML = ''; const h = document.createElement('div'); b.append(h);
+    OL.widget = g.render(h, {sitekey:RECAPTCHA_KEY, theme:S.theme === 'light' ? 'light' : 'dark'}); }
+  catch { const b = $('#olCaptcha'); if (b) b.innerHTML = `<p class="err">The “I’m not a robot” check could not load. Check your internet connection or ad blocker, then try again.</p>`; }
+}
+const captchaToken = () => { try { return window.grecaptcha.enterprise.getResponse(OL.widget) || ''; } catch { return ''; } };
+const resetCaptcha = () => { try { window.grecaptcha.enterprise.reset(OL.widget); } catch {} };
+
+/* Wix calls */
+async function wixPost(path, body, token) {
+  const r = await fetch(WIXAPI + path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:token || await chatToken()}, body:JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) { const e = new Error('wix ' + r.status); e.status = r.status; e.body = j; throw e; }
+  return j;
+}
+function olError(e, mode) {
+  const t = JSON.stringify((e && e.body) || '').toLowerCase();
+  if (!e || !e.status) return "Can't reach the server. Check your internet connection and try again.";
+  if (t.includes('captcha')) return 'Please complete the “I’m not a robot” check first.';
+  if (mode === 'signup' && (t.includes('exist') || t.includes('already') || e.status === 409)) return 'That email already has an online account. Choose “Log in online” instead.';
+  if (mode === 'code') return "That code didn't work. Check the email and try again.";
+  if (mode === 'login' || e.status === 401 || e.status === 403 || e.status === 404) return 'Wrong email or password.';
+  return 'Something went wrong. Please try again.';
+}
+const b64url = u8 => b64(u8).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+async function memberTokens(sessionToken) { // the secure handshake: turns a login into member tokens (PKCE, in a hidden frame)
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32))), state = randHex(16);
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(verifier))));
+  const j = await wixPost('/_api/redirects-api/v1/redirect-session', {auth:{authRequest:{clientId:CLIENT_ID, codeChallenge:challenge, codeChallengeMethod:'S256', responseMode:'web_message', responseType:'code', scope:'offline_access', state, sessionToken}}});
+  const url = j.redirectSession && j.redirectSession.fullUrl; if (!url) throw new Error('no session');
+  const code = await new Promise((res, rej) => {
+    const f = document.createElement('iframe'); f.hidden = true; f.title = 'Signing in'; f.src = url;
+    const done = (fn, v) => { clearTimeout(t); window.removeEventListener('message', on); f.remove(); fn(v); };
+    const on = e => { const d = e.data; if (d && typeof d === 'object' && d.state === state) d.code ? done(res, String(d.code)) : done(rej, new Error(String(d.error || 'denied'))); };
+    const t = setTimeout(() => done(rej, new Error('timeout')), 25000);
+    window.addEventListener('message', on); document.body.append(f);
+  });
+  const r = await fetch(WIXAPI + '/oauth2/token', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({clientId:CLIENT_ID, grantType:'authorization_code', code, codeVerifier:verifier})});
+  if (!r.ok) throw Object.assign(new Error('token ' + r.status), {status:r.status});
+  const k = await r.json(); return {at:k.access_token, rt:k.refresh_token, exp:Date.now() + ((k.expires_in || 14400) - 120) * 1000};
+}
+async function memberToken(u) { // a fresh access token for an online account
+  if (OL.token && OL.tokenFor === u.online.id && Date.now() < OL.tokenExp) return OL.token;
+  const r = await fetch(WIXAPI + '/oauth2/token', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({clientId:CLIENT_ID, grantType:'refresh_token', refreshToken:u.online.rt})});
+  if (!r.ok) throw Object.assign(new Error('refresh ' + r.status), {status:r.status, signedOut:r.status === 400 || r.status === 401});
+  const k = await r.json(); OL.token = k.access_token; OL.tokenFor = u.online.id; OL.tokenExp = Date.now() + ((k.expires_in || 14400) - 120) * 1000;
+  if (k.refresh_token && k.refresh_token !== u.online.rt) { u.online.rt = k.refresh_token; saveAcc(); }
+  return OL.token;
+}
+const memberItem = id => 'm-' + id;
+async function cloudGet(u) { const j = await wixPost('/wix-data/v2/items/query', {dataCollectionId:MEMBER_DATA, query:{filter:{_id:memberItem(u.online.id)}, paging:{limit:1}}}, await memberToken(u)); const it = (j.dataItems || [])[0]; return it && it.data && it.data.payload ? it : null; }
+async function cloudPut(u, payload, at) { await wixPost('/wix-data/v2/items/save', {dataCollectionId:MEMBER_DATA, dataItem:{id:memberItem(u.online.id), data:{payload, at}}}, await memberToken(u)); }
+
+/* encryption: AES-GCM with a key made from the password (PBKDF2), gzip first so big histories still fit */
+async function cloudKeyFrom(pw, memberId) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', hash:'SHA-256', salt:enc.encode('levelup-cloud-v1|' + memberId), iterations:250000}, base, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+}
+async function gz(str) { if (!window.CompressionStream) return {z:false, b:enc.encode(str)}; return {z:true, b:new Uint8Array(await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())}; }
+async function ungz(u8, z) { return z ? new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text() : new TextDecoder().decode(u8); }
+async function sealCloud(key, obj) { const {z, b} = await gz(JSON.stringify(obj)), iv = crypto.getRandomValues(new Uint8Array(12)); return JSON.stringify({v:1, z, iv:b64(iv), ct:b64(await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, b))}); }
+async function openCloud(key, txt) { const w = JSON.parse(txt); return JSON.parse(await ungz(new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(w.iv)}, key, unb64(w.ct))), w.z)); }
+
+/* your leaderboard and message keys travel with an online account, so every device is the same "you" */
+async function makeIdKeys() {
+  const p = await crypto.subtle.generateKey({name:'ECDSA', namedCurve:'P-256'}, true, ['sign', 'verify']);
+  const d = await crypto.subtle.generateKey({name:'ECDH', namedCurve:'P-256'}, true, ['deriveKey']);
+  return {p:await crypto.subtle.exportKey('jwk', p.privateKey), d:await crypto.subtle.exportKey('jwk', d.privateKey)};
+}
+async function installIdKeys(keys) {
+  let prev = null; try { prev = await mediaGet('profilekey'); } catch {}
+  if (prev && prev.x === keys.p.x) return;
+  const p = await crypto.subtle.importKey('jwk', keys.p, {name:'ECDSA', namedCurve:'P-256'}, false, ['sign']);
+  const d = await crypto.subtle.importKey('jwk', keys.d, {name:'ECDH', namedCurve:'P-256'}, false, ['deriveKey']);
+  await mediaPut('profilekey', {priv:p, x:keys.p.x, y:keys.p.y, prevX:prev && prev.x || ''}); // prevX: this device may replace its own old profile
+  await mediaPut('dmkey', {priv:d, x:keys.d.x, y:keys.d.y}); await mediaPut('idkeys', keys);
+  DM.keys.clear(); S.pubHash = ''; if (S.pub) schedulePublish(2000);
+}
+
+/* sync: if only one side changed, it wins. If this device and another one both changed, the two are merged:
+   lists (tasks, games, series, videos, history, lessons, quests, messages…) are combined, XP and counters add up
+   what each device earned since the last sync, and settings come from whichever device changed last. */
+const COUNTERS = {xp:s => s.xp, quests:s => s.questsTotal, focus:s => s.focus.count, eps:s => s.stats.episodes, chat:s => s.stats.chat, dm:s => s.stats.dm, group:s => s.stats.group, wkall:s => s.stats.wkAll};
+const baseOf = s => Object.fromEntries(Object.entries(COUNTERS).map(([k, f]) => [k, f(s)]));
+function mergeStates(L, R, base) { // L = this device, R = online copy; both already cleaned
+  const newer = L.savedAt >= R.savedAt ? L : R, M = clean(JSON.parse(JSON.stringify(newer)));
+  const add = (k, set) => { const b = num(base[k], 0, 0, 1e9), v = Math.max(0, COUNTERS[k](R) + COUNTERS[k](L) - b); set(v); };
+  add('xp', v => M.xp = v); add('quests', v => M.questsTotal = v); add('focus', v => M.focus.count = v); add('eps', v => M.stats.episodes = v);
+  add('chat', v => M.stats.chat = v); add('dm', v => M.stats.dm = v); add('group', v => M.stats.group = v); add('wkall', v => M.stats.wkAll = v);
+  const byId = (a, b) => { const m = new Map(); for (const x of newer === L ? [...b, ...a] : [...a, ...b]) m.set(x.id, x); return [...m.values()]; }; // the newer device's version of an item wins
+  M.tasks = byId(L.tasks, R.tasks); M.backlog = byId(L.backlog, R.backlog); M.series = byId(L.series, R.series); M.yt = byId(L.yt, R.yt); M.notes = byId(L.notes, R.notes).sort((a, b) => b.at - a.at).slice(0, 60);
+  const cnt = arr => { const m = new Map(); for (const x of arr) { const k = JSON.stringify(x); m.set(k, (m.get(k) || 0) + 1); } return m; };
+  const lc = cnt(L.log), rc = cnt(R.log); M.log = []; for (const k of new Set([...lc.keys(), ...rc.keys()])) for (let i = 0; i < Math.max(lc.get(k) || 0, rc.get(k) || 0); i++) M.log.push(JSON.parse(k));
+  M.lessons = {...R.lessons, ...L.lessons}; M.ach = {...R.ach, ...L.ach};
+  M.quests = {}; for (const d of new Set([...Object.keys(L.quests), ...Object.keys(R.quests)])) M.quests[d] = [...new Set([...(L.quests[d] || []), ...(R.quests[d] || [])])];
+  M.days = [...new Set([...L.days, ...R.days])].sort().slice(-400);
+  for (const k of ['friends', 'ignored', 'staffAdds']) M[k] = [...new Set([...L[k], ...R[k]])];
+  M.dm = {}; for (const u of new Set([...Object.keys(L.dm), ...Object.keys(R.dm)])) M.dm[u] = byId(L.dm[u] || [], R.dm[u] || []).sort((a, b) => a.at - b.at).slice(-200);
+  M.dmRead = {...R.dmRead}; for (const [u, v] of Object.entries(L.dmRead)) M.dmRead[u] = Math.max(v, M.dmRead[u] || 0);
+  if (L.wk.id === R.wk.id) { M.wk.done = [...new Set([...L.wk.done, ...R.wk.done])].slice(0, 3); M.wk.xp = Math.max(0, L.wk.xp + R.wk.xp - num(base.wkxp, 0, 0, 1e9)); }
+  M.run = L.run; M.gid = L.gid; M.group = L.group; // timers and the study group stay with this device
+  return M;
+}
+function applyCloud(blob) {
+  const at = num(blob.at, Date.now(), 0, 1e15);
+  S = clean(blob.S || {}); S.agreed = true; S.syncedAt = at; S.savedAt = at; S.syncBase = {...baseOf(S), wkxp:S.wk.xp};
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
+  applyTheme(); applySeason(); paintPlayer(); paintBell(); rerender();
+}
+async function cloudPush(u, key) {
+  let keys = null; try { keys = await mediaGet('idkeys'); } catch {}
+  const at = Date.now(), payload = await sealCloud(key, {v:1, username:u.username, created:u.created || '', S, keys, at});
+  if (payload.length > 480000) { OL.status = 'toobig'; return false; }
+  await cloudPut(u, payload, at);
+  S.syncedAt = at; S.savedAt = at; S.syncBase = {...baseOf(S), wkxp:S.wk.xp}; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
+  return true;
+}
+async function cloudSync(opts = {}) {
+  const u = me(); if (!u || !u.online || !canOnline() || OL.syncing) return; if (!navigator.onLine) { OL.status = 'offline'; return paintCloud(); }
+  OL.syncing = true; OL.status = 'syncing'; paintCloud();
+  try {
+    let key = null; try { key = await mediaGet('cloudkey'); } catch {}
+    if (!key) { OL.status = 'locked'; return; }
+    const item = await cloudGet(u), cAt = item ? num(item.data.at, 0, 0, 1e15) : 0;
+    if (item && cAt > S.syncedAt && !opts.push) { // another device saved since this one last synced
+      let blob; try { blob = await openCloud(key, item.data.payload); } catch { OL.status = 'locked'; return; }
+      if (blob.deleted) { await cloudPush(u, key); OL.status = 'ok'; OL.syncAt = Date.now(); return; } // deleted on another device: this device's copy brings it back
+      if (blob.keys && blob.keys.p) await installIdKeys(blob.keys);
+      if (S.savedAt > S.syncedAt) { // both changed: merge, then save the merged copy online
+        const R = clean(blob.S || {}); R.savedAt = cAt; const M = mergeStates(S, R, S.syncBase); M.syncBase = S.syncBase;
+        S = M; S.agreed = true; await cloudPush(u, key); applyCloud({S, at:S.syncedAt}); toast('Your progress from your other device is here');
+      } else { applyCloud(blob); if (opts.announce) toast('Your progress from your other device is here'); }
+      OL.status = 'ok'; OL.syncAt = Date.now(); return;
+    }
+    if (!item || S.savedAt > S.syncedAt || opts.push) { if (!(await cloudPush(u, key))) return; }
+    OL.status = 'ok'; OL.syncAt = Date.now();
+  } catch (e) { OL.status = e && e.signedOut ? 'signedout' : 'error'; }
+  finally { OL.syncing = false; paintCloud(); }
+}
+const CLOUD_TEXT = {syncing:'Syncing…', ok:'Synced', offline:'Offline: changes will sync when you are back online.', locked:'Log in online again on this device to unlock your saved progress.',
+  signedout:'You were signed out. Log in online again to keep syncing.', error:"Couldn't sync right now. It will try again.", toobig:'Your saved data is too big to sync. Delete some old items and try again.'};
+function paintCloud() {
+  const el = $('#cloudStatus'); if (!el) return;
+  el.textContent = OL.status === 'ok' && OL.syncAt ? `Synced ${fmtTime(OL.syncAt)}` : CLOUD_TEXT[OL.status] || (S.syncedAt ? `Synced ${fmtTime(S.syncedAt)}` : 'Not synced yet');
+  const rl = $('#cloudRelog'); if (rl) rl.hidden = !['locked', 'signedout'].includes(OL.status);
+}
+
+/* the online sign-up / login form (third tab of the account window) */
+function paintOnline() {
+  const f = $('#onlineForm'); if (!f) return;
+  if (!canOnline()) { f.innerHTML = `<p class="muted" style="margin:0">Online accounts work on the website, where the “I’m not a robot” check can run. Open the website, make your online account there, and use it on any device.</p><a class="btn primary wide" href="${SITE_URL}" target="_blank" rel="noopener">${icon('globe')}Open the website</a>`; return; }
+  const P = OL.pending, step = OL.step;
+  if (step === 'code') f.innerHTML = `<p class="muted" style="margin:0">Enter the code we emailed to <b translate="no">${esc(P.email)}</b></p>
+    <label class="field"><span>Verification code</span><input id="olCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label><p class="err" id="olErr" role="alert"></p>
+    <button class="btn primary wide">Verify</button><button type="button" class="linkbtn" data-olstep="form">Back</button>`;
+  else if (step === 'approval') f.innerHTML = `<p style="margin:0"><b>Almost there!</b></p><p class="muted" style="margin:0">Your online account is waiting for the owner to approve it. You can log in online once it's approved.</p><button type="button" class="btn wide" data-olstep="form">OK</button>`;
+  else if (step === 'oldpw') f.innerHTML = `<p style="margin:0"><b>Unlock your saved progress</b></p><p class="muted" style="margin:0">Your online progress was locked with your previous password. Enter it once to unlock it, or start fresh with what is on this device.</p>
+    <label class="field"><span>Previous password</span><input id="olOld" type="password" autocomplete="off"></label><p class="err" id="olErr" role="alert"></p>
+    <button class="btn primary wide">Unlock</button><button type="button" class="linkbtn" id="olFresh">Start fresh with this device's progress</button>`;
+  else if (step === 'sent') f.innerHTML = `<p style="margin:0"><b>Check your email</b></p><p class="muted" style="margin:0">If this email has an online account, we sent it a link to choose a new password: <b translate="no">${esc(OL.msg)}</b></p><p class="muted" style="margin:0">Afterwards, log in online with the new password.</p><button type="button" class="btn wide" data-olstep="form">OK</button>`;
+  else { const su = OL.mode === 'signup', con = OL.connect;
+    f.innerHTML = `<p class="muted small" style="margin:0">Use your account on any device. Your progress is locked with your password before it's uploaded, so only you can read it.</p>
+    <div class="seg ol-seg" role="group" aria-label="Online account"><button type="button" data-olmode="signup" class="${su ? 'on' : ''}" aria-pressed="${su}">New online account</button><button type="button" data-olmode="login" class="${su ? '' : 'on'}" aria-pressed="${!su}">Log in online</button></div>
+    ${su ? `<label class="field"><span>Username</span><input id="olUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _" value="${esc(con)}"${con ? ' readonly' : ''}></label>` : ''}
+    <label class="field"><span>Email</span><input id="olEmail" type="email" autocomplete="email" maxlength="120"></label>
+    <label class="field"><span>Password</span><input id="olPass" type="password" autocomplete="${su ? 'new-password' : 'current-password'}" placeholder="${su ? 'At least 8 characters' : ''}"></label>
+    ${su ? `<label class="field"><span>Confirm password</span><input id="olPass2" type="password" autocomplete="new-password" placeholder="Type it again"></label>
+    <label class="agree"><input type="checkbox" class="check" id="olAgree"><span>I agree to the <a href="#privacy" class="toPrivacy">Privacy Terms</a></span></label>` : ''}
+    ${con ? `<p class="muted small" style="margin:0">${su ? `Your progress on this device moves into the online account <b translate="no">${esc(con)}</b>` : `If both this device and your online account have progress, they are combined.`}</p><p class="muted small" style="margin:0">From now on, log in with the online password.</p>` : ''}
+    <div id="olCaptcha" class="captcha"><p class="muted small" style="margin:0">Loading the “I’m not a robot” check…</p></div>
+    <p class="err" id="olErr" role="alert"></p>
+    <button class="btn primary wide">${su ? 'Create online account' : 'Log in online'}</button>
+    ${su ? '' : '<button type="button" class="linkbtn" id="olForgot">Forgot password?</button>'}`;
+    renderCaptcha(); addPeek(f);
+  }
+  f.querySelectorAll('.toPrivacy').forEach(a => a.onclick = () => { $('#consent').hidden = true; });
+}
+function bindOnline() {
+  const f = $('#onlineForm'); if (!f || f.dataset.bound) return; f.dataset.bound = '1';
+  f.addEventListener('click', e => {
+    const m = e.target.closest('[data-olmode]'); if (m) { OL.mode = m.dataset.olmode; paintOnline(); return; }
+    const s = e.target.closest('[data-olstep]'); if (s) { OL.step = s.dataset.olstep; paintOnline(); return; }
+    if (e.target.closest('#olForgot')) forgotOnline();
+    if (e.target.closest('#olFresh')) { OL.step = 'form'; finishOnline(Object.assign(OL.pending, {fresh:true})); }
+  });
+  f.addEventListener('submit', e => { e.preventDefault(); onlineSubmit(); });
+}
+async function forgotOnline() {
+  const email = ($('#olEmail').value || '').trim(), err = $('#olErr'); err.textContent = '';
+  if (!EMAIL_RE.test(email)) return err.textContent = 'Type your email above first.';
+  try { await wixPost('/_api/iam/recovery/v1/send-email', {email, redirect:{url:SITE_URL, clientId:CLIENT_ID}}); } catch (e) { if (!e.status) return err.textContent = olError(e); }
+  OL.msg = email; OL.step = 'sent'; paintOnline();
+}
+async function onlineSubmit() {
+  const f = $('#onlineForm'), err = $('#olErr'), btn = f.querySelector('.btn.primary'); if (OL.busy || !err) return; err.textContent = '';
+  const go = async fn => { OL.busy = true; btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Please wait…';
+    try { await fn(); } finally { OL.busy = false; const b = $('#onlineForm .btn.primary'); if (b) { b.disabled = false; if (b.dataset.label) b.textContent = b.dataset.label; } } };
+  if (OL.step === 'code') return go(async () => {
+    try { const j = await wixPost('/_api/iam/verification/v1/auth/verify', {code:$('#olCode').value.trim(), stateToken:OL.pending.stateToken}); await afterAuth(j, OL.pending); }
+    catch (e) { $('#olErr').textContent = olError(e, 'code'); } });
+  if (OL.step === 'oldpw') return go(async () => {
+    const P = OL.pending; try { const k = await cloudKeyFrom($('#olOld').value, P.memberId); P.blob = await openCloud(k, P.item.data.payload); P.relock = true; await finishOnline(P); }
+    catch { $('#olErr').textContent = "That password didn't unlock it. Try again, or start fresh."; } });
+  const su = OL.mode === 'signup', email = $('#olEmail').value.trim(), pw = $('#olPass').value, name = su ? $('#olUser').value.trim() : '';
+  if (su) {
+    if (!USER_RE.test(name)) return err.textContent = 'Usernames are 3–20 letters, numbers or underscores.';
+    if (!OL.connect && ACC.users[name.toLowerCase()]) return err.textContent = 'That username is already used on this device. Pick another or log in.';
+  }
+  if (!EMAIL_RE.test(email)) return err.textContent = 'That email does not look right.';
+  if (pw.length < 8) return err.textContent = 'Use a password with at least 8 characters.';
+  if (su && pw !== $('#olPass2').value) return err.textContent = 'The passwords do not match.';
+  if (su && !$('#olAgree').checked) return err.textContent = 'Please agree to the Privacy Terms to continue.';
+  const tok = captchaToken(); if (!tok) return err.textContent = 'Please complete the “I’m not a robot” check first.';
+  return go(async () => {
+    try {
+      const body = {loginId:{email}, password:pw, captcha_tokens:[{Recaptcha:tok}]};
+      if (su) body.profile = {nickname:name};
+      const j = await wixPost(su ? '/_api/iam/authentication/v2/register' : '/_api/iam/authentication/v2/login', body);
+      await afterAuth(j, {mode:OL.mode, email, pw, name, connect:OL.connect});
+    } catch (e) { const el = $('#olErr'); if (el) el.textContent = olError(e, OL.mode); resetCaptcha(); }
+  });
+}
+async function afterAuth(j, ctx) {
+  if (j.state === 'REQUIRE_EMAIL_VERIFICATION') { OL.pending = {...ctx, stateToken:j.stateToken}; OL.step = 'code'; return paintOnline(); }
+  if (j.state === 'REQUIRE_OWNER_APPROVAL') { OL.step = 'approval'; return paintOnline(); }
+  if (j.state !== 'SUCCESS' || !j.sessionToken) throw Object.assign(new Error('state'), {status:400, body:j});
+  const id = String((j.identity && j.identity.id) || ''); if (!/^[\w-]{8,60}$/.test(id)) throw Object.assign(new Error('id'), {status:500});
+  const tokens = await memberTokens(j.sessionToken);
+  OL.token = tokens.at; OL.tokenFor = id; OL.tokenExp = tokens.exp;
+  const P = {...ctx, memberId:id, rt:tokens.rt, nick:String(((j.identity || {}).identityProfile || {}).nickname || '')};
+  P.key = await cloudKeyFrom(ctx.pw, id);
+  P.item = await cloudGet({online:{id, rt:tokens.rt}});
+  if (P.item) { try { P.blob = await openCloud(P.key, P.item.data.payload); } catch { OL.pending = P; OL.step = 'oldpw'; return paintOnline(); } }
+  if (P.blob && P.blob.deleted) P.blob = null;
+  await finishOnline(P);
+}
+async function finishOnline(P) {
+  const linked = Object.values(ACC.users).find(u => u.online && u.online.id === P.memberId);
+  let u = linked || (P.connect ? ACC.users[P.connect.toLowerCase()] : null), fromCloud = false, newAcc = false, carried = false;
+  if (!u) { // a new account on this device: named after the online account
+    let name = P.blob && USER_RE.test(P.blob.username || '') ? P.blob.username : P.mode === 'signup' ? P.name : USER_RE.test(P.nick) ? P.nick : '';
+    if (!name) name = (P.email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 14) || 'player') + randHex(2);
+    if (ACC.users[name.toLowerCase()]) { OL.step = 'form'; paintOnline(); $('#olErr').textContent = `This device already has a local account called ${name}. Log in to it first, then use Settings → Make it an online account.`; return; }
+    u = {username:name, email:P.email, created:(P.blob && P.blob.created) || today()};
+    const carry = ACC.current === GUEST && !P.blob, data = clean(P.blob && !P.fresh ? P.blob.S : carry ? loadJSON(GUEST_KEY, {}) : {});
+    data.agreed = true; if (!data.name) data.name = name;
+    if (P.blob && !P.fresh) { data.syncedAt = data.savedAt = num(P.blob.at, 0, 0, 1e15); fromCloud = true; }
+    try { localStorage.setItem(keyFor(name), JSON.stringify(data)); if (carry) localStorage.removeItem(GUEST_KEY); } catch {}
+    ACC.users[name.toLowerCase()] = u; newAcc = !fromCloud; carried = carry;
+  }
+  await setPassword(u, P.pw); // the online password also unlocks this account offline
+  u.online = {id:P.memberId, email:P.email, rt:P.rt}; u.email = u.email || P.email; saveAcc();
+  $('#consent').hidden = true; OL.step = 'form'; OL.pending = null; OL.connect = '';
+  if (ACC.current !== u.username) switchTo(u.username);
+  await mediaPut('cloudkey', P.key);
+  if (P.blob && P.blob.keys && P.blob.keys.p && !P.fresh) await installIdKeys(P.blob.keys);
+  else { let k = null; try { k = await mediaGet('idkeys'); } catch {} if (!k) await installIdKeys(await makeIdKeys()); }
+  if (fromCloud) { OL.status = 'ok'; OL.syncAt = Date.now(); if (P.relock) { S.syncedAt = 0; await cloudSync({push:true}); } toast(`Welcome back, ${u.username}! Your progress is here.`); return; }
+  if (P.blob && !P.fresh) { // this device already had progress too
+    if (P.blob.keys && P.blob.keys.p) await installIdKeys(P.blob.keys);
+    const R = clean(P.blob.S || {}); S = mergeStates(S, R, {}); S.agreed = true; S.syncedAt = 0; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
+    await cloudSync({push:true}); rerender(); paintPlayer(); toast("Your online progress and this device's progress were combined");
+    return;
+  }
+  if (newAcc && P.mode === 'signup' && !carried) gainXP(10, 'welcome'); // (a guest's progress moves in without the bonus, like local sign-up)
+  S.syncedAt = 0; await cloudSync({push:true});
+  toast(P.relock || P.fresh ? 'Your progress is unlocked and saved with your new password' : P.mode === 'signup' ? `Online account ready, ${u.username}! Your progress now syncs.` : `Welcome back, ${u.username}!`);
+}
+function openOnline(mode, connect) { OL.mode = mode || 'signup'; OL.connect = connect || ''; OL.step = 'form'; openAuth('online'); }
+async function cloudTombstone(u) { try { const k = await mediaGet('cloudkey'); if (k) await cloudPut(u, await sealCloud(k, {v:1, deleted:true, at:Date.now()}), Date.now()); } catch {} }
 
 /* ---------- app shell: offline, updates and installing ---------- */
 const APP = {install:null, update:false};
@@ -2510,6 +2819,7 @@ function navScroll() {
 }
 function events() {
   window.addEventListener('hashchange', route);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && isOnlineAcc() && Date.now() - OL.syncAt > 60000) cloudSync(); });
   navScroll(); setupShell();
   document.addEventListener('keydown', trapFocus);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
@@ -2560,13 +2870,14 @@ function events() {
 const fails = {n:0, until:0};
 function setAuthTab(t) {
   $$('[data-auth]').forEach(b => { b.classList.toggle('on', b.dataset.auth === t); b.setAttribute('aria-selected', String(b.dataset.auth === t)); });
-  $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login';
+  $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login'; $('#onlineForm').hidden = t !== 'online'; $('#authNote').hidden = t === 'online';
   $('#suErr').textContent = ''; $('#liErr').textContent = '';
+  if (t === 'online') { bindOnline(); paintOnline(); } else OL.connect = '';
   hidePeeks($('#consent'));
 }
 function openAuth(t = 'signup') {
   $('#consent').hidden = false; $('#authClose').hidden = !ACC.current; $('#guestBtn').hidden = !!ACC.current; setAuthTab(t);
-  setTimeout(() => $(t === 'login' ? '#liUser' : '#suUser').focus(), 30);
+  setTimeout(() => { const f = t === 'online' ? $('#onlineForm input:not([readonly])') : $(t === 'login' ? '#liUser' : '#suUser'); if (f) f.focus(); }, 30);
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);
@@ -2620,6 +2931,7 @@ function resetTimers() {
 function init() {
   stopGroup(); GR.key = null; GR.code = ''; GR.members = []; DM.keys.clear(); DM.open = ''; // a different account may have logged in
   applyTheme(); applySeason(); markDay(); paintPlayer(); route(); paintBell(); dmDot(); startSocialPoll(); checkProgress();
+  if (isOnlineAcc()) { OL.status = ''; setTimeout(() => cloudSync(), 1500); }
   if (S.group) openGroup(S.group).then(() => { sendGroupState(); startGroup(); paintGroup(); }).catch(() => {});
   if (me() && (S.pub || S.friends.length || S.staffAdds.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
   maybeTour();

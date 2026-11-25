@@ -948,4 +948,117 @@ Nee
 # dagen
 # dag
 Level
+## online
+Online
+Online-account
+Gebruik je account op elk apparaat. Je voortgang wordt met je wachtwoord vergrendeld voordat hij wordt geüpload, zodat alleen jij hem kunt lezen.
+Nieuw online-account
+Online inloggen
+Online-account maken
+Voltooi eerst de controle „Ik ben geen robot”.
+Even geduld…
+Online-account klaar, {s}! Je voortgang wordt nu gesynchroniseerd.
+Welkom terug, {s}! Je voortgang staat klaar.
+Gesynchroniseerd
+Gesynchroniseerd {s}
+Nog niet gesynchroniseerd
+Offline: wijzigingen worden gesynchroniseerd zodra je weer online bent.
+Log op dit apparaat opnieuw online in om je opgeslagen voortgang te ontgrendelen.
+Je bent uitgelogd. Log opnieuw online in om te blijven synchroniseren.
+Synchroniseren lukt nu niet. Het wordt opnieuw geprobeerd.
+Je opgeslagen gegevens zijn te groot om te synchroniseren. Verwijder wat oude items en probeer het opnieuw.
+Nu synchroniseren
+Opnieuw online inloggen
+Wachtwoord herstellen via e-mail
+De controle „Ik ben geen robot” wordt geladen…
+De controle „Ik ben geen robot” kon niet laden. Controleer je internetverbinding of adblocker en probeer het opnieuw.
+Wachtwoord vergeten?
+Verkeerd e-mailadres of wachtwoord.
+Je voortgang van je andere apparaat staat klaar
+Je online voortgang en de voortgang van dit apparaat zijn samengevoegd
+Je voortgang is ontgrendeld en opgeslagen met je nieuwe wachtwoord
+We hebben een wachtwoordlink gestuurd naar {s}
+Kan de server niet bereiken. Controleer je internetverbinding en probeer het opnieuw.
+Er ging iets mis. Probeer het opnieuw.
+Je opgeslagen voortgang ontgrendelen
+Je online voortgang is vergrendeld met je vorige wachtwoord. Voer het één keer in om hem te ontgrendelen, of begin opnieuw met wat er op dit apparaat staat.
+Vorig wachtwoord
+Opnieuw beginnen met de voortgang van dit apparaat
+Dat wachtwoord ontgrendelde het niet. Probeer het opnieuw of begin opnieuw.
+Gebruik dit account op elk apparaat. Je voortgang wordt met je wachtwoord vergrendeld voordat hij wordt geüpload.
+Maak er een online-account van
+Ik heb er al een
+Je voortgang op dit apparaat gaat naar dit online-account:
+Als zowel dit apparaat als je online-account voortgang hebben, worden ze samengevoegd.
+Log voortaan in met het online wachtwoord.
+Voer de code in die we hebben gemaild naar:
+Verificatiecode
+Bevestigen
+Die code werkte niet. Controleer de e-mail en probeer het opnieuw.
+Bijna klaar!
+Je online-account wacht op goedkeuring van de eigenaar. Zodra het is goedgekeurd, kun je online inloggen.
+Dat e-mailadres heeft al een online-account. Kies in plaats daarvan „Online inloggen”.
+Bekijk je e-mail
+Als dit e-mailadres een online-account heeft, hebben we een link voor een nieuw wachtwoord gestuurd naar:
+Log daarna online in met het nieuwe wachtwoord.
+Online-accounts werken op de website, waar de controle „Ik ben geen robot” kan draaien. Open de website, maak daar je online-account en gebruik het op elk apparaat.
+Website openen
+Typ eerst hierboven je e-mailadres.
+Dit apparaat heeft al een lokaal account met de naam {s}. Log daar eerst op in en gebruik dan Instellingen → Maak er een online-account van.
+Bezig met inloggen
+OK
+Dat e-mailadres lijkt niet te kloppen.
+Klik nogmaals om het account te verwijderen
+## tracks
+Webdesign
+App-ontwikkeling
+HTML-basis
+Hoe het web werkt
+HTML-elementen & structuur
+Formulieren & semantische HTML
+Bouwen: een persoonlijke profielpagina
+CSS & lay-out
+Selectors, boxmodel, kleuren
+Flexbox
+Grid
+Responsive design
+Bouwen: maak een dashboard zoals deze app na
+Ontwerpprincipes
+Typografie & witruimte
+Kleur & contrast
+Wetten van UX
+Figma-basis
+JavaScript
+Variabelen, functies, lussen
+DOM & events
+Fetch & API's
+Bouwen: een to-do-app
+Toegankelijkheid & publiceren
+Introductie toegankelijkheid
+Git & GitHub
+Gratis een site online zetten
+Bouwen: je portfolio
+Basis van programmeren
+Denken als een programmeur (JS)
+Basis van datastructuren
+Versiebeheer met Git
+Moderne UI met React
+React: snel aan de slag
+Denken in React
+State & effects
+Bouwen: een kijklijst-app
+Mobiele apps
+React Native: aan de slag
+Flutter: aan de slag
+Android-cursussen (Kotlin)
+iOS: SwiftUI-tutorials
+Desktop-apps
+Electron: bouw je eerste app
+Een .exe-installatieprogramma maken
+Bouwen: maak van een website een app
+Backend & publiceren
+HTTP & REST-API's
+Introductie databases (SQL)
+Publiceren in app stores
+Bouwen: lanceer je eerste app
 `);

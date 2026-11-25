@@ -81,7 +81,7 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
     <div class="orb small" aria-hidden="true"><i></i><i></i><i></i></div>
     <h2 id="authTitle">Welcome to LevelUp Life</h2>
     <p class="muted">Track games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
-    <div class="seg" role="tablist" aria-label="Account"><button type="button" role="tab" aria-selected="true" class="on" data-auth="signup">Create account</button><button type="button" role="tab" aria-selected="false" data-auth="login">Log in</button></div>
+    <div class="seg" role="tablist" aria-label="Account"><button type="button" role="tab" aria-selected="true" class="on" data-auth="signup">Create account</button><button type="button" role="tab" aria-selected="false" data-auth="login">Log in</button><button type="button" role="tab" aria-selected="false" data-auth="online">Online</button></div>
     <form id="signupForm" class="form" novalidate>
       <label class="field"><span>Username</span><input id="suUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _"></label>
       <label class="field"><span>Password</span><input id="suPass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></label>
@@ -98,8 +98,9 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
       <p class="err" id="liErr" role="alert"></p>
       <button class="btn primary wide">Log in</button>
     </form>
+    <form id="onlineForm" class="form" hidden novalidate></form>
     <button class="linkbtn" id="guestBtn" type="button">Continue as guest</button>
-    <p class="muted small">Accounts live on this device only. Your password is hashed and never leaves your device. Continuing as a guest means you agree to the <a href="#privacy" class="toPrivacy">Privacy Terms</a>.</p>
+    <p class="muted small" id="authNote">Accounts live on this device only. Your password is hashed and never leaves your device. Continuing as a guest means you agree to the <a href="#privacy" class="toPrivacy">Privacy Terms</a>.</p>
   </div>
 </div>
 

@@ -948,4 +948,117 @@ No
 # days
 # day
 Level
+## online
+Online
+Online account
+Use your account on any device. Your progress is locked with your password before it's uploaded, so only you can read it.
+New online account
+Log in online
+Create online account
+Please complete the “I’m not a robot” check first.
+Please wait…
+Online account ready, {s}! Your progress now syncs.
+Welcome back, {s}! Your progress is here.
+Synced
+Synced {s}
+Not synced yet
+Offline: changes will sync when you are back online.
+Log in online again on this device to unlock your saved progress.
+You were signed out. Log in online again to keep syncing.
+Couldn't sync right now. It will try again.
+Your saved data is too big to sync. Delete some old items and try again.
+Sync now
+Log in online again
+Reset password by email
+Loading the “I’m not a robot” check…
+The “I’m not a robot” check could not load. Check your internet connection or ad blocker, then try again.
+Forgot password?
+Wrong email or password.
+Your progress from your other device is here
+Your online progress and this device's progress were combined
+Your progress is unlocked and saved with your new password
+We sent a password link to {s}
+Can't reach the server. Check your internet connection and try again.
+Something went wrong. Please try again.
+Unlock your saved progress
+Your online progress was locked with your previous password. Enter it once to unlock it, or start fresh with what is on this device.
+Previous password
+Start fresh with this device's progress
+That password didn't unlock it. Try again, or start fresh.
+Use this account on any device. Your progress is locked with your password before it's uploaded.
+Make it an online account
+I already have one
+Your progress on this device moves into the online account
+If both this device and your online account have progress, they are combined.
+From now on, log in with the online password.
+Enter the code we emailed to
+Verification code
+Verify
+That code didn't work. Check the email and try again.
+Almost there!
+Your online account is waiting for the owner to approve it. You can log in online once it's approved.
+That email already has an online account. Choose “Log in online” instead.
+Check your email
+If this email has an online account, we sent it a link to choose a new password:
+Afterwards, log in online with the new password.
+Online accounts work on the website, where the “I’m not a robot” check can run. Open the website, make your online account there, and use it on any device.
+Open the website
+Type your email above first.
+This device already has a local account called {s}. Log in to it first, then use Settings → Make it an online account.
+Signing in
+OK
+That email does not look right.
+Click again to delete account
+## tracks
+Web Design
+App Development
+HTML foundations
+How the web works
+HTML elements & structure
+Forms & semantic HTML
+Build: a personal profile page
+CSS & layout
+Selectors, box model, colours
+Flexbox
+Grid
+Responsive design
+Build: recreate a dashboard like this app
+Design principles
+Typography & spacing
+Colour & contrast
+Laws of UX
+Figma basics
+JavaScript
+Variables, functions, loops
+DOM & events
+Fetch & APIs
+Build: a to-do app
+Accessibility & shipping
+Accessibility intro
+Git & GitHub
+Deploy a site for free
+Build: your portfolio
+Programming basics
+Think like a programmer (JS)
+Data structures basics
+Git version control
+Modern UI with React
+React: Quick start
+Thinking in React
+State & effects
+Build: a watchlist app
+Mobile apps
+React Native: get started
+Flutter: get started
+Android (Kotlin) courses
+iOS: SwiftUI tutorials
+Desktop apps
+Electron: build your first app
+Package an .exe installer
+Build: turn a website into an app
+Backend & publishing
+HTTP & REST APIs
+Databases intro (SQL)
+Publish to app stores
+Build: ship your first app
 `);
