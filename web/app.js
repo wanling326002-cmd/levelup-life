@@ -1957,8 +1957,8 @@ function weeklyCard() {
   const ch = weekChallenges(), n = loginStreak(), next = Object.keys(STREAK_BONUS).map(Number).find(x => x > n);
   return card('c12', 'This week', `<div class="week-wrap"><div class="streak-box"><span class="streak-n">${n}<small>🔥</small></span><b>Day login streak</b>
       <span class="muted small">${next ? `${next - n} more day${next - n === 1 ? '' : 's'} for a +${STREAK_BONUS[next]} XP bonus` : 'Legendary streak!'}<br>Best: ${bestLogin()} days · ${S.wk.xp} XP this week</span></div>
-    <ul class="challenges">${ch.map(c => `<li class="${c.done ? 'done' : ''}"><a href="${c.href}" class="ch-row"><span class="ch-ic">${icon(c.done ? 'check' : 'star')}</span><span class="grow"><b>${esc(c.name)}</b>
-      <span class="meter"><i style="width:${Math.min(100, c.val / c.goal * 100)}%"></i></span><span class="muted small">${c.done ? `Done · +${CH_XP} XP` : `${Math.min(c.val, c.goal)} / ${c.goal}${c.id === 'learn' ? ' minutes' : ''} · +${CH_XP} XP`}</span></span></a></li>`).join('')}</ul></div>
+    <ul class="challenges">${ch.map(c => `<li class="${c.done ? 'done' : ''}"><div class="ch-row"><span class="ch-ic">${icon(c.done ? 'check' : 'star')}</span><span class="grow"><b>${esc(c.name)}</b>
+      <span class="meter"><i style="width:${Math.min(100, c.val / c.goal * 100)}%"></i></span><span class="muted small">${c.done ? `Done · +${CH_XP} XP` : `${Math.min(c.val, c.goal)} / ${c.goal}${c.id === 'learn' ? ' minutes' : ''} · +${CH_XP} XP`}</span></span>${c.done ? '' : `<a class="btn sm" href="${c.href}" aria-label="Go: ${esc(c.name)}">Go</a>`}</div></li>`).join('')}</ul></div>
     <p class="muted small" style="margin:12px 0 0">Everyone gets the same 3 challenges. Finish all of them for a +${CH_ALL_XP} XP bonus. New challenges in ${daysLeft()} day${daysLeft() === 1 ? '' : 's'}.</p>`,
     `<span class="tag p">${ch.filter(c => c.done).length}/3</span>`);
 }

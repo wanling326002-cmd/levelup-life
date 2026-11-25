@@ -1061,4 +1061,7 @@ HTTP & REST-API's
 Introductie databases (SQL)
 Publiceren in app stores
 Bouwen: lanceer je eerste app
+## fixes
+Ga
+Ga naar: {s}
 `);

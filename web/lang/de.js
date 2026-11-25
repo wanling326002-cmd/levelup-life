@@ -1061,4 +1061,7 @@ HTTP & REST-APIs
 Einführung in Datenbanken (SQL)
 In App-Stores veröffentlichen
 Projekt: deine erste App veröffentlichen
+## fixes
+Los
+Los: {s}
 `);

@@ -500,7 +500,7 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .streak-n{font-size:2.6rem;font-weight:600;line-height:1}.streak-n small{font-size:1.4rem;margin-left:4px}
 .challenges{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .ch-row{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;border:1px solid var(--line);color:inherit;text-decoration:none}
-.ch-row:hover{background:var(--soft)}.ch-row .grow{display:grid;gap:6px;min-width:0}
+.ch-row .grow{flex:1;display:grid;gap:6px;min-width:0}.ch-row .btn{flex:none}
 .ch-ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--soft2);color:var(--accent2);flex:none}.ch-ic svg{width:18px;height:18px}
 .challenges li.done .ch-ic{background:rgba(95,211,165,.16);color:var(--ok)}.challenges li.done .meter i{background:var(--ok)}
 /* achievements */

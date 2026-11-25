@@ -1061,4 +1061,7 @@ HTTP & REST APIs
 Databases intro (SQL)
 Publish to app stores
 Build: ship your first app
+## fixes
+Go
+Go: {s}
 `);
