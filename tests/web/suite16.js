@@ -20,7 +20,7 @@ async function mock(route){
 const pay=id=>JSON.parse(JSON.parse(players.get(id).data.payload).d);
 // Bug scan: every page, every role, desktop + phone. Looks for crashes, console errors, broken text, overflow,
 // duplicate ids, unnamed buttons, HTML injection, bad backups and keyboard shortcuts.
-const ROUTES=['messages','home','study','focus','gaming','series','youtube','balance','impact','chat','players','badges','options','help','privacy'];
+const ROUTES=['messages','home','study','focus','gaming','companion','series','youtube','balance','impact','chat','players','badges','options','help','privacy'];
 const XSS='<img src=x onerror="window.__xss=1"><b id=pwn>x</b>';
 (async()=>{
  const b=await chromium.launch(); const issues=[]; const res=[]; const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${x}`);

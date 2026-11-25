@@ -133,7 +133,8 @@ const recoveries=[]; let saves=0;
  ok('today counts overlapping games once (union), and only this member\'s data', Math.abs(exp.overallMs/MIN - (()=>{const m=played.match(/(?:(\d+)h)?\s*(?:(\d+)m)?/);return (+m[1]||0)*60+(+m[2]||0);})())<=1, `${played} vs ${Math.round(exp.overallMs/MIN)}m`);
  ok('the overall limit, remaining time and progress bar are shown', txt.includes('Daily limit') && txt.includes('2h') && !!(await a.$('.card .gt-meter[role="progressbar"]')));
  const er=await a.$('[data-gid="steam-1"]');
- ok('each game shows its own limit and time left', er && /left of 1h/.test(await er.textContent()));
+ const erUsed=exp.perGame['steam-1'].ms, erText=er?await er.textContent():''; // depends on the time of day the test runs
+ ok('each game shows its own limit and time left (or that it was reached)', erUsed>=60*MIN ? /Daily limit reached/.test(erText)&&/overtime/.test(erText) : /left of 1h/.test(erText), `${Math.round(erUsed/MIN)}m: ${erText.replace(/\s+/g,' ').slice(0,120)}`);
  ok('removed games are hidden and switched-off games say "Not tracked"', !txt.includes('Removed Game') && (await a.textContent('[data-gid="m-1"]')).includes('Not tracked'));
  ok('the week chart has 7 days and the history 14', (await a.$$('.gt-bars .col')).length===7 && (await a.$$('.gt-hist li')).length===14);
  ok('the PC list shows the device with its status', (await a.textContent('#main')).includes('Connected · tracking on'));
