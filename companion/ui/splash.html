@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'">
+<title>LevelUp Life</title>
+<style>
+@font-face{font-family:'Outfit';font-weight:300 700;src:url(../../web/fonts/outfit.woff2) format('woff2')}
+:root{--bg:#06060b;--card:#121219;--text:#ecebf3;--muted:#8f8ea0;--line:rgba(255,255,255,.075);--accent:#6f4ef6;--accent2:#9a7bff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',system-ui,'Segoe UI',sans-serif;overflow:hidden;user-select:none;-webkit-app-region:drag}
+body{display:grid;place-items:center;background:radial-gradient(520px 320px at 50% -10%,rgba(111,78,246,.35),transparent 70%),var(--bg)}
+main{width:300px;text-align:center}
+.logo{width:84px;height:84px;filter:drop-shadow(0 10px 30px rgba(111,78,246,.55));animation:float 3s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-5px)}}
+h1{font-size:26px;font-weight:600;margin:16px 0 2px;letter-spacing:.01em}
+.tag{color:var(--muted);font-size:13px;margin:0 0 26px}
+.bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:linear-gradient(90deg,#8b5cf6,#22d3ee);transition:width .25s ease}
+.bar.wait i{width:35%;animation:slide 1.2s ease-in-out infinite}
+@keyframes slide{0%{left:-35%}100%{left:100%}}
+#status{font-size:13px;color:var(--muted);margin:12px 0 0;min-height:18px}
+#skip{-webkit-app-region:no-drag;margin-top:10px;background:none;border:0;color:var(--accent2);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;visibility:hidden}
+#ver{position:fixed;bottom:10px;left:0;right:0;font-size:11px;color:#55546a}
+@media (prefers-reduced-motion:reduce){.logo,.bar.wait i{animation:none}.bar.wait i{width:100%;opacity:.5}}
+</style>
+</head>
+<body>
+<main role="status" aria-live="polite">
+  <img class="logo" src="../../web/icon.svg" alt="">
+  <h1>LevelUp Life</h1>
+  <p class="tag">Level up your day</p>
+  <div class="bar wait" id="bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+  <p id="status">Starting…</p>
+  <button id="skip" type="button">Start without updating</button>
+</main>
+<div id="ver"></div>
+<script>
+  // Called by the app: setState({text, progress: 0..1 or null for "busy", version, canSkip})
+  function setState(s) {
+    const bar = document.getElementById('bar'), i = bar.querySelector('i');
+    if (s.text) document.getElementById('status').textContent = s.text;
+    if (typeof s.progress === 'number') { bar.classList.remove('wait'); i.style.width = Math.round(Math.max(0, Math.min(1, s.progress)) * 100) + '%'; bar.setAttribute('aria-valuenow', Math.round(s.progress * 100)); }
+    else if (s.progress === null) { bar.classList.add('wait'); i.style.width = ''; bar.removeAttribute('aria-valuenow'); }
+    if (s.version) document.getElementById('ver').textContent = 'Version ' + s.version;
+    if ('canSkip' in s) document.getElementById('skip').style.visibility = s.canSkip ? 'visible' : 'hidden';
+  }
+  document.getElementById('skip').onclick = () => { document.title = 'skip'; }; // the app watches the title
+</script>
+</body>
+</html>

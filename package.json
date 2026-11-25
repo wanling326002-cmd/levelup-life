@@ -1,42 +1,97 @@
 {
   "name": "levelup-life",
   "productName": "LevelUp Life",
-  "version": "1.0.0",
-  "description": "Balance gaming, series and YouTube with learning, focus and doing good.",
+  "version": "1.1.0",
+  "description": "Balance gaming, series and YouTube with learning, focus and doing good. Includes a game-time companion for Windows.",
   "main": "main.js",
   "author": "LevelUp Life",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --win dir --x64",
-    "icon": "node scripts/set-icon.mjs",
-    "installer": "makensis -V2 build/installer.nsi",
-    "dist": "npm run pack && npm run icon && npm run installer"
+    "pack": "node scripts/fetch-win-natives.js && node scripts/build-win.js dir",
+    "dist": "node scripts/fetch-win-natives.js && node scripts/build-win.js nsis",
+    "release": "node scripts/fetch-win-natives.js && node scripts/build-win.js nsis --publish always",
+    "lint": "eslint --no-eslintrc -c web/.eslintrc.json web/app.js web/levelup-sw.js web/companion-core.js && eslint --no-eslintrc -c .eslintrc-node.json main.js companion tests/unit tests/web/harness.js tests/web/run.js",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:web": "node tests/web/run.js",
+    "test": "npm run lint && npm run test:unit && npm run test:web"
   },
   "build": {
     "appId": "app.levelup.life",
     "productName": "LevelUp Life",
     "files": [
       "main.js",
-      "web/**/*"
+      "preload.js",
+      "companion/**/*",
+      "web/**/*",
+      "!web/.eslintrc.json",
+      "!**/*.map",
+      "!node_modules/@koromix/koffi-linux-*{,/**}",
+      "!node_modules/@koromix/koffi-darwin-*{,/**}",
+      "!node_modules/koffi/{vendor,doc}{,/**}"
     ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**"
+    ],
+    "npmRebuild": false,
+    "afterPack": "scripts/after-pack.js",
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
     "win": {
       "target": [
-        "dir"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false
-    }
+      "signAndEditExecutable": false,
+      "artifactName": "LevelUp-Life-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LevelUp Life",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "LevelUp Life",
+      "include": "build/installer-extra.nsh",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "wanling326002-cmd",
+        "repo": "levelup-life",
+        "releaseType": "release"
+      }
+    ]
   },
   "devDependencies": {
+    "axe-core": "4.10.2",
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
+    "eslint": "8.57.1",
     "pe-library": "^1.0.1",
+    "playwright": "1.63.0",
     "png-to-ico": "^2.1.8",
     "resedit": "^2.0.3"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11",
+    "koffi": "3.3.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wanling326002-cmd/levelup-life.git"
   }
 }

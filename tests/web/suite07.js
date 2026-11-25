@@ -1,0 +1,14 @@
+const {chromium}=require('playwright'); const H=require('./harness');
+const URL=H.FILE_URL;
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:950}});const res=[];const errs=[];p.on('pageerror',e=>errs.push(e.message));
+const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${x}`);
+await p.goto(URL);await p.click('#guestBtn');
+const at=async xp=>{await p.evaluate(x=>{const S=JSON.parse(localStorage.getItem('levelup-life-v1'));S.xp=x;localStorage.setItem('levelup-life-v1',JSON.stringify(S));},xp);await p.reload();await p.waitForTimeout(200);return p.textContent('#lvl');};
+ok('900 XP is still level 6 (early levels unchanged)', (await at(900))==='6');
+ok('496100 XP reaches 1000 MAX', (await at(496100))==='1000 MAX');
+ok('496099 XP is level 999', (await at(496099))==='999');
+ok('lots of XP stays capped at 1000', (await at(9e6))==='1000 MAX');
+await p.goto(URL+'#badges');await p.waitForTimeout(300);
+ok('Level Up badge is Challenger at 1000', (await p.textContent('.badge-tile:has-text("Level Up") .tier'))==='Challenger · Elite');
+ok('rank text says level 1000 is max', (await p.textContent('#main')).includes('Level 1000 is the max level'));
+console.log(res.join('\n'));console.log('JS errors:',errs.length?errs:'none');await b.close();})();

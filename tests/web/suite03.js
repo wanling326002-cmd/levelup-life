@@ -1,0 +1,27 @@
+const {chromium}=require('playwright'); const H=require('./harness');
+const URL=H.FILE_URL;
+const OUT=H.OUT+'shots2/';
+(async()=>{
+ const b=await chromium.launch(); const errs=[]; const res=[];
+ const ok=(n,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${n} ${x}`);
+ const p=await (await b.newContext({viewport:{width:420,height:900},deviceScaleFactor:2})).newPage();
+ p.on('pageerror',e=>errs.push(e.message)); await p.route(/fonts\.(googleapis|gstatic)/,r=>r.abort());
+ await p.goto(URL); await p.waitForTimeout(300);
+ ok('every sign-up/log-in password box has an eye button', (await p.$$('#consent .peekwrap .peek')).length===3);
+ await p.fill('#suUser','Jinx002'); await p.fill('#suPass','hunter22'); await p.fill('#suPass2','hunter2');
+ ok('confirm shows "do not match yet"', /do not match/.test(await p.textContent('#suMatch')));
+ await p.fill('#suPass2','hunter22');
+ ok('confirm shows "match"', (await p.textContent('#suMatch'))==='Passwords match');
+ await p.click('#signupForm .peek >> nth=0');
+ ok('eye reveals the password', (await p.getAttribute('#suPass','type'))==='text' && (await p.inputValue('#suPass'))==='hunter22');
+ await p.screenshot({path:OUT+'peek.png',clip:{x:0,y:330,width:420,height:330}});
+ await p.click('#signupForm .peek >> nth=0');
+ ok('eye hides it again', (await p.getAttribute('#suPass','type'))==='password');
+ await p.click('#signupForm .peek >> nth=0'); await p.click('[data-auth="login"]');
+ ok('switching tabs hides passwords again', (await p.getAttribute('#suPass','type'))==='password');
+ await p.click('[data-auth="signup"]'); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900);
+ await p.goto(URL+'#options'); await p.waitForTimeout(200);
+ await p.click('details.pw summary');
+ ok('change-password and owner key boxes have eye buttons', (await p.$$('#main .peek')).length===4);
+ console.log(res.join('\n')); console.log('JS errors:', errs.length?errs:'none'); await b.close();
+})();
