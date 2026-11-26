@@ -1,7 +1,7 @@
 {
   "name": "levelup-life",
   "productName": "LevelUp Life",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Balance gaming, series and YouTube with learning, focus and doing good. Includes a game-time companion for Windows.",
   "main": "main.js",
   "author": "LevelUp Life",
@@ -79,8 +79,8 @@
   },
   "devDependencies": {
     "axe-core": "4.10.2",
-    "electron": "^33.4.11",
-    "electron-builder": "^25.1.8",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "eslint": "8.57.1",
     "pe-library": "^1.0.1",
     "playwright": "1.63.0",

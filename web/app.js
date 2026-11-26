@@ -2418,7 +2418,7 @@ async function memberTokens(sessionToken) { // the secure handshake: turns a log
   const code = await new Promise((res, rej) => {
     const f = document.createElement('iframe'); f.hidden = true; f.title = 'Signing in'; f.src = url;
     const done = (fn, v) => { clearTimeout(t); window.removeEventListener('message', on); f.remove(); fn(v); };
-    const on = e => { const d = e.data; if (d && typeof d === 'object' && d.state === state) d.code ? done(res, String(d.code)) : done(rej, new Error(String(d.error || 'denied'))); };
+    const on = e => { const d = e.data; if (e.source === f.contentWindow && d && typeof d === 'object' && d.state === state) d.code ? done(res, String(d.code)) : done(rej, new Error(String(d.error || 'denied'))); };
     const t = setTimeout(() => done(rej, new Error('timeout')), 25000);
     window.addEventListener('message', on); document.body.append(f);
   });
