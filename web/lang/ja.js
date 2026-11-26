@@ -1337,4 +1337,8 @@ Windowsアプリ
 がメッセージを削除しました。投稿者:
 ## zipnote
 ダウンロードは .zip ファイルです。開いて、中にある LevelUp Life のセットアップを実行してください。
+## zipsteps
+ダウンロードした LevelUp-Life-Setup.zip を開きます。
+「この .zip ファイルを開く方法を選んでください」と表示されたら、エクスプローラー（または WinRAR）を選んで OK を押します。
+中の LevelUp-Life-Setup.exe をダブルクリックしてインストールします。
 `);

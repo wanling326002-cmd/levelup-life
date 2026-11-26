@@ -3117,6 +3117,7 @@ async function installApp() {
 const DL = {info: null, busy: null, repo: 'wanling326002-cmd/levelup-life'};
 const isWindowsPC = () => /Windows NT/i.test(navigator.userAgent) && !/Windows Phone/i.test(navigator.userAgent);
 const okUrl = u => typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u);
+const isZip = u => /\.zip([?#]|$)/i.test(u || '');
 async function dlResolve() {
   if (DL.info) return DL.info;
   if (!DL.busy) DL.busy = (async () => {
@@ -3128,7 +3129,7 @@ async function dlResolve() {
         if (j && typeof j.github === 'string' && /^[\w.-]+\/[\w.-]+$/.test(j.github)) DL.repo = j.github;
         if (okUrl(w.url)) info = {url: w.url, version: String(w.version || '').slice(0, 20), size: +w.size || 0, all: okUrl(w.all) ? w.all : ''}; }
     } catch {}
-    if (!info.url) try {
+    if (!info.url || isZip(info.url)) try { // a direct .exe is easier to install than a .zip, so a GitHub release wins over a zip
       const r = await fetch(`https://api.github.com/repos/${DL.repo}/releases/latest`, {headers: {Accept: 'application/vnd.github+json'}});
       if (r.ok) { const j = await r.json(), as = j.assets || [], a = as.find(x => x.name === 'LevelUp-Life-Setup.exe') || as.find(x => /\.exe$/i.test(x.name));
         if (a && okUrl(a.browser_download_url)) info = {url: a.browser_download_url, version: String(j.tag_name || '').replace(/^v/, '').slice(0, 20), size: a.size || 0, all: okUrl(j.html_url) ? j.html_url : ''}; }
@@ -3149,7 +3150,10 @@ function dlWinHtml(info) {
   const mb = info && info.size ? Math.round(info.size / 1048576) : 0;
   const get = !info ? `<p class="muted small" role="status">Checking for the latest version…</p>`
     : info.url ? `<a class="btn primary wide" id="dlGo" href="${esc(info.url)}" rel="noopener">${icon('download')}Download for Windows</a>
-      ${/\.zip([?#]|$)/i.test(info.url) ? '<p class="muted small dl-meta">It downloads as a .zip file: open it, then run the LevelUp Life setup inside.</p>' : ''}
+      ${isZip(info.url) ? `<ol class="dl-steps">
+        <li>Open the downloaded LevelUp-Life-Setup.zip.</li>
+        <li>If Windows asks "How do you want to open this .zip file?", choose Windows Explorer (or WinRAR) and press OK.</li>
+        <li>Double-click LevelUp-Life-Setup.exe inside to install.</li></ol>` : ''}
       <p class="muted small dl-meta">${info.version ? `<span>Version</span> <span translate="no">${esc(info.version)}</span>` : ''}${info.version && mb ? ' · ' : ''}${mb ? `<span translate="no">${mb} MB</span>` : ''}${info.all ? `${info.version || mb ? ' · ' : ''}<a href="${esc(info.all)}" target="_blank" rel="noopener">All versions</a>` : ''}</p>`
     : `<p class="dl-soon" role="status"><b>Coming soon.</b> <span>The Windows download isn't published yet. Please check back shortly.</span></p>`;
   return `<div class="dl-sec"><h3>LevelUp Life for Windows</h3>

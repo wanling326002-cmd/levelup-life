@@ -1337,4 +1337,8 @@ Zie je iets verkeerds? Wijs het bericht aan, druk op de ⋯-knop en kies Melden.
 verwijderde een bericht van
 ## zipnote
 De download is een .zip-bestand: open het en start daarin de LevelUp Life-installatie.
+## zipsteps
+Open het gedownloade LevelUp-Life-Setup.zip.
+Vraagt Windows "Hoe wilt u dit .zip-bestand openen?", kies dan Windows Verkenner (of WinRAR) en klik op OK.
+Dubbelklik daarin op LevelUp-Life-Setup.exe om te installeren.
 `);

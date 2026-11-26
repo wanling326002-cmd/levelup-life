@@ -1337,4 +1337,8 @@ See something wrong? Point at the message, press the ⋯ button and choose Repor
 deleted a message by
 ## zipnote
 It downloads as a .zip file: open it, then run the LevelUp Life setup inside.
+## zipsteps
+Open the downloaded LevelUp-Life-Setup.zip.
+If Windows asks "How do you want to open this .zip file?", choose Windows Explorer (or WinRAR) and press OK.
+Double-click LevelUp-Life-Setup.exe inside to install.
 `);

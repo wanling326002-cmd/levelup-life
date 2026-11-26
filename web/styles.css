@@ -643,6 +643,7 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .dl-sec p{margin:0 0 10px}
 .dl-sec+.dl-sec{border-top:1px solid var(--line);margin-top:14px}
 .dl-meta{margin:8px 0 12px!important;text-align:center}
+.dl-steps{margin:4px 0 12px;padding-left:20px;display:grid;gap:4px;font-size:.86rem;color:var(--muted)}
 .dl-soon{padding:10px 12px;border-radius:14px;background:var(--soft);border:1px solid var(--line)}
 .dl-note{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:14px;background:rgba(242,196,109,.1);border:1px solid rgba(242,196,109,.35)}
 .dl-note svg{color:var(--warn);margin-top:1px}.dl-note p{margin:0;font-size:.86rem;color:var(--text)}

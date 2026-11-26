@@ -4,6 +4,7 @@
 const {chromium} = require('playwright'); const fs = require('fs'); const {spawn} = require('child_process');
 const H = require('./harness'); const D = H.OUT;
 const SITE = D + 'served22/'; H.copySite(SITE);
+fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({github: 'wanling326002-cmd/levelup-life', windows: {url: '', version: '', size: 0, all: ''}})); // start with nothing published
 const PORT = 8773, BASE = `http://localhost:${PORT}/`;
 const WIN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -93,10 +94,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ghCalls = 0; p = await open();
   await p.click('#dlBtn'); await p.waitForSelector('#dlGo');
   ok('an installer address in downloads.json is used first (no GitHub needed)', (await p.getAttribute('#dlGo', 'href')) === 'https://files.example.com/LevelUp-Life-Setup.exe' && ghCalls === 0 && (await panelText(p)).includes('1.2.1'));
+  github = {status: 404, body: {}}; // no GitHub release: the zip from downloads.json is used
   fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({windows: {url: 'https://static.wixstatic.com/archives/abc_123.zip', version: '1.2.0', size: 82619492}}));
   await p.evaluate(() => sessionStorage.clear()); await p.reload(); await p.click('#guestBtn').catch(() => {});
   await p.click('#dlBtn'); await p.waitForSelector('#dlGo');
-  ok('a .zip download says to open it and run the setup inside', (await p.getAttribute('#dlGo', 'href')).endsWith('.zip') && (await panelText(p)).includes('It downloads as a .zip file'));
+  t = await panelText(p);
+  ok('a .zip download explains each step, including the "How do you want to open this .zip file?" question', (await p.getAttribute('#dlGo', 'href')).endsWith('.zip') && t.includes('How do you want to open this .zip file?') && t.includes('Windows Explorer') && t.includes('Double-click LevelUp-Life-Setup.exe'), t.slice(0, 400));
+  await p.keyboard.press('Escape');
+  github = {status: 200, body: {tag_name: 'v1.2.1', html_url: 'https://github.com/x/y/releases/tag/v1.2.1', assets: [{name: 'LevelUp-Life-Setup.exe', size: 82914619, browser_download_url: 'https://github.com/x/y/releases/download/v1.2.1/LevelUp-Life-Setup.exe'}]}};
+  await p.evaluate(() => sessionStorage.clear()); await p.reload(); await p.click('#guestBtn').catch(() => {});
+  await p.click('#dlBtn'); await p.waitForSelector('#dlGo');
+  ok('a direct .exe on GitHub is offered instead of the .zip when there is one', (await p.getAttribute('#dlGo', 'href')).endsWith('/LevelUp-Life-Setup.exe') && !(await p.$('.dl-steps')));
+  github = {status: 404, body: {}};
   await p.keyboard.press('Escape');
   fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({windows: {url: 'javascript:alert(1)'}}));
   await p.evaluate(() => sessionStorage.clear()); await p.reload(); await p.click('#guestBtn').catch(() => {});

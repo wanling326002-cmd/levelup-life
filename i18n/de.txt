@@ -1335,3 +1335,7 @@ Siehst du etwas Falsches? Zeige auf die Nachricht, drücke den ⋯-Button und w�
 hat eine Nachricht gelöscht von
 ## zipnote
 Der Download ist eine .zip-Datei: Öffne sie und starte darin das LevelUp Life Setup.
+## zipsteps
+Öffne die heruntergeladene Datei LevelUp-Life-Setup.zip.
+Wenn Windows fragt „Wie möchten Sie diese .zip-Datei öffnen?“, wähle Windows-Explorer (oder WinRAR) und klicke auf OK.
+Doppelklicke darin auf LevelUp-Life-Setup.exe, um zu installieren.

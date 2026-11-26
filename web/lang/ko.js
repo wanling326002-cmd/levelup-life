@@ -1337,4 +1337,8 @@ Windows 앱
 님이 메시지를 삭제했습니다. 작성자:
 ## zipnote
 다운로드 파일은 .zip 파일입니다. 파일을 열고 안에 있는 LevelUp Life 설치 프로그램을 실행하세요.
+## zipsteps
+다운로드한 LevelUp-Life-Setup.zip을 엽니다.
+Windows가 ".zip 파일을 어떻게 여시겠습니까?"라고 물으면 Windows 탐색기(또는 WinRAR)를 선택하고 확인을 누르세요.
+안에 있는 LevelUp-Life-Setup.exe를 두 번 클릭해 설치합니다.
 `);
