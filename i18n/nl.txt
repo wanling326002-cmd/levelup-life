@@ -1314,3 +1314,11 @@ Opnieuw beginnen? De online opgeslagen voortgang wordt vervangen door de voortga
 Dat wachtwoord heeft je voortgang niet ontgrendeld. Probeer het opnieuw.
 Het inloggen is geannuleerd. Je kunt het opnieuw proberen.
 Het inloggen kon niet worden afgerond. Probeer het opnieuw.
+## settings
+Weergave
+Windows-app
+Toegang & gegevens
+Je online account
+Je account op dit apparaat
+Gastprofiel op dit apparaat
+Onderdelen van de instellingen

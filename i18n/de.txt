@@ -1314,3 +1314,11 @@ Neu beginnen? Der online gespeicherte Fortschritt wird durch den Fortschritt die
 Dieses Passwort hat deinen Fortschritt nicht entsperrt. Versuch es noch einmal.
 Die Anmeldung wurde abgebrochen. Du kannst es noch einmal versuchen.
 Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuch es noch einmal.
+## settings
+Darstellung
+Windows-App
+Zugang & Daten
+Dein Online-Konto
+Dein Konto auf diesem Gerät
+Gastprofil auf diesem Gerät
+Bereiche der Einstellungen

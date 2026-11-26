@@ -638,3 +638,30 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 @media (max-width:980px){.dl-btn{padding:0 8px}.dl-btn span{display:none}}
 /* the Windows app shows its game tracking inside the Gaming tab and Settings */
 .gt-slot{display:contents}
+/* Settings: header, grouped menu on the left, all settings on the right */
+.set-wrap{display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px 32px;align-items:start}
+.set-head{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding-bottom:6px}
+.set-av{width:52px;height:52px;font-size:1.3rem;overflow:hidden}
+.set-name{font-size:1.25rem}.set-name b{font-weight:600}
+.set-nav{position:sticky;top:16px;display:grid;gap:4px}
+.set-nav ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.set-nav h3{margin:6px 12px 4px;font-size:.8rem;font-weight:500;color:var(--dim)}
+.set-nav hr{border:0;border-top:1px solid var(--line);margin:8px 0}
+.set-nav button{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;border-radius:10px;background:none;color:var(--muted);font:inherit;font-size:.95rem;text-align:left;cursor:pointer}
+.set-nav button:hover{background:var(--soft);color:var(--text)}
+.set-nav button.on{background:var(--soft2);color:var(--text)}
+.set-nav button.on::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:3px;background:var(--accent2)}
+.set-main{display:grid;gap:22px;min-width:0}
+.set-sec{scroll-margin-top:16px}.set-sec:focus{outline:none}
+.set-sec>.card,.set-sec .gt-slot>.card{width:100%}
+.set-sec .gt-slot{display:grid;gap:22px}
+@media (max-width:860px){
+  .set-wrap{grid-template-columns:minmax(0,1fr);gap:14px}
+  .set-nav{position:static;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .set-nav::-webkit-scrollbar{display:none}
+  .set-nav h3,.set-nav hr{display:none}
+  .set-nav ul{display:flex;gap:6px}
+  .set-nav button{white-space:nowrap;border:1px solid var(--line2);border-radius:99px;padding:7px 12px;font-size:.88rem}
+  .set-nav button.on::before{display:none}
+  .set-main{gap:14px}
+}

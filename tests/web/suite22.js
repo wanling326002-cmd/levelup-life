@@ -45,6 +45,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // 2. no old download or install buttons anywhere on the website
   await p.goto(BASE + '#options'); await p.waitForTimeout(300);
   ok('Settings has no install card any more', !(await p.$('#installBtn')) && !(await p.textContent('#main')).includes('To install: in Chrome'));
+  // Settings are listed like an account settings page: header, grouped menu on the left, every setting on the right
+  const menu = await p.$$eval('.set-nav [data-setsec]', bs => bs.map(b => b.textContent.trim()));
+  ok('Settings has a header with the profile and a grouped menu on the left', await p.isVisible('.set-head .set-av') && (await p.textContent('.set-head')).includes('Guest profile on this device')
+    && JSON.stringify(menu) === JSON.stringify(['Public profile', 'Account', 'Appearance', 'Healthy habits', 'Owner or admin key', 'Your data']) && (await p.textContent('.set-nav h3')) === 'Access & data', JSON.stringify(menu));
+  const nav = await p.$eval('.set-nav', e => e.getBoundingClientRect().toJSON()), main = await p.$eval('.set-main', e => e.getBoundingClientRect().toJSON());
+  ok('the menu is on the left and the settings on the right', nav.right <= main.left && nav.width > 150);
+  ok('every setting is still there', ['#stName', '#stLang', '#stTheme', '#stSeason', '#stThumbs', '#stNotify', '#stBreak', '#stEp', '#stExport', '#stImport', '#stWipe', '#ownForm'].every(Boolean) && (await p.$$eval('#stName, #stLang, #stTheme, #stSeason, #stThumbs, #stNotify, #stBreak, #stEp, #stExport, #stImport, #stWipe, #ownForm', els => els.length)) === 12);
+  await p.click('[data-setsec="data"]'); await p.waitForTimeout(1200);
+  ok('a menu item jumps to its section and is marked as current', (await p.getAttribute('[data-setsec="data"]', 'aria-current')) === 'true' && await p.evaluate(() => { const r = document.getElementById('set-data').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight - 100; }));
+  await p.mouse.move(700, 600); await p.mouse.wheel(0, -20000); await p.waitForTimeout(900);
+  ok('scrolling back up marks the first section again', (await p.getAttribute('[data-setsec="profile"]', 'aria-current')) === 'true');
   await p.goto(BASE + '#help'); await p.waitForTimeout(300);
   ok('Help has no "Install the app" button, and points to the Download app button', !(await p.textContent('#main')).includes('Install the app') && (await p.textContent('#main')).includes('Download app button'));
   await p.goto(BASE + '#companion'); await p.waitForTimeout(800);

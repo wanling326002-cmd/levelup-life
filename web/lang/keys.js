@@ -1316,4 +1316,12 @@ Start fresh? The progress saved online is replaced by this device's progress. Th
 That password didn't unlock your progress. Try again.
 The sign-in was cancelled. You can try again.
 Couldn't finish signing in. Please try again.
+## settings
+Appearance
+Windows app
+Access & data
+Your online account
+Your account on this device
+Guest profile on this device
+Settings sections
 `);

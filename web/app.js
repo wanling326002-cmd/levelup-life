@@ -1689,34 +1689,75 @@ function ownerCard() {
     : `<p class="muted" style="margin-top:-6px">Got an owner or admin key? Enter it to unlock its perks on this ${me() ? 'account' : 'profile'}.</p>
       <form class="row" id="ownForm"><input id="ownKey" type="password" autocomplete="off" placeholder="Owner or admin key" aria-label="Owner or admin key"><button class="btn primary">Unlock</button></form><p class="err" id="ownErr" role="alert"></p>`);
 }
-VIEWS.options = () => `<div class="grid">
-  ${accountCard()}
-  ${ownerCard()}
-  ${card('c6', 'Public profile', `<div class="form">
+/* Settings are laid out like an account settings page: who you are at the top, a grouped menu on the left, and
+   every setting in one column on the right. The menu jumps to a section and follows along while you scroll, so all
+   settings stay on one page. */
+const SET_MENU = () => [
+  {items: [['profile', 'Public profile', 'user'], ['account', 'Account', 'settings'], ['look', 'Appearance', 'eye'], ['habits', 'Healthy habits', 'balance']]},
+  ...(IS_DESKTOP ? [{title: 'Windows app', items: [['tracking', 'Game tracking', 'companion']]}] : []),
+  {title: 'Access & data', items: [['key', isOwner ? 'Owner' : isAdminOnly() ? 'Admin' : 'Owner or admin key', 'shield'], ['data', 'Your data', 'download']]},
+];
+function settingsPage(sec) {
+  const u = me(), menu = SET_MENU();
+  const sub = u ? (u.online ? 'Your online account' : 'Your account on this device') : 'Guest profile on this device';
+  return `<div class="set-wrap">
+  <div class="set-head"><span class="avatar set-av${isOwner ? ' gold' : isAdmin ? ' blue' : ''}" aria-hidden="true">${avatarInner()}</span>
+    <div><div class="set-name"><b translate="no">${esc(displayName())}</b>${u && S.name && S.name !== u.username ? ` <span class="muted" translate="no">(${esc(S.name)})</span>` : ''}</div><div class="muted small">${sub}</div></div></div>
+  <nav class="set-nav" aria-label="Settings sections">${menu.map(g => `${g.title ? `<h3>${g.title}</h3>` : ''}<ul>${g.items.map(([id, name, ic], n) => `<li><button type="button" data-setsec="${id}"${!g.title && !n ? ' class="on" aria-current="true"' : ''}>${icon(ic)}<span>${name}</span></button></li>`).join('')}</ul>`).join('<hr>')}</nav>
+  <div class="set-main">${menu.flatMap(g => g.items).map(([id]) => sec[id] ? `<div class="set-sec" id="set-${id}" tabindex="-1">${sec[id]}</div>` : '').join('')}</div>
+</div>`;
+}
+function bindSettingsMenu(m) {
+  const btns = [...m.querySelectorAll('[data-setsec]')];
+  const mark = id => btns.forEach(b => { const on = b.dataset.setsec === id; b.classList.toggle('on', on); on ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current'); });
+  btns.forEach(b => b.onclick = () => {
+    const el = document.getElementById('set-' + b.dataset.setsec); if (!el) return;
+    SETS.lock = Infinity; mark(b.dataset.setsec); // keep the choice until you scroll yourself
+    el.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+    el.focus({preventScroll: true});
+  });
+  if (SETS.io) SETS.io.disconnect();
+  if (!('IntersectionObserver' in window)) return;
+  const seen = new Map();
+  SETS.io = new IntersectionObserver(es => {
+    es.forEach(e => seen.set(e.target.id, e.isIntersecting ? e.boundingClientRect.top : null));
+    if (Date.now() < SETS.lock) return;
+    const top = [...seen].filter(([, t]) => t !== null).sort((a, b) => a[1] - b[1])[0];
+    if (top) mark(top[0].replace(/^set-/, ''));
+  }, {rootMargin: '-15% 0px -55% 0px'});
+  m.querySelectorAll('.set-sec').forEach(el => SETS.io.observe(el));
+}
+const SETS = {io: null, lock: 0};
+['wheel', 'touchstart', 'keydown'].forEach(t => window.addEventListener(t, () => { SETS.lock = 0; }, {passive: true}));
+VIEWS.options = () => settingsPage({
+  account: accountCard(),
+  key: ownerCard(),
+  profile: card('c6', 'Public profile', `<div class="form">
     <div class="row" style="justify-content:space-between"><span>Show me on the leaderboard<br><span class="muted small">Lets others open your profile and add you as a friend</span></span>${me() ? `<button class="switch" id="stPublic" role="switch" aria-checked="${S.pub}" aria-label="Public profile"><i></i></button>` : '<button class="btn sm" data-open-auth="signup">Create account</button>'}</div>
     <p class="muted small" id="pubStatus" style="margin:0">${pubStatusHTML()}</p>
-    <p class="muted small" style="margin:0">${SHARED_INFO}</p></div>`)}
-  ${card('c6', 'Profile & look', `<div class="form">
+    <p class="muted small" style="margin:0">${SHARED_INFO}</p></div>`),
+  look: card('c6', 'Profile & look', `<div class="form">
     <label class="field"><span>Nickname${me() ? ' (your username is shown instead)' : ''}</span><input id="stName" maxlength="24" value="${esc(S.name)}"></label>
     <label class="field"><span>Language</span><select id="stLang" translate="no">${Object.entries(LANGS).map(([k, n]) => `<option value="${k}" lang="${k}"${LANG === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Dark mode</span><button class="switch" id="stTheme" role="switch" aria-label="Dark mode" aria-checked="${S.theme==='dark'}"><i></i></button></div>
     <label class="field"><span>Seasonal theme <span class="dim">(Automatic decorates for Halloween, December and New Year)</span></span><select id="stSeason">${Object.entries(SEASONS).map(([k, n]) => `<option value="${k}"${S.season === k ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-label="Show YouTube thumbnails" aria-checked="${S.thumbs}"><i></i></button></div>
     <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-label="Desktop notifications" aria-checked="${S.notify}"><i></i></button></div>
-    <p class="muted small">Level ${level().lv} · ${S.xp} total XP</p></div>`)}
-  ${card(IS_DESKTOP ? 'c6' : 'c12', 'Healthy habits', `<div class="form">
+    <p class="muted small">Level ${level().lv} · ${S.xp} total XP</p></div>`),
+  habits: card('c6', 'Healthy habits', `<div class="form">
     <label class="field"><span>Gaming break reminder every (minutes, 0 = off)</span><input type="number" min="0" max="600" id="stBreak" value="${S.breakEvery}"></label>
     <label class="field"><span>Average episode length (minutes)</span><input type="number" min="1" max="200" id="stEp" value="${S.epLen}"></label>
-    <a class="btn" href="#balance">Edit daily goals →</a></div>`)}
-  ${IS_DESKTOP ? `<div class="gt-slot" data-gtslot="setup">${gtSlotHtml('setup')}</div>` : ''}
-  ${card('c12', 'Your data', `<p class="muted small" style="margin:-6px 0 8px">Last backup: ${S.lastBackup ? new Date(S.lastBackup).toLocaleDateString() : 'never'}</p><p class="muted" style="margin-top:0">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
+    <a class="btn" href="#balance">Edit daily goals →</a></div>`),
+  tracking: IS_DESKTOP ? `<div class="gt-slot" data-gtslot="setup">${gtSlotHtml('setup')}</div>` : '',
+  data: card('c12', 'Your data', `<p class="muted small" style="margin:-6px 0 8px">Last backup: ${S.lastBackup ? new Date(S.lastBackup).toLocaleDateString() : 'never'}</p><p class="muted" style="margin-top:0">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
     <div class="row"><button class="btn" id="stExport">${icon('download')}Export backup (.json)</button>
     <label class="btn" style="cursor:pointer">${icon('upload')}Import backup<input type="file" id="stImport" accept="application/json,.json" hidden></label>
     <button class="btn" id="stCopy">${icon('link')}Copy backup</button>
     <button class="btn danger" id="stWipe">${icon('trash')}Delete all my data</button></div>
-    <textarea id="stBackupText" hidden readonly style="margin-top:12px" aria-label="Backup text"></textarea>`)}
-</div>`;
+    <textarea id="stBackupText" hidden readonly style="margin-top:12px" aria-label="Backup text"></textarea>`),
+});
 BIND.options = m => {
+  bindSettingsMenu(m);
   m.querySelectorAll('[data-open-auth]').forEach(b => b.onclick = () => openAuth(b.dataset.openAuth));
   m.querySelectorAll('[data-online]').forEach(b => b.onclick = () => { const v = b.dataset.online; openOnline(v === 'connect-login' ? 'login' : v === 'connect' ? 'signup' : v, v.startsWith('connect') && me() ? me().username : ''); });
   const sp = $('#stPublic'); if (sp) sp.onclick = () => S.pub ? goPrivate() : goPublic();
