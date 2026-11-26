@@ -1703,7 +1703,7 @@ function settingsPage(sec) {
   return `<div class="set-wrap">
   <div class="set-head"><span class="avatar set-av${isOwner ? ' gold' : isAdmin ? ' blue' : ''}" aria-hidden="true">${avatarInner()}</span>
     <div><div class="set-name"><b translate="no">${esc(displayName())}</b>${u && S.name && S.name !== u.username ? ` <span class="muted" translate="no">(${esc(S.name)})</span>` : ''}</div><div class="muted small">${sub}</div></div></div>
-  <nav class="set-nav" aria-label="Settings sections">${menu.map(g => `${g.title ? `<h3>${g.title}</h3>` : ''}<ul>${g.items.map(([id, name, ic], n) => `<li><button type="button" data-setsec="${id}"${!g.title && !n ? ' class="on" aria-current="true"' : ''}>${icon(ic)}<span>${name}</span></button></li>`).join('')}</ul>`).join('<hr>')}</nav>
+  <nav class="set-nav" aria-label="Settings sections">${menu.map(g => `${g.title ? `<h2>${g.title}</h2>` : ''}<ul>${g.items.map(([id, name, ic], n) => `<li><button type="button" data-setsec="${id}"${!g.title && !n ? ' class="on" aria-current="true"' : ''}>${icon(ic)}<span>${name}</span></button></li>`).join('')}</ul>`).join('<hr>')}</nav>
   <div class="set-main">${menu.flatMap(g => g.items).map(([id]) => sec[id] ? `<div class="set-sec" id="set-${id}" tabindex="-1">${sec[id]}</div>` : '').join('')}</div>
 </div>`;
 }

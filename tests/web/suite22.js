@@ -48,7 +48,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // Settings are listed like an account settings page: header, grouped menu on the left, every setting on the right
   const menu = await p.$$eval('.set-nav [data-setsec]', bs => bs.map(b => b.textContent.trim()));
   ok('Settings has a header with the profile and a grouped menu on the left', await p.isVisible('.set-head .set-av') && (await p.textContent('.set-head')).includes('Guest profile on this device')
-    && JSON.stringify(menu) === JSON.stringify(['Public profile', 'Account', 'Appearance', 'Healthy habits', 'Owner or admin key', 'Your data']) && (await p.textContent('.set-nav h3')) === 'Access & data', JSON.stringify(menu));
+    && JSON.stringify(menu) === JSON.stringify(['Public profile', 'Account', 'Appearance', 'Healthy habits', 'Owner or admin key', 'Your data']) && (await p.textContent('.set-nav h2')) === 'Access & data', JSON.stringify(menu));
   const nav = await p.$eval('.set-nav', e => e.getBoundingClientRect().toJSON()), main = await p.$eval('.set-main', e => e.getBoundingClientRect().toJSON());
   ok('the menu is on the left and the settings on the right', nav.right <= main.left && nav.width > 150);
   ok('every setting is still there', ['#stName', '#stLang', '#stTheme', '#stSeason', '#stThumbs', '#stNotify', '#stBreak', '#stEp', '#stExport', '#stImport', '#stWipe', '#ownForm'].every(Boolean) && (await p.$$eval('#stName, #stLang, #stTheme, #stSeason, #stThumbs, #stNotify, #stBreak, #stEp, #stExport, #stImport, #stWipe, #ownForm', els => els.length)) === 12);
