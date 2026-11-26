@@ -2,7 +2,7 @@
    App files are served from a saved copy and refreshed in the background; when a new version is
    downloaded, the page is told so it can offer a "Reload" button. Wix APIs, YouTube and other sites
    are never cached: they always go straight to the network. No personal data is stored here. */
-const CACHE = 'levelup-shell-v1';
+const CACHE = 'levelup-shell-v2'; // v2 also clears anything the old version saved from Wix's own addresses
 const SHELL = ['./', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
   'fonts/outfit.woff2'];
 const WATCH = /\/(app\.js|styles\.css)?$/; // a change to these means a new version of the app
@@ -19,6 +19,11 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // other sites (Wix APIs, YouTube): network only
   if (/\/downloads\.json$/.test(url.pathname)) return; // where the app download lives: always the latest
+  const base = new URL(self.registration.scope).pathname, rel = url.pathname.slice(base.length);
+  // Wix's own pages and services on this address (its sign-in page at /_api/oauth2/authorize, /__auth/..., /_partials/...)
+  // always go to the network: answering them with the saved home page broke "Continue with Google or Wix"
+  if (!url.pathname.startsWith(base) || rel.startsWith('_')) return;
+  if (req.mode === 'navigate' && rel !== '' && rel !== 'index.html') return; // only the app's own page is served offline
   const key = req.mode === 'navigate' ? './' : url.pathname.replace(/\/index\.html$/, '/');
   e.respondWith(fromCache(req, key, e));
 });

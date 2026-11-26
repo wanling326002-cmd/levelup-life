@@ -2590,8 +2590,11 @@ function bindOnline() {
    one-time code (PKCE). Progress is still locked before upload, with a LevelUp Life password chosen afterwards. */
 const HOSTED_KEY = 'levelup-hosted-login';
 const hereUrl = () => location.origin + location.pathname;
+const swFresh = () => !('serviceWorker' in navigator) ? Promise.resolve() :
+  Promise.race([navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}), new Promise(r => setTimeout(r, 2500))]);
 const canHosted = () => hereUrl() === SITE_URL || /^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(hereUrl()); // the return address must be allowed in the site's settings
 async function hostedLogin() {
+  await swFresh(); // an older offline helper could answer Wix's sign-in address with this page
   const err = $('#olErr'); if (err) err.textContent = '';
   try {
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32))), state = randHex(16);
