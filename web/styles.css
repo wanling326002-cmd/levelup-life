@@ -312,8 +312,20 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 .msg .grow{flex:1;min-width:0}
 .msg-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .msg-t{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
-.msg-tools{margin-left:auto;display:flex;gap:2px}
-.msg-tools .linkbtn{padding:2px 6px}
+.msg{position:relative}
+.msg-tools{margin-left:auto;position:relative;display:flex}
+/* the ⋯ button only appears while you point at a message (or tab to it, or tap the message on a phone) */
+.msg-more{width:30px;height:26px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:8px;background:var(--card);color:var(--muted);cursor:pointer;opacity:0;transition:opacity .15s}
+.msg-more svg{width:18px;height:18px;stroke-width:3.2}
+.msg:hover .msg-more,.msg.tapped .msg-more,.msg-more:focus-visible,.msg-more[aria-expanded="true"]{opacity:1}
+.msg-more:hover,.msg-more[aria-expanded="true"]{color:var(--text);background:var(--soft2)}
+.msg-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:190px;display:grid;padding:6px;border-radius:14px;background:var(--card);border:1px solid var(--line2);box-shadow:var(--shadow)}
+.msg-menu[hidden]{display:none}
+.msg-menu.up{top:auto;bottom:calc(100% + 6px)}
+.msg-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:10px;background:none;color:var(--text);font:inherit;font-size:.9rem;text-align:left;cursor:pointer;white-space:nowrap}
+.msg-menu button svg{width:16px;height:16px;color:var(--muted)}
+.msg-menu button:hover,.msg-menu button:focus-visible{background:var(--soft2);outline:none}
+.msg-menu button.danger,.msg-menu button.danger svg{color:var(--bad)}
 .chat-send{margin-top:12px}
 /* owner extras: profile picture, banner, emoji */
 .avatar{overflow:hidden}
@@ -478,7 +490,6 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .modlog{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:360px;overflow-y:auto}
 .modlog li{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:.88rem}
 .modlog li .dim{margin-left:auto;white-space:nowrap}
-.msg-tools .linkbtn.rep-btn{color:var(--dim)}
 /* light mode: darker label colours so small text stays readable (WCAG AA) */
 :root[data-theme="light"] .tag.g{color:#0f7a4f}:root[data-theme="light"] .tag.r{color:#b3203a}:root[data-theme="light"] .tag.y{color:#8a5a00}
 :root[data-theme="light"] .tag.owner{color:#7d5200}:root[data-theme="light"] .tag.adm{color:#2f47b8}

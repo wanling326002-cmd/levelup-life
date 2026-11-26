@@ -14,6 +14,7 @@ async function mock(route){
 }
 (async()=>{
  const b=await chromium.launch(); const errs=[]; const res=[]; const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${x}`);
+const viaMenu=async(p,q,sel)=>{ const m=`#chatList .msg:has-text("${q}")`; await p.hover(m); await p.click(`${m} .msg-more`); await p.click(`${m} ${sel}`); }; // actions live in the message's ⋯ menu
  const mk=async(name)=>{ const ctx=await b.newContext({viewport:{width:1440,height:950}}); await ctx.route(/fonts\.(googleapis|gstatic)/,r=>r.abort()); await ctx.route(/wixapis\.com/,mock); const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(URL); return p; };
  const signup=async(p,u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
  const unlock=async(p,k)=>{ await p.goto(URL+'#options'); await p.fill('#ownKey',k); await p.click('#ownForm .btn.primary'); await p.waitForTimeout(5000); };
@@ -58,14 +59,19 @@ async function mock(route){
  await adm.waitForTimeout(4500); let am=await msgs(adm);
  ok('admin can hide/mute members', am.some(m=>m.n==='Kid123'&&m.hide&&m.mute));
  ok('admin cannot hide or mute the owner', am.filter(m=>m.own).every(m=>!m.hide&&!m.mute));
- await (await adm.$('#chatList .msg:has-text("spammy spam") [data-hide]')).click(); await adm.waitForTimeout(2000);
+ await viaMenu(adm,'spammy spam','[data-hide]'); await adm.waitForTimeout(2000);
  await mem.waitForTimeout(4500); mm=await msgs(mem);
  ok('admin hide works for everyone', !mm.some(m=>m.t.includes('spammy')) && mm.some(m=>m.t==='hi all'));
- await (await adm.$('#chatList .msg:has-text("hi all") [data-mute]')).click(); await adm.waitForTimeout(2000);
+ await say(mem,'rude words here'); await adm.waitForTimeout(4500);
+ adm.once('dialog',d=>d.accept()); await viaMenu(adm,'rude words here','[data-del]'); await adm.waitForTimeout(2000);
+ await mem.waitForTimeout(4500); mm=await msgs(mem);
+ ok("an admin can delete a member's message for everyone", !mm.some(m=>m.t.includes('rude words')) && mm.some(m=>m.t==='hi all'));
+ ok("an admin cannot delete the owner's messages", (await adm.$$('#chatList .msg:has-text("owner here") [data-del]')).length===0);
+ await viaMenu(adm,'hi all','[data-mute]'); await adm.waitForTimeout(2000);
  await own.waitForTimeout(4500); let om=await msgs(own);
  ok('admin mute works for everyone', !om.some(m=>m.n==='Kid123'));
  ok('owner can hide/mute the admin', om.some(m=>m.n==='BestFriend'&&m.hide&&m.mute));
- await (await own.$('#chatList .msg:has-text("admin reporting in") [data-mute]')).click(); await own.waitForTimeout(2000);
+ await viaMenu(own,'admin reporting in','[data-mute]'); await own.waitForTimeout(2000);
  await mem.waitForTimeout(4500); mm=await msgs(mem);
  ok('owner mute silences the admin', !mm.some(m=>m.n==='BestFriend'));
  await adm.waitForTimeout(4500);

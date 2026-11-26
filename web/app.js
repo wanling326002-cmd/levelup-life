@@ -1022,7 +1022,7 @@ async function openMsg(item) {
   const [iv, ct] = p.split('.');
   const m = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(iv)}, C.key, unb64(ct))));
   if (!m || typeof m.n !== 'string' || typeof m.t !== 'string') return null;
-  const v = {k:['msg', 'hide', 'mute', 'unmute'].includes(m.k) ? m.k : 'msg', n:m.n.slice(0, 24), t:m.t.slice(0, 500), ref:typeof m.ref === 'string' ? m.ref.slice(0, 64) : '', ts:m.ts, id:String(item.id || d._id || '')};
+  const v = {k:['msg', 'hide', 'del', 'mute', 'unmute'].includes(m.k) ? m.k : 'msg', n:m.n.slice(0, 24), t:m.t.slice(0, 500), ref:typeof m.ref === 'string' ? m.ref.slice(0, 64) : '', ts:m.ts, id:String(item.id || d._id || '')};
   if (typeof m.u === 'string' && /^[a-z0-9_]{3,20}$/.test(m.u) && typeof m.ps === 'string' && m.ps.length < 200) { v.u = m.u; v.ps = m.ps; if (C.pv.has(v.id)) v.pv = C.pv.get(v.id); }
   v.at = Date.parse((d._createdDate && d._createdDate.$date) || '') || 0;
   v.owner = false;
@@ -1054,11 +1054,13 @@ async function pullChat() {
       if (!m.owner && !m.admin) continue;
       const ref = m.ref.toLowerCase(), target = byId.get(m.ref);
       if (m.k === 'hide' && (m.owner || (target && !target.owner && !target.admin))) hidden.add(m.ref);
+      // deleting: the owner can delete any message; an admin can delete members' messages and their own
+      if (m.k === 'del' && (m.owner || (target && !target.owner && (!target.admin || target.n.toLowerCase() === m.n.toLowerCase())))) hidden.add(m.ref);
       if (m.k === 'mute') { if (m.owner) muted.set(ref, 'owner'); else if (!staff(ref) && muted.get(ref) !== 'owner') muted.set(ref, 'admin'); }
       if (m.k === 'unmute' && (m.owner || muted.get(ref) === 'admin')) muted.delete(ref);
     }
     C.muted = muted;
-    C.modlog = all.filter(m => (m.owner || m.admin) && m.k !== 'msg').map(m => ({a:m.k, u:m.k === 'hide' ? ((byId.get(m.ref) || {}).n || 'a message') : m.ref, by:m.n, role:m.owner ? 'owner' : 'admin', ts:m.at, chat:true}));
+    C.modlog = all.filter(m => (m.owner || m.admin) && m.k !== 'msg').map(m => ({a:m.k, u:m.k === 'hide' || m.k === 'del' ? ((byId.get(m.ref) || {}).n || 'a message') : m.ref, by:m.n, role:m.owner ? 'owner' : 'admin', ts:m.at, chat:true}));
     C.msgs = all.filter(m => { if (m.k !== 'msg' || hidden.has(m.id)) return false; const n = m.n.toLowerCase();
       if (m.owner) return true;
       if (m.admin) return muted.get(n) !== 'owner';
@@ -1080,13 +1082,34 @@ const canMod = () => (isOwner && !!C.signKey) || (isAdminOnly() && !!C.adminSign
 const canHide = m => isOwner ? true : !m.owner && !m.admin;
 const canMute = m => !m.owner && (isOwner || !m.admin);
 const canUnmute = by => isOwner || by === 'admin';
+const canDelete = m => isOwner || (!m.owner && (!m.admin || m.n.toLowerCase() === displayName().toLowerCase()));
+// The actions for one message, in its ⋯ menu (the menu button only shows while you point at the message)
+function msgMenu(m) {
+  const mod = canMod(), items = [
+    mod && canDelete(m) ? `<button type="button" role="menuitem" class="danger" data-del="${esc(m.id)}">${icon('trash')}Delete message</button>` : '',
+    mod && canHide(m) ? `<button type="button" role="menuitem" data-hide="${esc(m.id)}">${icon('eyeoff')}Hide message</button>` : '',
+    mod && canMute(m) ? `<button type="button" role="menuitem" data-mute="${esc(m.n)}">${icon('x')}<span>Mute</span> <span translate="no">${esc(m.n)}</span></button>` : '',
+    m.n !== displayName() && !m.owner ? `<button type="button" role="menuitem" data-repmsg="${esc(m.id)}">${icon('shield')}Report message</button>` : ''].join('');
+  if (!items) return '';
+  const open = C.menuFor === m.id;
+  return `<span class="msg-tools"><button type="button" class="msg-more" data-more="${esc(m.id)}" aria-haspopup="menu" aria-expanded="${open}" aria-label="More options for this message" title="More">${icon('more')}</button>
+    <span class="msg-menu" role="menu" aria-label="Message options"${open ? '' : ' hidden'}>${items}</span></span>`;
+}
+function closeMsgMenu(focusBtn) {
+  const id = C.menuFor; if (!id) return; C.menuFor = '';
+  document.querySelectorAll('#chatList .msg-menu:not([hidden])').forEach(mn => { mn.hidden = true; });
+  document.querySelectorAll('#chatList .msg-more[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  if (focusBtn) { const b = document.querySelector(`#chatList [data-more="${CSS.escape(id)}"]`); if (b) b.focus(); }
+  if (C.repaintLater) { C.repaintLater = false; paintChat(); }
+}
 function paintChat() {
   const list = $('#chatList'); if (!list) return;
+  if (C.menuFor && list.querySelector(`[data-more="${CSS.escape(C.menuFor)}"]`)) { C.repaintLater = true; return; } // don't redraw under an open menu
   const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   list.innerHTML = C.msgs.map(m => { const p = chatPlayer(m), cm = ` data-cm="${esc(m.id)}"`; // every name opens a profile card (with Add friend)
     return `<li class="msg${m.owner ? ' own' : m.admin ? ' adm' : ''}"><button type="button" class="thumb"${cm} style="--h:${m.owner ? '#f2c46d' : m.admin ? '#6f8dff' : hue(m.n)}" aria-label="Open ${esc(m.n)}'s profile">${p && p.pf ? shared(p.pf) : m.owner ? icon('crown') : m.admin ? icon('shield') : esc(m.n.charAt(0).toUpperCase())}</button>
     <div class="grow"><div class="msg-h"><button type="button" class="name-btn"${cm} title="View profile · add friend"><b>${esc(m.n)}</b></button>${m.owner ? '<span class="tag owner">Owner</span>' : m.admin ? '<span class="tag adm">Admin</span>' : ''}<span class="dim small">${fmtTime(m.at)}</span>
-    <span class="msg-tools">${canMod() && canHide(m) ? `<button type="button" class="linkbtn small" data-hide="${esc(m.id)}">Hide</button>` : ''}${canMod() && canMute(m) ? `<button type="button" class="linkbtn small" data-mute="${esc(m.n)}">Mute</button>` : ''}${m.n !== displayName() && !m.owner ? `<button type="button" class="linkbtn small rep-btn" data-repmsg="${esc(m.id)}" aria-label="Report this message">Report</button>` : ''}</span></div>
+    ${msgMenu(m)}</div>
     <div class="msg-t${EMO_ONLY.test(m.t) ? ' big' : ''}" translate="no">${emoWith(m.t, chatEmoji(m))}</div></div></li>`; }).join('') || `<li class="empty">${C.status ? '' : 'No messages yet. Say hi!'}</li>`;
   if (near) list.scrollTop = list.scrollHeight;
   $('#chatStatus').textContent = C.status || `Encrypted room · ${C.msgs.length} message${C.msgs.length === 1 ? '' : 's'} · updates every 4 seconds`;
@@ -1097,9 +1120,9 @@ const CHAT_RULES = `<ul class="tips">
   <li>Be kind. No bullying, hate or spam.</li>
   <li>Never share personal info: your real name, address, school, phone number or passwords.</li>
   <li>Don't click links from people you don't know.</li>
-  <li>The owner and admins can hide messages and mute names for everyone.</li>
+  <li>The owner and admins can delete or hide messages and mute names for everyone.</li>
   <li>Click a name to open that player's profile (players with a public profile).</li>
-  <li>See something wrong? Press <b>Report</b> on a message. Only the owner and admins can read reports.</li>
+  <li>See something wrong? Point at the message, press the ⋯ button and choose Report. Only the owner and admins can read reports.</li>
   <li>Names with "owner" or "admin" in them can't post.</li></ul>`;
 VIEWS.chat = () => {
   if (!C.room) return `<div class="grid">
@@ -1160,13 +1183,32 @@ BIND.chat = () => {
   if (isOwner || isAdmin) staffKey().then(k => { if (k) publishPack(); });
   loadPacks(true);
   $('#chatList').onclick = async e => {
+    const more = e.target.closest('[data-more]');
+    if (more) { const id = more.dataset.more, was = C.menuFor === id; closeMsgMenu(); if (was) return;
+      C.menuFor = id; const mn = more.nextElementSibling; mn.hidden = false; more.setAttribute('aria-expanded', 'true');
+      const r = mn.getBoundingClientRect(), lr = $('#chatList').getBoundingClientRect(); mn.classList.toggle('up', r.bottom > Math.min(innerHeight, lr.bottom) - 6); // near the bottom of the chat, open upwards
+      const f = mn.querySelector('[role="menuitem"]'); if (f) f.focus(); return; }
+    const li = e.target.closest('.msg'); if (li && !e.target.closest('button, a')) { li.classList.toggle('tapped'); return; } // phones: tap a message to show its ⋯
+    if (e.target.closest('.msg-menu')) closeMsgMenu();
     if (!canMod()) return;
-    const h = e.target.closest('[data-hide]'), mu = e.target.closest('[data-mute]');
+    const d = e.target.closest('[data-del]'), h = e.target.closest('[data-hide]'), mu = e.target.closest('[data-mute]');
     try {
+      if (d) { if (!confirm(tr("Delete this message for everyone? This can't be undone."))) return;
+        await postChat({k:'del', n:displayName(), t:'', ref:d.dataset.del, ts:Date.now()}); toast('Message deleted for everyone'); }
       if (h) { await postChat({k:'hide', n:displayName(), t:'', ref:h.dataset.hide, ts:Date.now()}); toast('Message hidden for everyone'); }
       if (mu) { await postChat({k:'mute', n:displayName(), t:'', ref:mu.dataset.mute.toLowerCase(), ts:Date.now()}); toast(`${mu.dataset.mute} is muted`); }
     } catch { toast("Couldn't reach the chat. Try again."); }
   };
+  $('#chatList').onkeydown = e => {
+    const mn = e.target.closest('.msg-menu'); if (!mn && e.key !== 'Escape') return;
+    if (e.key === 'Escape' && C.menuFor) { e.preventDefault(); e.stopPropagation(); closeMsgMenu(true); return; }
+    if (!mn || !/^(ArrowDown|ArrowUp|Home|End)$/.test(e.key)) return;
+    const items = [...mn.querySelectorAll('[role="menuitem"]')], i = items.indexOf(document.activeElement); e.preventDefault();
+    const n = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[n].focus();
+  };
+  document.addEventListener('click', function closeMenus(e) { if (!document.body.contains($('#chatList') || document.createElement('i'))) return document.removeEventListener('click', closeMenus);
+    if (C.menuFor && !e.target.closest('.msg-tools')) closeMsgMenu(); });
   const ml = $('#mutedList'); if (ml) ml.onclick = async e => { const b = e.target.closest('[data-unmute]'); if (!b) return;
     try { await postChat({k:'unmute', n:displayName(), t:'', ref:b.dataset.unmute, ts:Date.now()}); toast(`${b.dataset.unmute} can post again`); } catch { toast("Couldn't reach the chat. Try again."); } };
   $('#copyCode').onclick = () => { try { navigator.clipboard.writeText(S.chatCode).then(() => toast('Invite code copied'), () => toast(`Code: ${S.chatCode}`)); } catch { toast(`Code: ${S.chatCode}`); } };
@@ -3308,7 +3350,7 @@ async function resolveReport(id, act) {
     toast(act === 'hidden' ? `Report handled · ${r.name} is hidden from the leaderboard` : 'Report marked as handled'); reqDot(); paintMod();
   } catch { toast("Couldn't reach the server. Try again."); }
 }
-const MOD_WORDS = {hide:'hid', show:'showed again', mute:'muted', unmute:'unmuted', 'report-done':'handled a report about', 'report-hide':'hid (after a report)'};
+const MOD_WORDS = {hide:'hid', del:'deleted a message by', show:'showed again', mute:'muted', unmute:'unmuted', 'report-done':'handled a report about', 'report-hide':'hid (after a report)'};
 function paintMod() {
   const box = $('#repBox'), lg = $('#modLog'); if (!box) return;
   const rc = $('#repCount'); if (rc) { rc.textContent = RP.list.length; rc.hidden = !RP.list.length; }

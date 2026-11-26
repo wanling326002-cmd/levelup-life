@@ -1,6 +1,7 @@
 // Improvements: speed (self-hosted font), offline + update prompt, installable, tour, focus trap, backup reminder, reports + moderation log.
 const {chromium}=require('playwright'); const fs=require('fs'); const {spawn,execFileSync}=require('child_process');
 const H=require('./harness'); const D=H.OUT;
+const viaMenu=async(p,q,sel)=>{ const m=`#chatList .msg:has-text("${q}")`; await p.hover(m); await p.click(`${m} .msg-more`); await p.click(`${m} ${sel}`); }; // actions live in the message's ⋯ menu
 const OKEY=H.OKEY, AKEY=H.AKEY;
 const SITE=D+'served/'; fs.rmSync(SITE,{recursive:true,force:true}); H.copySite(SITE);
 const BASE='http://localhost:8765/';
@@ -93,7 +94,7 @@ async function mock(route){
  await rude.fill('#chatIn','you are all noobs lol'); await rude.click('#chatForm .btn.primary'); await rude.waitForTimeout(3000);
  await kid.waitForTimeout(4500);
  ok('Report button on other players\' messages', (await kid.$$('#chatList [data-repmsg]')).length>=1);
- await kid.click('#chatList .msg:has-text("noobs") [data-repmsg]'); await kid.waitForTimeout(400);
+ await viaMenu(kid,'noobs','[data-repmsg]'); await kid.waitForTimeout(400);
  ok('report form shows the message', (await kid.textContent('#pmBody')).includes('noobs'));
  await kid.check('input[name="repWhy"][value="1"]'); await kid.fill('#repNote','keeps insulting people'); await kid.click('#repForm .btn.primary'); await kid.waitForTimeout(1200);
  const reps=[...players.values()].filter(i=>i.data.kind==='report');
@@ -111,7 +112,7 @@ async function mock(route){
  ok('moderation log shows it', (await own.textContent('#modLog')).includes('Rude99'), await own.textContent('#modLog'));
  const adm=await mk('admin'); await signup(adm,'snowyy'); await unlock(adm,AKEY); await kid.waitForTimeout(61000);
  await kid.goto(BASE+'#players'); await kid.waitForTimeout(1200); await kid.click('#lbList [data-player="jinx002"]').catch(()=>{}); await kid.keyboard.press('Escape');
- await kid.goto(BASE+'#chat'); await kid.waitForTimeout(3000); await kid.click('#chatList .msg:has-text("noobs") [data-repmsg]'); await kid.waitForTimeout(300); await kid.click('#repForm .btn.primary'); await kid.waitForTimeout(1200);
+ await kid.goto(BASE+'#chat'); await kid.waitForTimeout(3000); await viaMenu(kid,'noobs','[data-repmsg]'); await kid.waitForTimeout(300); await kid.click('#repForm .btn.primary'); await kid.waitForTimeout(1200);
  await adm.goto(BASE+'#players'); await adm.waitForTimeout(2500);
  ok('admins can read reports too', (await adm.textContent('#repBox')).includes('noobs'));
  ok('admin sees the owner\'s actions in the log', (await adm.textContent('#modLog')).includes('Rude99'));

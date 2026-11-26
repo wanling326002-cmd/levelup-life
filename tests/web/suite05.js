@@ -16,6 +16,7 @@ async function mock(route){
 (async()=>{
  const b=await chromium.launch(); const errs=[]; const res=[];
  const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${x}`);
+const viaMenu=async(p,q,sel)=>{ const m=`#chatList .msg:has-text("${q}")`; await p.hover(m); await p.click(`${m} .msg-more`); await p.click(`${m} ${sel}`); }; // actions live in the message's ⋯ menu
  const mk=async(name)=>{ const ctx=await b.newContext({viewport:{width:1440,height:950}}); await ctx.route(/fonts\.(googleapis|gstatic)/,r=>r.abort()); await ctx.route(/wixapis\.com/,mock);
    const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(URL); return p; };
  const signup=async(p,u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
@@ -57,10 +58,30 @@ async function mock(route){
  // moderation: owner hides friend's message, then mutes friend
  await owner.goto(URL+'#chat'); await owner.waitForTimeout(1500);
  await say(friend,'spam spam spam'); await owner.waitForTimeout(4500);
- const btn=await owner.$('#chatList .msg:has-text("spam spam spam") [data-hide]'); await btn.click(); await owner.waitForTimeout(1500);
+ await viaMenu(owner,'spam spam spam','[data-hide]'); await owner.waitForTimeout(1500);
  await friend.waitForTimeout(4500); fm=await texts(friend);
  ok('owner can hide a message for everyone', !fm.some(m=>m.t.includes('spam spam spam')) && fm.some(m=>m.t.includes('thanks for the invite')));
- await (await owner.$('#chatList .msg:has-text("thanks for the invite") [data-mute]')).click(); await owner.waitForTimeout(1500);
+ // the ⋯ menu: only visible while pointing at a message, no Hide/Mute/Report words, and Delete for everyone
+ await say(friend,'please delete me'); await owner.waitForTimeout(4500);
+ const row='#chatList .msg:has-text("please delete me")';
+ await owner.mouse.move(2,2); await owner.waitForTimeout(300);
+ const op0=await owner.$eval(row+' .msg-more',e=>getComputedStyle(e).opacity);
+ await owner.hover(row); await owner.waitForTimeout(400);
+ const op1=await owner.$eval(row+' .msg-more',e=>getComputedStyle(e).opacity);
+ ok('the ⋯ button only shows while pointing at a message', op0==='0' && op1==='1', op0+'/'+op1);
+ ok('no Hide, Mute or Report words on the messages', !/\b(Hide|Mute|Report)\b/.test(await owner.innerText('#chatList')));
+ await owner.click(row+' .msg-more');
+ const items=await owner.$$eval(row+' .msg-menu [role="menuitem"]',bs=>bs.map(b=>b.textContent.replace(/\s+/g,' ').trim()));
+ ok('the owner menu has Delete, Hide and Mute', items[0]==='Delete message' && items.includes('Hide message') && items.some(t=>t.startsWith('Mute')), JSON.stringify(items));
+ await owner.screenshot({path:D+'shots2/chat-menu.png'});
+ await owner.keyboard.press('Escape'); await owner.waitForTimeout(200);
+ ok('Escape closes the menu', await owner.$eval(row+' .msg-menu',e=>e.hidden));
+ await owner.hover(row); await owner.click(row+' .msg-more');
+ owner.once('dialog',d=>d.accept()); await owner.click(row+' [data-del]'); await owner.waitForTimeout(1500);
+ await friend.waitForTimeout(4500); fm=await texts(friend);
+ ok('the owner can delete a message for everyone', !fm.some(m=>m.t.includes('please delete me')) && fm.some(m=>m.t.includes('thanks for the invite')));
+ ok('members have no Delete option', (await friend.$$('[data-del]')).length===0);
+ await viaMenu(owner,'thanks for the invite','[data-mute]'); await owner.waitForTimeout(1500);
  await friend.waitForTimeout(4500); fm=await texts(friend);
  ok('owner can mute a name for everyone', !fm.some(m=>m.name==='Sky_99'));
  ok('muted name listed for owner', (await owner.textContent('#mutedList')).includes('sky_99'));

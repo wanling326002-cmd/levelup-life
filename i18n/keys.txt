@@ -1322,3 +1322,14 @@ Your online account
 Your account on this device
 Guest profile on this device
 Settings sections
+## chatmenu
+Delete message
+Hide message
+Report message
+More options for this message
+Message options
+Message deleted for everyone
+Delete this message for everyone? This can't be undone.
+The owner and admins can delete or hide messages and mute names for everyone.
+See something wrong? Point at the message, press the ⋯ button and choose Report. Only the owner and admins can read reports.
+deleted a message by

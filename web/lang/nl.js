@@ -1324,4 +1324,15 @@ Je online account
 Je account op dit apparaat
 Gastprofiel op dit apparaat
 Onderdelen van de instellingen
+## chatmenu
+Bericht verwijderen
+Bericht verbergen
+Bericht melden
+Meer opties voor dit bericht
+Berichtopties
+Bericht voor iedereen verwijderd
+Dit bericht voor iedereen verwijderen? Dit kan niet ongedaan worden gemaakt.
+De eigenaar en admins kunnen berichten voor iedereen verwijderen of verbergen en namen dempen.
+Zie je iets verkeerds? Wijs het bericht aan, druk op de ⋯-knop en kies Melden. Alleen de eigenaar en admins kunnen meldingen lezen.
+verwijderde een bericht van
 `);

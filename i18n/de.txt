@@ -1322,3 +1322,14 @@ Dein Online-Konto
 Dein Konto auf diesem Gerät
 Gastprofil auf diesem Gerät
 Bereiche der Einstellungen
+## chatmenu
+Nachricht löschen
+Nachricht ausblenden
+Nachricht melden
+Weitere Optionen für diese Nachricht
+Nachrichtenoptionen
+Nachricht für alle gelöscht
+Diese Nachricht für alle löschen? Das kann nicht rückgängig gemacht werden.
+Der Besitzer und die Admins können Nachrichten für alle löschen oder ausblenden und Namen stummschalten.
+Siehst du etwas Falsches? Zeige auf die Nachricht, drücke den ⋯-Button und wähle Melden. Nur der Besitzer und die Admins können Meldungen lesen.
+hat eine Nachricht gelöscht von
