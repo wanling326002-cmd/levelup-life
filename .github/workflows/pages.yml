@@ -1,7 +1,7 @@
 name: Deploy website to GitHub Pages
+# The live website is on Wix. This optional copy on GitHub Pages runs only when started by hand
+# (Actions > Deploy website to GitHub Pages > Run workflow), after turning on Pages in the repository settings.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
