@@ -118,6 +118,10 @@ so no code change is needed when a release is published:
    API, preferring the fixed-name asset `LevelUp-Life-Setup.exe`.
 3. If neither has an installer, the panel says **"Coming soon"** instead of showing a broken link.
 
+**Current download:** the installer is published as `LevelUp-Life-Setup.zip` in the site's Wix Media (Wix Media
+accepts archives up to 4 GB but not .exe files), and `web/downloads.json` points at it. For a new version: upload the
+new zip in Media (or with the Media API's generate-upload-url), then update `windows.url`, `version` and `size`.
+
 ### If GitHub isn't available
 
 The desktop app checks GitHub Releases first and then the website's own update feed at
