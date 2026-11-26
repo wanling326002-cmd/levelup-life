@@ -1955,7 +1955,7 @@ const ACTIONS = () => [
   {n:'Notifications', h:'Open', i:'bell', run:() => toggleNotes(true)},
   {n:'Language', h:'Settings', i:'globe', run:() => { location.hash = '#options'; setTimeout(() => $('#stLang')?.focus(), 80); }},
   {n:'Create or join a study group', h:'Action', i:'focus', run:() => { location.hash = '#focus'; setTimeout(() => $('#grpCode')?.focus(), 80); }},
-  ...(IS_DESKTOP ? [] : [{n:'Download the app', h:'App', i:'download', run:() => toggleDownload(true)}]),
+  ...(isInstalledApp() ? [] : [{n:'Download the app', h:'App', i:'download', run:() => toggleDownload(true)}]),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
   ...S.series.map(s => ({n:s.title, h:'Series', i:'series', run:() => location.hash = '#series'})),
   ...S.backlog.map(b => ({n:b.title, h:'Game', i:'gaming', run:() => location.hash = '#gaming'})),
@@ -3078,7 +3078,15 @@ function gtPaintPicker() {
 
 /* ---------- app shell: offline, updates and installing ---------- */
 const APP = {install:null, update:false};
-const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const APP_MODES = ['standalone', 'minimal-ui', 'fullscreen', 'window-controls-overlay'];
+const isStandalone = () => APP_MODES.some(m => matchMedia(`(display-mode: ${m})`).matches) || navigator.standalone === true;
+// Already using an app (the Windows app, or this website installed from the browser): no "Download app" button then.
+const isInstalledApp = () => IS_DESKTOP || isStandalone();
+function syncDownloadButton() {
+  const b = $('#dlBtn'); if (!b) return;
+  b.hidden = isInstalledApp();
+  if (b.hidden) toggleDownload(false);
+}
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function setupShell() {
   const bar = document.createElement('div'); bar.className = 'update-bar'; bar.id = 'updateBar'; bar.hidden = true; bar.setAttribute('role', 'status');
@@ -3141,6 +3149,7 @@ function dlWinHtml(info) {
   const mb = info && info.size ? Math.round(info.size / 1048576) : 0;
   const get = !info ? `<p class="muted small" role="status">Checking for the latest version…</p>`
     : info.url ? `<a class="btn primary wide" id="dlGo" href="${esc(info.url)}" rel="noopener">${icon('download')}Download for Windows</a>
+      ${/\.zip([?#]|$)/i.test(info.url) ? '<p class="muted small dl-meta">It downloads as a .zip file: open it, then run the LevelUp Life setup inside.</p>' : ''}
       <p class="muted small dl-meta">${info.version ? `<span>Version</span> <span translate="no">${esc(info.version)}</span>` : ''}${info.version && mb ? ' · ' : ''}${mb ? `<span translate="no">${mb} MB</span>` : ''}${info.all ? `${info.version || mb ? ' · ' : ''}<a href="${esc(info.all)}" target="_blank" rel="noopener">All versions</a>` : ''}</p>`
     : `<p class="dl-soon" role="status"><b>Coming soon.</b> <span>The Windows download isn't published yet. Please check back shortly.</span></p>`;
   return `<div class="dl-sec"><h3>LevelUp Life for Windows</h3>
@@ -3419,7 +3428,12 @@ function events() {
   $('#searchBtn').onclick = openPalette;
   $('#bellBtn').onclick = () => toggleNotes();
   if (IS_DESKTOP) { $('#dlBtn').remove(); gtDesktopStart(); } // this is the app already
-  else $('#dlBtn').onclick = () => toggleDownload();
+  else {
+    $('#dlBtn').onclick = () => toggleDownload();
+    syncDownloadButton();
+    APP_MODES.forEach(m => { try { matchMedia(`(display-mode: ${m})`).addEventListener('change', syncDownloadButton); } catch {} });
+    window.addEventListener('appinstalled', syncDownloadButton);
+  }
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
   document.addEventListener('click', e => {
     const np = $('#notePanel'); if (np && !np.hidden && !np.contains(e.target) && !e.target.closest('#bellBtn')) toggleNotes(false);

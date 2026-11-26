@@ -1335,4 +1335,6 @@ Delete this message for everyone? This can't be undone.
 The owner and admins can delete or hide messages and mute names for everyone.
 See something wrong? Point at the message, press the ⋯ button and choose Report. Only the owner and admins can read reports.
 deleted a message by
+## zipnote
+It downloads as a .zip file: open it, then run the LevelUp Life setup inside.
 `);

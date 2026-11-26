@@ -10,7 +10,7 @@ const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleW
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const srv = spawn(process.execPath, [H.SERVE, SITE, String(PORT)], {stdio: 'ignore'}); await sleep(600);
+  const srv = spawn(process.execPath, [H.SERVE, SITE, String(PORT)], {stdio: 'ignore'}); process.on('exit', () => srv.kill()); await sleep(600);
   const b = await chromium.launch(); const res = [], errs = [];
   const ok = (t, c, x = '') => res.push(`${c ? 'PASS' : 'FAIL'}  ${t} ${c ? '' : x}`);
   let github = {status: 404, body: {message: 'Not Found'}}, ghCalls = 0;
@@ -18,6 +18,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const ctx = await b.newContext({viewport: opts.viewport || {width: 1440, height: 950}, userAgent: opts.ua || WIN_UA, serviceWorkers: 'block', ...(opts.mobile ? {isMobile: true, hasTouch: true} : {})});
     await ctx.route('https://api.github.com/**', r => { ghCalls++; r.fulfill({status: github.status, headers: {'content-type': 'application/json', 'access-control-allow-origin': '*'}, body: JSON.stringify(github.body)}); });
     await ctx.route(/wixapis\.com|wix\.com/, r => r.fulfill({status: 404, body: '{}', headers: {'access-control-allow-origin': '*'}}));
+    if (opts.installed) await ctx.addInitScript(() => { // the website opened as an installed app (display-mode: standalone)
+      const mm = window.matchMedia.bind(window);
+      window.matchMedia = q => /display-mode:\s*standalone/.test(q) ? {matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}} : mm(q);
+    });
     const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
     await p.goto(BASE); await p.click('#guestBtn'); await p.waitForTimeout(200);
     return p;
@@ -89,10 +93,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ghCalls = 0; p = await open();
   await p.click('#dlBtn'); await p.waitForSelector('#dlGo');
   ok('an installer address in downloads.json is used first (no GitHub needed)', (await p.getAttribute('#dlGo', 'href')) === 'https://files.example.com/LevelUp-Life-Setup.exe' && ghCalls === 0 && (await panelText(p)).includes('1.2.1'));
+  fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({windows: {url: 'https://static.wixstatic.com/archives/abc_123.zip', version: '1.2.0', size: 82619492}}));
+  await p.evaluate(() => sessionStorage.clear()); await p.reload(); await p.click('#guestBtn').catch(() => {});
+  await p.click('#dlBtn'); await p.waitForSelector('#dlGo');
+  ok('a .zip download says to open it and run the setup inside', (await p.getAttribute('#dlGo', 'href')).endsWith('.zip') && (await panelText(p)).includes('It downloads as a .zip file'));
+  await p.keyboard.press('Escape');
   fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({windows: {url: 'javascript:alert(1)'}}));
   await p.evaluate(() => sessionStorage.clear()); await p.reload(); await p.click('#guestBtn').catch(() => {});
   await p.click('#dlBtn'); await p.waitForFunction(() => /Coming soon|Download for Windows/.test(document.querySelector('#dlPanel').textContent));
   ok('anything but an https address is ignored', !(await p.$('#dlPanel a[href^="javascript"]')));
+  await p.context().close();
+
+  // 4b. the website installed as an app: no Download app button and no search entry for it
+  p = await open({installed: true});
+  ok('the installed web app has no Download app button', !(await p.isVisible('#dlBtn')));
+  await p.keyboard.press('Control+k'); await p.fill('#paletteInput', 'download the app'); await p.waitForTimeout(150);
+  ok('the installed web app does not offer the download in search', !(await p.textContent('#paletteList')).includes('Download the app'));
   await p.context().close();
 
   // 5. on an iPhone: compact button, web app first, panel fits the screen

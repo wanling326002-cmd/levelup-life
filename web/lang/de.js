@@ -1335,4 +1335,6 @@ Diese Nachricht für alle löschen? Das kann nicht rückgängig gemacht werden.
 Der Besitzer und die Admins können Nachrichten für alle löschen oder ausblenden und Namen stummschalten.
 Siehst du etwas Falsches? Zeige auf die Nachricht, drücke den ⋯-Button und wähle Melden. Nur der Besitzer und die Admins können Meldungen lesen.
 hat eine Nachricht gelöscht von
+## zipnote
+Der Download ist eine .zip-Datei: Öffne sie und starte darin das LevelUp Life Setup.
 `);

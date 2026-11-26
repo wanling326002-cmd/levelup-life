@@ -53,7 +53,7 @@ async function mock(route) {
 }
 
 (async () => {
-  const srv = spawn(process.execPath, [H.SERVE, SITE, String(PORT)], {stdio: 'ignore'}); await sleep(600);
+  const srv = spawn(process.execPath, [H.SERVE, SITE, String(PORT)], {stdio: 'ignore'}); process.on('exit', () => srv.kill()); await sleep(600);
   const b = await chromium.launch(); const res = [], errs = [];
   const ok = (t, c, x = '') => res.push(`${c ? 'PASS' : 'FAIL'}  ${t} ${c ? '' : x}`);
   const mk = async () => {
