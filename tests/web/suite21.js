@@ -83,7 +83,7 @@ const recoveries=[]; let saves=0;
  await g.goto(BASE+'#companion'); await g.waitForTimeout(900);
  let txt=await g.textContent('#main');
  ok('without an online account the page shows the 5-step setup', txt.includes('Set up the Game Time companion') && ['Download','Install','Connect','Choose games','Set limits'].every(s=>txt.includes(s)));
- ok('the download button points at the latest Windows installer', (await g.getAttribute('.gt-steps a.btn.primary','href'))==='https://github.com/wanling326002-cmd/levelup-life/releases/latest/download/LevelUp-Life-Setup.exe');
+ ok('the setup has no download button of its own and points to the Download app button under the profile', !(await g.$('.gt-steps a.btn')) && txt.includes('Download app') && await g.isVisible('#dlBtn'));
  ok('the setup explains the SmartScreen warning and that an online account is needed', txt.includes('Run anyway') && txt.includes('online account'));
  ok('the page explains what can and cannot be detected', txt.includes('Can\'t be detected') && txt.includes('WindowsApps'));
  await g.goto(BASE+'#gaming'); await g.waitForTimeout(300);
