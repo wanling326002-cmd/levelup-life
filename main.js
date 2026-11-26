@@ -1,5 +1,8 @@
 // LevelUp Life desktop app: the website in a window, plus the game-time companion.
-//  - On launch: a splash screen with the logo and a loading bar checks for updates (GitHub Releases) and installs them.
+//  - On launch: a splash screen with the logo and a loading bar checks for updates (GitHub Releases, or the website's
+//    update feed if GitHub has none) and installs them.
+//  - Plug and play: right after installing, tracking is already on. Games are found automatically and tracked by
+//    default, and the app starts with Windows (in the tray). Nothing needs setting up; an account is optional.
 //  - In the background: tracks matched games, sends limit reminders and syncs with the website when connected.
 //  - Always visible while running: a tray icon shows whether tracking is on. Closing the window keeps the tray icon;
 //    "Quit" in the tray menu stops everything.
@@ -28,7 +31,7 @@ if (TEST.userData) app.setPath('userData', TEST.userData);
 if (TEST.api) setApiBase(TEST.api);
 const launchedAtStartup = process.argv.includes(STARTUP_ARG);
 let mainWin = null, splashWin = null, tray = null, service = null, tracker = null, source = null;
-let splashShownAt = 0, quitting = false, updateReady = false, toldAboutTray = false, scanState = {running: false, last: 0, count: 0, errors: {}};
+let splashShownAt = 0, quitting = false, updateReady = false, toldAboutTray = false, scanState = {running: false, last: 0, count: 0, errors: {}}, firstScan = null;
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 else {
@@ -42,6 +45,7 @@ else {
 async function start() {
   loadLang();
   startCompanion();
+  const firstRun = firstRunSetup();
   if (!launchedAtStartup) splashWin = createSplash();
   const result = await checkForUpdates(state => splashState(state));
   if (result === 'downloaded') { // installs silently and opens the new version
@@ -52,9 +56,19 @@ async function start() {
   createTray();
   if (launchedAtStartup) notify('LevelUp Life is running', tracker.paused ? 'Game tracking is paused. Open the tray icon to resume.' : 'Game tracking is on. You can find LevelUp Life in the system tray.');
   else { splashState({text: 'Starting…', progress: 1, canSkip: false}); createMain(); }
+  if (firstRun) Promise.resolve(firstScan).finally(() => notify('Game tracking is on', 'LevelUp Life finds your games and counts your play time automatically, even when the window is closed. See it in the Gaming tab.'));
   setInterval(() => checkForUpdates(() => {}, {background: true}), 6 * 60 * 60 * 1000); // look again every 6 hours
 }
 
+// The first start after installing: launching with Windows is switched on, so tracking just works from then on
+// (it can be turned off in Settings or the tray menu).
+function firstRunSetup() {
+  const f = path.join(app.getPath('userData'), 'companion', 'first-run.json');
+  if (fs.existsSync(f)) return false;
+  try { fs.mkdirSync(path.dirname(f), {recursive: true}); fs.writeFileSync(f, JSON.stringify({at: Date.now(), version: app.getVersion()})); } catch {}
+  if (app.isPackaged && process.platform === 'win32') setStartup(true);
+  return true;
+}
 function langFile() { return path.join(app.getPath('userData'), 'companion', 'lang.json'); }
 function loadLang() { try { setLang(JSON.parse(fs.readFileSync(langFile(), 'utf8')).lang, false); } catch {} }
 function setLang(code, save = true) {
@@ -78,6 +92,9 @@ function splashState(s) {
   if (splashWin && !splashWin.isDestroyed() && splashWin.webContents && !splashWin.webContents.isLoading()) splashWin.webContents.executeJavaScript(`setState(${JSON.stringify(pendingSplash)})`).catch(() => {});
 }
 
+// Updates come from the latest GitHub release. If GitHub can't be reached or has no release, the website's own feed
+// (SITE_URL/updates/latest.yml, which may point at an installer hosted anywhere) is tried instead.
+const UPDATE_FEEDS = [{provider: 'github', owner: 'wanling326002-cmd', repo: 'levelup-life'}, {provider: 'generic', url: SITE_URL + 'updates/'}];
 // Resolves 'none' | 'downloaded' | 'skipped' | 'error' | 'dev'. Never blocks start-up for long without a way out.
 function checkForUpdates(show, {background = false} = {}) {
   if (!app.isPackaged || process.env.LEVELUP_NO_UPDATES) return Promise.resolve('dev');
@@ -85,13 +102,13 @@ function checkForUpdates(show, {background = false} = {}) {
   autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.removeAllListeners();
   return new Promise(resolve => {
-    let settled = false, skipTimer = null;
+    let settled = false, skipTimer = null, checking = true;
     const done = v => { if (settled) return; settled = true; clearTimeout(timer); clearTimeout(skipTimer); if (splashWin) splashWin.removeAllListeners('page-title-updated'); resolve(v); };
     const timer = setTimeout(() => done('timeout'), 12000); // slow or no internet: start anyway
     if (splashWin) splashWin.on('page-title-updated', (_e, t) => { if (t === 'skip') done('skipped'); });
     autoUpdater.on('checking-for-update', () => show({text: 'Checking for updates…', progress: null}));
     autoUpdater.on('update-not-available', () => done('none'));
-    autoUpdater.on('error', () => done('error'));
+    autoUpdater.on('error', () => { if (!checking) done('error'); }); // errors while checking: try the next feed
     autoUpdater.on('update-available', info => {
       clearTimeout(timer);
       show({text: `Downloading update ${info.version}…`, progress: 0});
@@ -102,7 +119,13 @@ function checkForUpdates(show, {background = false} = {}) {
       if (background) { updateReady = true; refreshTray(); notify('Update ready', 'A new version of LevelUp Life will be installed the next time it starts. Use "Restart to update" in the tray to do it now.'); }
       done('downloaded');
     });
-    autoUpdater.checkForUpdates().catch(() => done('error'));
+    (async () => {
+      for (const feed of UPDATE_FEEDS) {
+        if (settled) return;
+        try { autoUpdater.setFeedURL(feed); const r = await autoUpdater.checkForUpdates(); checking = false; if (r || settled) return; } catch { /* next feed */ }
+      }
+      checking = false; done('error');
+    })();
   }).then(r => (background && r === 'downloaded') ? 'ready' : r);
 }
 
@@ -149,7 +172,7 @@ function startCompanion() {
   tracker.onChange = () => { refreshTray(); push(); };
   service.start();
   setInterval(() => { refreshTray(); push(); }, 5000);
-  rescan(); setInterval(rescan, 6 * 60 * 60 * 1000);
+  firstScan = rescan(); setInterval(rescan, 6 * 60 * 60 * 1000);
   powerMonitor.on('suspend', () => tracker.suspend());
   powerMonitor.on('resume', () => tracker.resume());
   powerMonitor.on('shutdown', () => tracker.suspend());

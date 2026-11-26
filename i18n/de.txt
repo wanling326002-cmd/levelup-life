@@ -1260,3 +1260,57 @@ Die Spielerfassung ist pausiert. Öffne das Symbol im Infobereich, um fortzusetz
 Die Spielerfassung ist an. Du findest LevelUp Life im Infobereich.
 Update bereit
 Eine neue Version von LevelUp Life wird beim nächsten Start installiert. Nutze „Neu starten zum Aktualisieren“ im Infobereich, um es jetzt zu tun.
+## download
+Deine Spielzeit wird auf diesem PC automatisch erfasst. Dazu deine Spieleliste und gesunde Pausen.
+Andere Geräte
+Spiele auf diesem PC werden automatisch gezählt. Nutze diesen Timer für eine Konsole, ein Handy oder einen anderen Computer.
+Spielzeit
+auf diesem PC wird im Tab Gaming automatisch gezählt, mit Erinnerungen vor deinem Tageslimit. Die Einstellungen findest du unter Einstellungen.
+zählt deine Spielzeit automatisch mit der kostenlosen Windows-App und erinnert dich an deine Tageslimits. Du bekommst sie über den Button „App herunterladen“ unter deinem Profil.
+App herunterladen
+Spielzeit-Erfassung
+Mit der Website synchronisieren
+Datenschutz bei der Spielzeit-Erfassung
+Hol dir die kostenlose LevelUp Life App für Windows # und # über den Button „App herunterladen“ unter deinem Profil, oben rechts auf dieser Seite.
+Öffne die heruntergeladene Datei. Administratorrechte sind nicht nötig. Solange die App neu ist, zeigt Windows eventuell „Der Computer wurde durch Windows geschützt“. Wähle dann „Weitere Informationen“ und anschließend „Trotzdem ausführen“. Die App startet mit bereits eingeschalteter Spielzeit-Erfassung.
+Öffne in der App die Einstellungen und wähle unter „Mit der Website synchronisieren“ die Option „Mit meinem Konto verbinden“. Melde dich mit demselben Online-Konto an, das du hier nutzt.
+Die App findet Spiele von Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net und Riot und erfasst sie sofort. Schalte alles aus, was nicht erfasst werden soll, und füge andere Spiele von Hand hinzu.
+Hol dir die LevelUp Life App
+LevelUp Life für Windows
+Kostenlos, für Windows # und # (#-Bit). Alles von dieser Website, plus Spielzeit, die sich selbst zählt: Die App findet deine Spiele, erfasst deine Spielzeit automatisch und erinnert dich vor deinem Tageslimit. Keine Einrichtung nötig.
+Neueste Version wird gesucht…
+Version
+Bald verfügbar.
+Der Windows-Download ist noch nicht veröffentlicht. Schau bitte bald wieder vorbei.
+Siehst du „Der Computer wurde durch Windows geschützt“?
+Das ist bei einer neuen App, die noch nicht codesigniert ist, normal und bedeutet nicht, dass mit der Datei etwas nicht stimmt. Wähle „Weitere Informationen“ und dann „Trotzdem ausführen“. Sie wird nur für dich installiert, ohne Administratorrechte, und hält sich selbst aktuell.
+Auf einem Handy, Tablet, Mac oder Chromebook?
+Du nutzt bereits die installierte Web-App. Sie funktioniert auch offline.
+Installiere diese Website als App. Sie öffnet sich vom Startbildschirm und funktioniert offline.
+Web-App installieren
+Tippe in Safari auf „Teilen“ und dann auf „Zum Home-Bildschirm“.
+Öffne das Browsermenü und wähle „LevelUp Life installieren“ oder „Zum Startbildschirm hinzufügen“.
+App herunterladen
+Hol dir die LevelUp Life App für Windows
+LevelUp Life wird heruntergeladen. Öffne die Datei, wenn der Download fertig ist.
+Spielzeit-Erfassung ist an
+LevelUp Life findet deine Spiele und zählt deine Spielzeit automatisch, auch wenn das Fenster geschlossen ist. Du siehst sie im Tab Gaming.
+## signin
+Weiter
+Weiter mit Google oder Wix
+oder mit E-Mail und Passwort
+Falsche E-Mail oder falsches Passwort. Wenn du dich mit Google anmeldest oder dies die E-Mail deines Wix-Kontos ist, nutze stattdessen „Weiter mit Google oder Wix“.
+Zu viele Versuche. Warte eine Minute und versuch es dann noch einmal.
+Deine E-Mail und dein Passwort wurden akzeptiert, aber die Anmeldung wurde nicht abgeschlossen. Bitte versuch es gleich noch einmal.
+Die Anmeldeseite konnte nicht geöffnet werden. Bitte versuch es noch einmal.
+Du wirst angemeldet…
+Wähle dein LevelUp Life Passwort
+Angemeldet als
+Dein Online-Fortschritt ist mit dem Passwort gesperrt, das du beim ersten Speichern gewählt hast. Gib es ein, um ihn zu entsperren.
+Dein Fortschritt wird vor dem Hochladen mit diesem Passwort gesperrt, sodass nur du ihn lesen kannst. Damit meldest du dich auch auf diesem Gerät an. Verwende auf deinen anderen Geräten dasselbe.
+Dein LevelUp Life Passwort
+Vergessen? Mit dem Fortschritt dieses Geräts neu beginnen
+Neu beginnen? Der online gespeicherte Fortschritt wird durch den Fortschritt dieses Geräts ersetzt. Das kann nicht rückgängig gemacht werden.
+Dieses Passwort hat deinen Fortschritt nicht entsperrt. Versuch es noch einmal.
+Die Anmeldung wurde abgebrochen. Du kannst es noch einmal versuchen.
+Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuch es noch einmal.

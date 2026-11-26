@@ -1262,4 +1262,58 @@ Game tracking is paused. Open the tray icon to resume.
 Game tracking is on. You can find LevelUp Life in the system tray.
 Update ready
 A new version of LevelUp Life will be installed the next time it starts. Use "Restart to update" in the tray to do it now.
+## download
+Your game time is tracked automatically on this PC. Plus your backlog and healthy breaks.
+Other devices
+Games on this PC are counted automatically. Use this timer for a console, phone or another computer.
+Game time
+on this PC is counted automatically in the Gaming tab, with reminders before your daily limit. Its settings are in Settings.
+counts your game time automatically with the free Windows app and reminds you of your daily limits. Get it with the Download app button under your profile.
+Download the app
+Game tracking
+Sync with the website
+Game tracking privacy
+Get the free LevelUp Life app for Windows # and # with the "Download app" button under your profile, at the top right of this page.
+Open the downloaded file. No administrator rights are needed. While the app is new, Windows may show "Windows protected your PC". If it does, choose "More info" and then "Run anyway". The app opens with game tracking already on.
+In the app, open Settings and choose "Connect to my account" under Sync with the website. Sign in with the same online account you use here.
+The app finds games from Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot and tracks them straight away. Turn off anything you don't want tracked and add other games by hand.
+Get the LevelUp Life app
+LevelUp Life for Windows
+Free, for Windows # and # (#-bit). Everything on this website, plus game time that counts itself: it finds your games, tracks your play time automatically and reminds you before your daily limit. No setup needed.
+Checking for the latest version…
+Version
+Coming soon.
+The Windows download isn't published yet. Please check back shortly.
+Seeing "Windows protected your PC"?
+That's normal for a new app that isn't code-signed yet, and doesn't mean anything is wrong with the file. Choose "More info", then "Run anyway". It installs just for you, without administrator rights, and keeps itself up to date.
+On a phone, tablet, Mac or Chromebook?
+You're using the installed web app already. It works offline too.
+Install this website as an app. It opens from your home screen and works offline.
+Install the web app
+In Safari, tap the Share button, then "Add to Home Screen".
+Open your browser menu and choose "Install LevelUp Life" or "Add to Home Screen".
+Download app
+Get the LevelUp Life app for Windows
+Downloading LevelUp Life. Open the file when it finishes.
+Game tracking is on
+LevelUp Life finds your games and counts your play time automatically, even when the window is closed. See it in the Gaming tab.
+## signin
+Continue
+Continue with Google or Wix
+or with email and password
+Wrong email or password. If you sign in with Google, or this is the email of your Wix account, use "Continue with Google or Wix" instead.
+Too many tries. Wait a minute, then try again.
+Your email and password were accepted, but signing in didn't finish. Please try again in a moment.
+Couldn't open the sign-in page. Please try again.
+Signing you in…
+Choose your LevelUp Life password
+Signed in as
+Your online progress is locked with the password you chose when it was first saved. Enter it to unlock it.
+Your progress is locked with this password before it's uploaded, so only you can read it. It also logs you in on this device. Use the same one on your other devices.
+Your LevelUp Life password
+Forgot it? Start fresh with this device's progress
+Start fresh? The progress saved online is replaced by this device's progress. This can't be undone.
+That password didn't unlock your progress. Try again.
+The sign-in was cancelled. You can try again.
+Couldn't finish signing in. Please try again.
 `);

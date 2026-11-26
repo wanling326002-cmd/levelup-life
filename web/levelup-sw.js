@@ -18,6 +18,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // other sites (Wix APIs, YouTube): network only
+  if (/\/downloads\.json$/.test(url.pathname)) return; // where the app download lives: always the latest
   const key = req.mode === 'navigate' ? './' : url.pathname.replace(/\/index\.html$/, '/');
   e.respondWith(fromCache(req, key, e));
 });

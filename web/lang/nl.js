@@ -1262,4 +1262,58 @@ Games bijhouden is gepauzeerd. Open het pictogram in het systeemvak om te hervat
 Games bijhouden staat aan. Je vindt LevelUp Life in het systeemvak.
 Update klaar
 Een nieuwe versie van LevelUp Life wordt bij de volgende start geïnstalleerd. Gebruik „Opnieuw starten om bij te werken” in het systeemvak om het nu te doen.
+## download
+Je speeltijd wordt automatisch bijgehouden op deze pc. Plus je backlog en gezonde pauzes.
+Andere apparaten
+Games op deze pc worden automatisch geteld. Gebruik deze timer voor een console, telefoon of andere computer.
+Speeltijd
+op deze pc wordt automatisch geteld op het tabblad Gaming, met herinneringen voor je daglimiet. De instellingen staan bij Instellingen.
+telt je speeltijd automatisch met de gratis Windows-app en herinnert je aan je daglimieten. Download hem met de knop App downloaden onder je profiel.
+De app downloaden
+Speeltijd bijhouden
+Synchroniseren met de website
+Privacy bij speeltijd bijhouden
+Download de gratis LevelUp Life-app voor Windows # en # met de knop "App downloaden" onder je profiel, rechtsboven op deze pagina.
+Open het gedownloade bestand. Je hebt geen beheerdersrechten nodig. Zolang de app nieuw is, kan Windows "Windows heeft uw pc beschermd" tonen. Kies dan "Meer info" en daarna "Toch uitvoeren". De app opent met speeltijd bijhouden al aan.
+Open in de app Instellingen en kies "Verbinden met mijn account" bij Synchroniseren met de website. Log in met hetzelfde online account dat je hier gebruikt.
+De app vindt games van Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net en Riot en houdt ze meteen bij. Zet uit wat je niet wilt bijhouden en voeg andere games zelf toe.
+Download de LevelUp Life-app
+LevelUp Life voor Windows
+Gratis, voor Windows # en # (#-bit). Alles van deze website, plus speeltijd die zichzelf telt: de app vindt je games, houdt je speeltijd automatisch bij en herinnert je voor je daglimiet. Niets in te stellen.
+Zoeken naar de nieuwste versie…
+Versie
+Binnenkort beschikbaar.
+De Windows-download is nog niet gepubliceerd. Kom binnenkort terug.
+Zie je "Windows heeft uw pc beschermd"?
+Dat is normaal voor een nieuwe app die nog geen codehandtekening heeft, en betekent niet dat er iets mis is met het bestand. Kies "Meer info" en dan "Toch uitvoeren". De app wordt alleen voor jou geïnstalleerd, zonder beheerdersrechten, en houdt zichzelf up-to-date.
+Op een telefoon, tablet, Mac of Chromebook?
+Je gebruikt de geïnstalleerde web-app al. Hij werkt ook offline.
+Installeer deze website als app. Hij opent vanaf je beginscherm en werkt offline.
+Web-app installeren
+Tik in Safari op de deelknop en dan op "Zet op beginscherm".
+Open het browsermenu en kies "LevelUp Life installeren" of "Toevoegen aan startscherm".
+App downloaden
+Download de LevelUp Life-app voor Windows
+LevelUp Life wordt gedownload. Open het bestand als het klaar is.
+Speeltijd bijhouden staat aan
+LevelUp Life vindt je games en telt je speeltijd automatisch, ook als het venster dicht is. Je ziet het op het tabblad Gaming.
+## signin
+Doorgaan
+Doorgaan met Google of Wix
+of met e-mail en wachtwoord
+Verkeerd e-mailadres of wachtwoord. Log je in met Google, of is dit het e-mailadres van je Wix-account? Gebruik dan "Doorgaan met Google of Wix".
+Te veel pogingen. Wacht een minuut en probeer het opnieuw.
+Je e-mailadres en wachtwoord zijn geaccepteerd, maar het inloggen is niet afgerond. Probeer het zo meteen opnieuw.
+De inlogpagina kon niet worden geopend. Probeer het opnieuw.
+Je wordt ingelogd…
+Kies je LevelUp Life-wachtwoord
+Ingelogd als
+Je online voortgang is vergrendeld met het wachtwoord dat je koos toen hij voor het eerst werd opgeslagen. Vul het in om hem te ontgrendelen.
+Je voortgang wordt met dit wachtwoord vergrendeld voordat hij wordt geüpload, zodat alleen jij hem kunt lezen. Je logt er ook mee in op dit apparaat. Gebruik hetzelfde op je andere apparaten.
+Je LevelUp Life-wachtwoord
+Vergeten? Opnieuw beginnen met de voortgang van dit apparaat
+Opnieuw beginnen? De online opgeslagen voortgang wordt vervangen door de voortgang van dit apparaat. Dit kan niet ongedaan worden gemaakt.
+Dat wachtwoord heeft je voortgang niet ontgrendeld. Probeer het opnieuw.
+Het inloggen is geannuleerd. Je kunt het opnieuw proberen.
+Het inloggen kon niet worden afgerond. Probeer het opnieuw.
 `);

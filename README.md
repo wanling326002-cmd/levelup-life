@@ -10,8 +10,9 @@ Open `web/index.html` in any browser, or upload the `web/` folder to any static 
 ## Windows app and Game Time companion
 Download the latest installer from the
 [releases page](https://github.com/wanling326002-cmd/levelup-life/releases/latest) (per-user install, no admin
-needed). The app updates itself on start, and its **Game Time** page tracks games automatically with daily limits
-and reminders. See [docs/companion.md](docs/companion.md) for how it works, privacy, releasing, code signing and
+needed), or use the **Download app** button under the profile on the website. The app updates itself on start and
+tracks games automatically from the moment it is installed (plug and play): live game time is in the Gaming tab,
+settings in Settings, with daily limits and reminders. See [docs/companion.md](docs/companion.md) for how it works, privacy, releasing, code signing and
 the manual test checklist.
 
 ## Develop

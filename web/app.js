@@ -109,11 +109,13 @@ const P = {
 const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 
 /* ---------- routes ---------- */
+// In the Windows app, game tracking is built into the Gaming tab and Settings, so there is no separate Game Time tab.
+const IS_DESKTOP = !!(window.levelupDesktop && window.levelupDesktop.isDesktop);
 const ROUTES = [
   {id:'home', name:'Home', sub:'Your day at a glance.', key:'1', main:true},
   {id:'study', name:'Study Path', short:'Study', sub:'Learn Web Design & App Development, step by step.', key:'2', main:true},
   {id:'focus', name:'Focus', sub:'Pomodoro timer — deep work, then a real break.', key:'3', main:true},
-  {id:'gaming', name:'Gaming', sub:'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
+  {id:'gaming', name:'Gaming', sub:IS_DESKTOP ? 'Your game time is tracked automatically on this PC. Plus your backlog and healthy breaks.' : 'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
   {id:'companion', name:'Game Time', sub:'Automatic game tracking and daily play limits, with the Windows app.', main:true},
   {id:'series', name:'Series', sub:'Never forget which episode you are on.', key:'5', main:true},
   {id:'youtube', name:'YouTube', sub:'Save videos to learn from — or just enjoy.', key:'6', main:true},
@@ -126,7 +128,7 @@ const ROUTES = [
   {id:'options', name:'Settings', sub:'Your account, preferences and data.', key:'0'},
   {id:'help', name:'Help', sub:'How to use LevelUp Life, and keyboard shortcuts.'},
   {id:'privacy', name:'Privacy Terms', sub:'Short version: your data stays on your device.'},
-];
+].filter(r => !(IS_DESKTOP && r.id === 'companion'));
 const iconFor = id => icon(id === 'options' ? 'settings' : id === 'badges' ? 'badge' : id);
 
 /* ---------- learning content ---------- */
@@ -365,6 +367,7 @@ function clean(raw) {
   d.xp = num(s.xp, 0); d.notify = s.notify === true; d.thumbs = s.thumbs !== false;
   d.breakEvery = num(s.breakEvery, 60, 0, 600); d.epLen = num(s.epLen, 40, 1, 300); d.track = TRACKS[s.track] ? s.track : 'web';
   const g = s.goals || {}; d.goals = {learn:num(g.learn, 60, 0, 1440), play:num(g.play, 120, 0, 1440), watch:num(g.watch, 90, 0, 1440)};
+  if (s.gtLinked === true) d.gtLinked = true; // the Windows app's daily limit and this gaming limit are kept the same
   d.log = arr(s.log).filter(x => x && isDay(x.d) && CATS.includes(x.cat)).map(x => {
     const e = {d:x.d, cat:x.cat, m:num(x.m, 0, 0, 1440)}; if (x.g) e.g = str(x.g, 60); if (x.ref) e.ref = str(x.ref, 60); return e; });
   for (const [k, v] of Object.entries(s.lessons || {})) if (/^\w+\.\d+\.\d+$/.test(k)) d.lessons[k] = str(v, 10);
@@ -468,6 +471,7 @@ let current = 'home', baseTitle = 'LevelUp Life';
 function route() {
   const id = (location.hash.match(/^#\/?([\w-]+)/) || [])[1] || 'home';
   if (id === 'main') return; // the "Skip to content" link, not a tab
+  if (IS_DESKTOP && id === 'companion') { location.replace('#gaming'); return; } // old links to the Game Time tab
   const r = ROUTES.find(x => x.id === id) || ROUTES[0];
   current = r.id;
   $$('[data-route]').forEach(a => { const on = a.dataset.route === r.id; a.classList.toggle('active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
@@ -477,7 +481,7 @@ function route() {
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
 }
-function render() { if (current !== 'companion') stopGameTime(); if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); if (current !== 'messages') stopDM(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
+function render() { if (!gtOnPage(current)) stopGameTime(); if (current !== 'chat') stopChat(); if (current !== 'players') stopPlayers(); if (current !== 'messages') stopDM(); const m = $('#main'); m.innerHTML = VIEWS[current](); (BIND[current] || (() => {}))(m); addPeek(m); }
 
 /* show / hide buttons on every password box, so people can check what they typed */
 function addPeek(root = document) {
@@ -692,8 +696,9 @@ VIEWS.gaming = () => {
   const wk = week('play'), tot = wk.reduce((a,b)=>a+b,0), playedToday = minsOn(today(),'play');
   const st = {playing:['Playing','p'], backlog:['Backlog','y'], finished:['Finished','g']};
   return `<div class="grid">
-  ${card('c12', '', `<div class="row gt-promo">${icon('companion')}<span class="grow"><b>Track games automatically</b><br><span class="muted small">The free Windows app counts your game time on its own and reminds you of daily limits.</span></span><a class="btn" href="#companion">Open Game Time</a></div>`)}
-  ${card('c5', 'Session tracker', `<div style="text-align:center"><div style="font-size:3rem;font-weight:500;letter-spacing:.05em;margin:6px 0" id="gClock">00:00:00</div>
+  ${IS_DESKTOP ? `<div class="gt-slot" data-gtslot="play">${gtSlotHtml('play')}</div>`
+    : card('c12', '', `<div class="row gt-promo">${icon('companion')}<span class="grow"><b>Track games automatically</b><br><span class="muted small">The free Windows app counts your game time on its own and reminds you of daily limits.</span></span><a class="btn" href="#companion">Open Game Time</a></div>`)}
+  ${card('c5', IS_DESKTOP ? 'Other devices' : 'Session tracker', `<div style="text-align:center">${IS_DESKTOP ? '<p class="muted small" style="margin:0 0 6px">Games on this PC are counted automatically. Use this timer for a console, phone or another computer.</p>' : ''}<div style="font-size:3rem;font-weight:500;letter-spacing:.05em;margin:6px 0" id="gClock">00:00:00</div>
     <input id="gGame" list="gList" placeholder="Which game?" maxlength="60" value="${esc(G.game)}" style="margin-bottom:14px" ${G.start?'disabled':''}>
     <datalist id="gList">${S.backlog.map(b=>`<option value="${esc(b.title)}">`).join('')}</datalist>
     <button class="btn primary wide" id="gGo">${G.start ? icon('pause')+'Stop & save session' : icon('play')+'Start session'}</button>
@@ -714,6 +719,7 @@ VIEWS.gaming = () => {
 };
 BIND.gaming = m => {
   gameTick();
+  if (IS_DESKTOP) { startGameTime(); m.querySelectorAll('.gt-slot').forEach(gtBind); }
   $('#gGo').onclick = () => {
     if (!G.start) { startGame($('#gGame').value.trim() || 'Gaming', Date.now()); toast(`Session started: ${G.game}. GL HF!`); }
     else { const mins = Math.min(1440, Math.max(1, Math.round(gameElapsed()/60))); S.log.push({d:today(), cat:'play', m:mins, g:G.game}); clearInterval(G.iv); G.start = 0; delete S.run.game; save(); toast(`Saved ${fmtMin(mins)} of ${G.game}`); }
@@ -811,7 +817,8 @@ VIEWS.balance = () => {
     <label class="field"><span>Watching limit (min / day)</span><input type="number" min="0" data-goal="watch" value="${S.goals.watch}"></label></div>`)}
   </div>`;
 };
-BIND.balance = m => m.querySelectorAll('[data-goal]').forEach(i => i.onchange = () => { S.goals[i.dataset.goal] = Math.max(0, +i.value || 0); save(); toast('Goal saved'); rerender(); });
+BIND.balance = m => m.querySelectorAll('[data-goal]').forEach(i => i.onchange = () => { S.goals[i.dataset.goal] = Math.max(0, +i.value || 0); save(); toast('Goal saved');
+  if (IS_DESKTOP && i.dataset.goal === 'play') gtLimitFromApp(Math.min(1440, S.goals.play)); rerender(); });
 
 /* impact */
 function dailyQuests() { const seed = +today().replace(/-/g, ''); const idx = []; let x = seed; while (idx.length < 4) { x = (x * 9301 + 49297) % 233280; const i = x % QUESTS.length; if (!idx.includes(i)) idx.push(i); } return idx.map(i => [i, QUESTS[i]]); }
@@ -1685,7 +1692,6 @@ function ownerCard() {
 VIEWS.options = () => `<div class="grid">
   ${accountCard()}
   ${ownerCard()}
-  ${appCard()}
   ${card('c6', 'Public profile', `<div class="form">
     <div class="row" style="justify-content:space-between"><span>Show me on the leaderboard<br><span class="muted small">Lets others open your profile and add you as a friend</span></span>${me() ? `<button class="switch" id="stPublic" role="switch" aria-checked="${S.pub}" aria-label="Public profile"><i></i></button>` : '<button class="btn sm" data-open-auth="signup">Create account</button>'}</div>
     <p class="muted small" id="pubStatus" style="margin:0">${pubStatusHTML()}</p>
@@ -1698,10 +1704,11 @@ VIEWS.options = () => `<div class="grid">
     <div class="row" style="justify-content:space-between"><span>Show YouTube thumbnails<br><span class="muted small">Loads images from YouTube's servers</span></span><button class="switch" id="stThumbs" role="switch" aria-label="Show YouTube thumbnails" aria-checked="${S.thumbs}"><i></i></button></div>
     <div class="row" style="justify-content:space-between"><span>Desktop notifications<br><span class="muted small">For timers & break reminders</span></span><button class="switch" id="stNotify" role="switch" aria-label="Desktop notifications" aria-checked="${S.notify}"><i></i></button></div>
     <p class="muted small">Level ${level().lv} · ${S.xp} total XP</p></div>`)}
-  ${card('c6', 'Healthy habits', `<div class="form">
+  ${card(IS_DESKTOP ? 'c6' : 'c12', 'Healthy habits', `<div class="form">
     <label class="field"><span>Gaming break reminder every (minutes, 0 = off)</span><input type="number" min="0" max="600" id="stBreak" value="${S.breakEvery}"></label>
     <label class="field"><span>Average episode length (minutes)</span><input type="number" min="1" max="200" id="stEp" value="${S.epLen}"></label>
     <a class="btn" href="#balance">Edit daily goals →</a></div>`)}
+  ${IS_DESKTOP ? `<div class="gt-slot" data-gtslot="setup">${gtSlotHtml('setup')}</div>` : ''}
   ${card('c12', 'Your data', `<p class="muted small" style="margin:-6px 0 8px">Last backup: ${S.lastBackup ? new Date(S.lastBackup).toLocaleDateString() : 'never'}</p><p class="muted" style="margin-top:0">This ${me() ? 'account\'s' : 'profile\'s'} data is stored only in this browser/app on this device. Back it up, move it to another device, or wipe it.</p>
     <div class="row"><button class="btn" id="stExport">${icon('download')}Export backup (.json)</button>
     <label class="btn" style="cursor:pointer">${icon('upload')}Import backup<input type="file" id="stImport" accept="application/json,.json" hidden></label>
@@ -1754,7 +1761,7 @@ BIND.options = m => {
   sw('#stNotify', () => { S.notify = !S.notify; if (S.notify && 'Notification' in window && Notification.permission !== 'granted') Notification.requestPermission(); });
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
-  const ib = $('#installBtn'); if (ib) ib.onclick = installApp;
+  if (IS_DESKTOP) { startGameTime(); m.querySelectorAll('.gt-slot').forEach(gtBind); }
   $('#stLang').onchange = e => { try { localStorage.setItem('levelup-lang', e.target.value); } catch {} location.reload(); };
   $('#stSeason').onchange = e => { S.season = e.target.value; save(); applySeason(); toast('Theme updated'); };
   $('#stExport').onclick = () => { S.lastBackup = Date.now(); save(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
@@ -1771,7 +1778,8 @@ BIND.options = m => {
 /* help */
 VIEWS.help = () => `<div class="grid">
   ${card('c7', 'How to use LevelUp Life', `<ol class="muted" style="padding-left:20px;margin:0;display:grid;gap:10px">
-    <li><b style="color:var(--text)">Game Time</b> counts your game time automatically with the free Windows app and reminds you of your daily limits.</li>
+    ${IS_DESKTOP ? '<li><b style="color:var(--text)">Game time</b> on this PC is counted automatically in the Gaming tab, with reminders before your daily limit. Its settings are in Settings.</li>'
+      : '<li><b style="color:var(--text)">Game Time</b> counts your game time automatically with the free Windows app and reminds you of your daily limits. Get it with the Download app button under your profile.</li>'}
     <li><b style="color:var(--text)">Pick a study track</b> in Study Path (Web Design or App Development) and tick lessons as you finish them.</li>
     <li><b style="color:var(--text)">Start a Focus session</b> when you study. Finished sessions give XP and count toward your goal.</li>
     <li><b style="color:var(--text)">Track your fun</b>: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.</li>
@@ -1783,7 +1791,7 @@ VIEWS.help = () => `<div class="grid">
     <li><b style="color:var(--text)">Every week</b> brings 3 new challenges (see Home), and opening the app every day builds your login streak. Achievements are on the Badges page.</li>
     <li><b style="color:var(--text)">Friends</b> can send each other private, encrypted messages (Messages) and study together in a study group (Focus). The bell shows friend requests, messages and more.</li>
     <li><b style="color:var(--text)">Back up</b> from Settings any time. Nothing is uploaded unless you join the chat or make your profile public.</li></ol>
-    <div class="row" style="margin-top:16px"><button type="button" class="btn primary" id="tourBtn">${icon('play')}Take the tour</button><a class="btn" href="#options">Install the app</a></div>`)}
+    <div class="row" style="margin-top:16px"><button type="button" class="btn primary" id="tourBtn">${icon('play')}Take the tour</button></div>`)}
   ${card('c5', 'Keyboard shortcuts', `<div class="keys">
     <span><kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>/</kbd></span><span class="muted">Search & jump anywhere</span>
     <span><kbd>1</kbd> – <kbd>9</kbd></span><span class="muted">Go to tab 1–9 (9 is Badges)</span>
@@ -1864,7 +1872,7 @@ const ACTIONS = () => [
   {n:'Notifications', h:'Open', i:'bell', run:() => toggleNotes(true)},
   {n:'Language', h:'Settings', i:'globe', run:() => { location.hash = '#options'; setTimeout(() => $('#stLang')?.focus(), 80); }},
   {n:'Create or join a study group', h:'Action', i:'focus', run:() => { location.hash = '#focus'; setTimeout(() => $('#grpCode')?.focus(), 80); }},
-  ...(APP.install ? [{n:'Install LevelUp Life', h:'App', i:'download', run:() => installApp()}] : []),
+  ...(IS_DESKTOP ? [] : [{n:'Download the app', h:'App', i:'download', run:() => toggleDownload(true)}]),
   {n:'Export backup', h:'Action', i:'download', run:() => { location.hash = '#options'; setTimeout(() => $('#stExport')?.click(), 60); }},
   ...S.series.map(s => ({n:s.title, h:'Series', i:'series', run:() => location.hash = '#series'})),
   ...S.backlog.map(b => ({n:b.title, h:'Game', i:'gaming', run:() => location.hash = '#gaming'})),
@@ -2310,7 +2318,12 @@ function olError(e, mode) {
   if (t.includes('captcha')) return 'Please complete the “I’m not a robot” check first.';
   if (mode === 'signup' && (t.includes('exist') || t.includes('already') || e.status === 409)) return 'That email already has an online account. Choose “Log in online” instead.';
   if (mode === 'code') return "That code didn't work. Check the email and try again.";
-  if (mode === 'login' || e.status === 401 || e.status === 403 || e.status === 404) return 'Wrong email or password.';
+  if (e.status === 429) return 'Too many tries. Wait a minute, then try again.';
+  if (mode === 'after') return "Your email and password were accepted, but signing in didn't finish. Please try again in a moment.";
+  if (mode === 'hosted') return "Couldn't open the sign-in page. Please try again.";
+  if (mode === 'login' && (e.status === 400 || e.status === 401 || e.status === 403 || e.status === 404))
+    return 'Wrong email or password. If you sign in with Google, or this is the email of your Wix account, use "Continue with Google or Wix" instead.';
+  if (e.status === 401 || e.status === 403 || e.status === 404) return 'Wrong email or password.';
   return 'Something went wrong. Please try again.';
 }
 const b64url = u8 => b64(u8).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -2448,10 +2461,21 @@ function paintOnline() {
   else if (step === 'oldpw') f.innerHTML = `<p style="margin:0"><b>Unlock your saved progress</b></p><p class="muted" style="margin:0">Your online progress was locked with your previous password. Enter it once to unlock it, or start fresh with what is on this device.</p>
     <label class="field"><span>Previous password</span><input id="olOld" type="password" autocomplete="off"></label><p class="err" id="olErr" role="alert"></p>
     <button class="btn primary wide">Unlock</button><button type="button" class="linkbtn" id="olFresh">Start fresh with this device's progress</button>`;
+  else if (step === 'hosting') f.innerHTML = `<p class="muted" role="status" style="margin:0">Signing you in…</p><p class="err" id="olErr" role="alert"></p>`;
+  else if (step === 'syncpw') { const has = !!P.item;
+    f.innerHTML = `<p style="margin:0"><b>${has ? 'Unlock your saved progress' : 'Choose your LevelUp Life password'}</b></p>
+    <p class="muted small" style="margin:0"><span>Signed in as</span> <b translate="no">${esc(P.email || P.nick || '')}</b></p>
+    <p class="muted small" style="margin:0">${has ? 'Your online progress is locked with the password you chose when it was first saved. Enter it to unlock it.' : "Your progress is locked with this password before it's uploaded, so only you can read it. It also logs you in on this device. Use the same one on your other devices."}</p>
+    <label class="field"><span>${has ? 'Your LevelUp Life password' : 'New password'}</span><input id="olSync" type="password" autocomplete="${has ? 'current-password' : 'new-password'}" placeholder="${has ? '' : 'At least 8 characters'}"></label>
+    ${has ? '' : '<label class="field"><span>Confirm password</span><input id="olSync2" type="password" autocomplete="new-password" placeholder="Type it again"></label>'}
+    <p class="err" id="olErr" role="alert"></p>
+    <button class="btn primary wide">${has ? 'Unlock' : 'Continue'}</button>${has ? '<button type="button" class="linkbtn" id="olSyncNew">Forgot it? Start fresh with this device\'s progress</button>' : ''}`;
+    addPeek(f); }
   else if (step === 'sent') f.innerHTML = `<p style="margin:0"><b>Check your email</b></p><p class="muted" style="margin:0">If this email has an online account, we sent it a link to choose a new password: <b translate="no">${esc(OL.msg)}</b></p><p class="muted" style="margin:0">Afterwards, log in online with the new password.</p><button type="button" class="btn wide" data-olstep="form">OK</button>`;
   else { const su = OL.mode === 'signup', con = OL.connect;
     f.innerHTML = `<p class="muted small" style="margin:0">Use your account on any device. Your progress is locked with your password before it's uploaded, so only you can read it.</p>
     <div class="seg ol-seg" role="group" aria-label="Online account"><button type="button" data-olmode="signup" class="${su ? 'on' : ''}" aria-pressed="${su}">New online account</button><button type="button" data-olmode="login" class="${su ? '' : 'on'}" aria-pressed="${!su}">Log in online</button></div>
+    ${canHosted() ? `<button type="button" class="btn wide ol-hosted" id="olHosted">${icon('globe')}Continue with Google or Wix</button><p class="ol-or"><span>or with email and password</span></p>` : ''}
     ${su ? `<label class="field"><span>Username</span><input id="olUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _" value="${esc(con)}"${con ? ' readonly' : ''}></label>` : ''}
     <label class="field"><span>Email</span><input id="olEmail" type="email" autocomplete="email" maxlength="120"></label>
     <label class="field"><span>Password</span><input id="olPass" type="password" autocomplete="${su ? 'new-password' : 'current-password'}" placeholder="${su ? 'At least 8 characters' : ''}"></label>
@@ -2472,9 +2496,52 @@ function bindOnline() {
     const m = e.target.closest('[data-olmode]'); if (m) { OL.mode = m.dataset.olmode; paintOnline(); return; }
     const s = e.target.closest('[data-olstep]'); if (s) { OL.step = s.dataset.olstep; paintOnline(); return; }
     if (e.target.closest('#olForgot')) forgotOnline();
+    if (e.target.closest('#olHosted')) hostedLogin();
+    if (e.target.closest('#olSyncNew')) { if (!confirm(tr("Start fresh? The progress saved online is replaced by this device's progress. This can't be undone."))) return; Object.assign(OL.pending, {item:null, fresh:true}); paintOnline(); }
     if (e.target.closest('#olFresh')) { OL.step = 'form'; finishOnline(Object.assign(OL.pending, {fresh:true})); }
   });
   f.addEventListener('submit', e => { e.preventDefault(); onlineSubmit(); });
+}
+/* "Continue with Google or Wix": Wix's own sign-in page, for accounts that sign in with Google (or Facebook) and for
+   the site owner's email, which Wix links to the owner's Wix account. The page comes back to this website with a
+   one-time code (PKCE). Progress is still locked before upload, with a LevelUp Life password chosen afterwards. */
+const HOSTED_KEY = 'levelup-hosted-login';
+const hereUrl = () => location.origin + location.pathname;
+const canHosted = () => hereUrl() === SITE_URL || /^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(hereUrl()); // the return address must be allowed in the site's settings
+async function hostedLogin() {
+  const err = $('#olErr'); if (err) err.textContent = '';
+  try {
+    const verifier = b64url(crypto.getRandomValues(new Uint8Array(32))), state = randHex(16);
+    const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(verifier))));
+    const j = await wixPost('/_api/redirects-api/v1/redirect-session', {auth:{authRequest:{redirectUri:hereUrl(), clientId:CLIENT_ID, codeChallenge:challenge, codeChallengeMethod:'S256', responseMode:'query', responseType:'code', scope:'offline_access', state}},
+      preferences:{additionalQueryParameters:{lang:LANG}}});
+    const url = j.redirectSession && j.redirectSession.fullUrl; if (!/^https:\/\//.test(url || '')) throw Object.assign(new Error('no session'), {status:500});
+    sessionStorage.setItem(HOSTED_KEY, JSON.stringify({verifier, state, connect:OL.connect, hash:location.hash, at:Date.now()}));
+    location.assign(url);
+  } catch (e) { if (err) err.textContent = olError(e, 'hosted'); }
+}
+async function hostedReturn() { // back from the sign-in page: ?code=…&state=…
+  const q = new URLSearchParams(location.search); if (!q.has('state')) return;
+  let p = null; try { p = JSON.parse(sessionStorage.getItem(HOSTED_KEY) || 'null'); sessionStorage.removeItem(HOSTED_KEY); } catch {}
+  if (!p || q.get('state') !== p.state || Date.now() - p.at > 30 * 60000) return;
+  history.replaceState(null, '', location.pathname + (p.hash || location.hash)); // the code is single-use; don't leave it in the address bar
+  OL.mode = 'login'; OL.connect = p.connect || ''; OL.step = q.get('code') ? 'hosting' : 'form'; OL.pending = null;
+  openAuth('online');
+  if (!q.get('code')) { const el = $('#olErr'); if (el) el.textContent = 'The sign-in was cancelled. You can try again.'; return; }
+  try {
+    const r = await fetch(WIXAPI + '/oauth2/token', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({clientId:CLIENT_ID, grantType:'authorization_code', redirectUri:hereUrl(), code:q.get('code'), codeVerifier:p.verifier})});
+    if (!r.ok) throw Object.assign(new Error('token ' + r.status), {status:r.status});
+    const k = await r.json();
+    const mr = await fetch(WIXAPI + '/members/v1/members/my?fieldsets=FULL', {headers:{Authorization:k.access_token}});
+    if (!mr.ok) throw Object.assign(new Error('member ' + mr.status), {status:mr.status});
+    const m = (await mr.json()).member || {}, id = String(m.id || '');
+    if (!/^[\w-]{8,60}$/.test(id) || !k.refresh_token) throw Object.assign(new Error('id'), {status:500});
+    OL.token = k.access_token; OL.tokenFor = id; OL.tokenExp = Date.now() + ((k.expires_in || 14400) - 120) * 1000;
+    const email = String(m.loginEmail || ''), P = {mode:'login', email:EMAIL_RE.test(email) ? email : '', name:'', connect:OL.connect, memberId:id, rt:k.refresh_token, nick:String((m.profile || {}).nickname || ''), hosted:true};
+    P.item = await cloudGet({online:{id, rt:k.refresh_token}});
+    OL.pending = P; OL.step = 'syncpw'; paintOnline();
+    setTimeout(() => { const f = $('#olSync'); if (f) f.focus(); }, 30);
+  } catch (e) { OL.step = 'form'; paintOnline(); const el = $('#olErr'); if (el) el.textContent = "Couldn't finish signing in. Please try again."; }
 }
 async function forgotOnline() {
   const email = ($('#olEmail').value || '').trim(), err = $('#olErr'); err.textContent = '';
@@ -2489,6 +2556,14 @@ async function onlineSubmit() {
   if (OL.step === 'code') return go(async () => {
     try { const j = await wixPost('/_api/iam/verification/v1/auth/verify', {code:$('#olCode').value.trim(), stateToken:OL.pending.stateToken}); await afterAuth(j, OL.pending); }
     catch (e) { $('#olErr').textContent = olError(e, 'code'); } });
+  if (OL.step === 'syncpw') return go(async () => {
+    const P = OL.pending, pw = $('#olSync').value, e2 = $('#olErr');
+    if (pw.length < 8) return e2.textContent = 'Use a password with at least 8 characters.';
+    if (!P.item && pw !== $('#olSync2').value) return e2.textContent = 'The passwords do not match.';
+    const key = await cloudKeyFrom(pw, P.memberId);
+    if (P.item) { try { P.blob = await openCloud(key, P.item.data.payload); } catch { return e2.textContent = "That password didn't unlock your progress. Try again."; } if (P.blob && P.blob.deleted) P.blob = null; }
+    P.pw = pw; P.key = key;
+    try { await finishOnline(P); } catch (e) { e2.textContent = olError(e, 'after'); } });
   if (OL.step === 'oldpw') return go(async () => {
     const P = OL.pending; try { const k = await cloudKeyFrom($('#olOld').value, P.memberId); P.blob = await openCloud(k, P.item.data.payload); P.relock = true; await finishOnline(P); }
     catch { $('#olErr').textContent = "That password didn't unlock it. Try again, or start fresh."; } });
@@ -2506,9 +2581,11 @@ async function onlineSubmit() {
     try {
       const body = {loginId:{email}, password:pw, captcha_tokens:[{Recaptcha:tok}]};
       if (su) body.profile = {nickname:name};
-      const j = await wixPost(su ? '/_api/iam/authentication/v2/register' : '/_api/iam/authentication/v2/login', body);
+      let j;
+      try { j = await wixPost(su ? '/_api/iam/authentication/v2/register' : '/_api/iam/authentication/v2/login', body); }
+      catch (e) { const el = $('#olErr'); if (el) el.textContent = olError(e, OL.mode); resetCaptcha(); return; }
       await afterAuth(j, {mode:OL.mode, email, pw, name, connect:OL.connect});
-    } catch (e) { const el = $('#olErr'); if (el) el.textContent = olError(e, OL.mode); resetCaptcha(); }
+    } catch (e) { const el = $('#olErr'); if (el) el.textContent = olError(e, 'after'); resetCaptcha(); }
   });
 }
 async function afterAuth(j, ctx) {
@@ -2530,7 +2607,7 @@ async function finishOnline(P) {
   let u = linked || (P.connect ? ACC.users[P.connect.toLowerCase()] : null), fromCloud = false, newAcc = false, carried = false;
   if (!u) { // a new account on this device: named after the online account
     let name = P.blob && USER_RE.test(P.blob.username || '') ? P.blob.username : P.mode === 'signup' ? P.name : USER_RE.test(P.nick) ? P.nick : '';
-    if (!name) name = (P.email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 14) || 'player') + randHex(2);
+    if (!name) name = (String(P.email || '').split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 14) || 'player') + randHex(2);
     if (ACC.users[name.toLowerCase()]) { OL.step = 'form'; paintOnline(); $('#olErr').textContent = `This device already has a local account called ${name}. Log in to it first, then use Settings → Make it an online account.`; return; }
     u = {username:name, email:P.email, created:(P.blob && P.blob.created) || today()};
     const carry = ACC.current === GUEST && !P.blob, data = clean(P.blob && !P.fresh ? P.blob.S : carry ? loadJSON(GUEST_KEY, {}) : {});
@@ -2561,16 +2638,18 @@ function openOnline(mode, connect) { OL.mode = mode || 'signup'; OL.connect = co
 async function cloudTombstone(u) { try { const k = await mediaGet('cloudkey'); if (k) await cloudPut(u, await sealCloud(k, {v:1, deleted:true, at:Date.now()}), Date.now()); } catch {} }
 
 /* ---------- Game Time: automatic game tracking and daily play limits ----------
-   One page, two sources:
-   - In the Windows app, the data comes from the tracker on this PC (window.levelupDesktop).
-   - On the website, it comes from what the app synced to the member's own collections (online accounts only).
-   Both are turned into the same model and drawn by the same code, using CompanionCore for days, overlaps and limits. */
-const GT_DOWNLOAD = 'https://github.com/wanling326002-cmd/levelup-life/releases/latest/download/LevelUp-Life-Setup.exe';
-const GT_RELEASES = 'https://github.com/wanling326002-cmd/levelup-life/releases/latest';
+   Two sources, one model:
+   - In the Windows app, the data comes from the tracker on this PC (window.levelupDesktop). There it is built in:
+     the live cards sit at the top of the Gaming tab and the settings in Settings (the "slots" below), with no setup.
+   - On the website, it comes from what the app synced to the member's own collections (online accounts only), on the
+     Game Time tab.
+   Both are drawn by the same code, using CompanionCore for days, overlaps and limits. */
 const GT_FRESH_MS = 150000; // a PC that checked in within 2.5 minutes counts as connected
 const GT = {model: null, loading: false, error: '', timer: null, live: null, desk: null, unsub: null, remote: null, editing: false};
-const desktop = () => window.levelupDesktop && window.levelupDesktop.isDesktop ? window.levelupDesktop : null;
+const desktop = () => IS_DESKTOP ? window.levelupDesktop : null;
 if (desktop()) desktop().setLang(LANG).catch(() => {}); // the tray, notifications and splash use the same language
+const gtOnPage = id => id === 'companion' || (IS_DESKTOP && (id === 'gaming' || id === 'options'));
+const gtRefresh = () => current === 'companion' ? rerender() : gtPaintSlots();
 const CC = () => window.CompanionCore;
 const gtSource = s => ({steam:'Steam', epic:'Epic Games', xbox:'Xbox / Game Pass', gog:'GOG', ea:'EA app', ubisoft:'Ubisoft Connect', battlenet:'Battle.net', riot:'Riot', rockstar:'Rockstar', bethesda:'Bethesda', other:'Installed game', manual:'Added by you'}[s] || 'Game');
 const gtDur = ms => fmtMin(Math.floor(Math.max(0, ms) / 60000));
@@ -2581,20 +2660,26 @@ const gtDay = (day, o) => new Date(day + 'T12:00:00Z').toLocaleDateString(gtLoc(
 const gtAgo = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? 'just now' : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : fmtTime(ms); };
 
 /* ---------- loading ---------- */
-function stopGameTime() { clearInterval(GT.timer); GT.timer = null; clearInterval(GT.live); GT.live = null; if (GT.unsub) { GT.unsub(); GT.unsub = null; } }
+function stopGameTime() { clearInterval(GT.timer); GT.timer = null; clearInterval(GT.live); GT.live = null; }
 function startGameTime() {
   stopGameTime();
-  const d = desktop();
-  if (d) { GT.unsub = d.onUpdate(p => { GT.desk = p; gtSetModel(gtFromDesktop(p)); }); GT.timer = setInterval(() => gtLoad(), 5000); }
-  else GT.timer = setInterval(() => { if (document.visibilityState === 'visible') gtLoad(); }, 15000); // the website refreshes every 15 seconds
+  if (!desktop()) GT.timer = setInterval(() => { if (document.visibilityState === 'visible') gtLoad(); }, 15000); // the website refreshes every 15 seconds
   GT.live = setInterval(gtTickLive, 1000);
   gtLoad();
+}
+// In the Windows app the tracker's updates are always followed (not only on the Gaming tab), so tracked time reaches
+// Balance, badges and challenges wherever you are.
+function gtDesktopStart() {
+  const d = desktop(); if (!d || GT.unsub) return;
+  const take = p => { if (!p || !p.snap) return; GT.desk = p; gtLink(p); gtSetModel(gtFromDesktop(p)); };
+  GT.unsub = d.onUpdate(take);
+  d.snapshot().then(take).catch(() => {});
 }
 async function gtLoad() {
   if (GT.loading) return; GT.loading = true;
   try {
     const d = desktop();
-    if (d) { GT.desk = await d.snapshot(); gtSetModel(gtFromDesktop(GT.desk)); }
+    if (d) { GT.desk = await d.snapshot(); gtLink(GT.desk); gtSetModel(gtFromDesktop(GT.desk)); }
     else if (isOnlineAcc() && canOnline()) { GT.remote = await gtFetchRemote(); gtSetModel(gtFromRemote(GT.remote)); }
     else gtSetModel({mode: 'setup'});
     GT.error = '';
@@ -2604,10 +2689,52 @@ async function gtLoad() {
 function gtSetModel(m) {
   const same = GT.model && JSON.stringify({...GT.model, now: 0}) === JSON.stringify({...m, now: 0});
   GT.model = m;
-  if (current !== 'companion' || same) return;
+  if (!gtOnPage(current) || same) return;
   const a = document.activeElement; // don't redraw under someone typing a limit
-  if (a && a.closest && a.closest('#main') && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { GT.dirty = true; return; }
-  rerender();
+  if (a && a.closest && a.closest(current === 'companion' ? '#main' : '.gt-slot') && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { GT.dirty = true; return; }
+  gtRefresh();
+}
+// The Windows app's tabs show the same cards in two places: live game time on Gaming, settings on Settings.
+function gtSlotHtml(kind) {
+  const m = GT.model;
+  if (!m || m.mode !== 'desktop') return card('c12', '', `<p class="muted" role="status">Loading your game time…</p>`);
+  if (kind === 'play') return `${gtNowCard(m)}${gtTodayCard(m)}${gtGamesCard(m)}`;
+  return `${gtSettingsCard(m)}${gtConnCard(m)}${gtLimitsInfoCard()}${gtPrivacyCard('c6')}`;
+}
+function gtPaintSlots() {
+  const slots = $$('#main .gt-slot'); if (!slots.length) return;
+  const f = document.activeElement, fid = f && f.closest && f.closest('.gt-slot') ? f.id || '' : '';
+  for (const el of slots) el.innerHTML = gtSlotHtml(el.dataset.gtslot);
+  gtPaintPicker();
+  if (fid) { const n = document.getElementById(fid); if (n) n.focus({preventScroll: true}); } // keyboard users stay on the button they used
+}
+
+/* In the Windows app, tracked time also counts everywhere else (Gaming, Balance, badges, challenges): each day's
+   minutes per game become log entries for that game, replaced on every update so nothing counts twice. The Balance
+   gaming limit and the app's overall daily limit are one and the same. */
+function gtLink(p) {
+  if (!IS_DESKTOP || !p || !p.snap || !ACC.current || !S || !Array.isArray(S.log)) return;
+  const hist = p.snap.hist || p.snap.week || []; if (!hist.length) return;
+  const days = new Set(hist.map(x => x.day)), mine = e => typeof e.ref === 'string' && e.ref.startsWith('gt:') && days.has(e.d);
+  const want = [];
+  for (const x of hist) for (const g of Object.values(x.perGame || {})) {
+    const mins = Math.min(1440, Math.floor((g.ms || 0) / 60000));
+    if (mins > 0) want.push({d: x.day, cat: 'play', m: mins, g: String(g.name || 'Game').slice(0, 60), ref: ('gt:' + g.game).slice(0, 60)});
+  }
+  const sig = a => a.map(e => `${e.d}|${e.ref}|${e.m}|${e.g}`).sort().join(',');
+  let changed = false;
+  if (sig(S.log.filter(mine)) !== sig(want)) { S.log = S.log.filter(e => !mine(e)).concat(want); changed = true; }
+  const lim = (p.settings && p.settings.overallLimitMin) || 0;
+  if (!S.gtLinked) { // first time on this PC: a limit set on the PC or website wins, otherwise the PC takes this one
+    S.gtLinked = true; changed = true;
+    if (lim) S.goals.play = lim; else if (S.goals.play > 0) gtLimitFromApp(Math.min(1440, S.goals.play));
+  } else if (lim && lim !== S.goals.play && Date.now() - (GT.limitAt || 0) > 10000) { S.goals.play = lim; changed = true; }
+  if (changed) { save(); if (current === 'balance' || current === 'home' || current === 'badges') { const a = document.activeElement; if (!(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) rerender(); } }
+}
+function gtLimitFromApp(min) { // a gaming limit changed in Balance becomes the PC's overall daily limit
+  const d = desktop(); if (!d) return;
+  GT.limitAt = Date.now();
+  d.setSettings({overallLimitMin: min}).then(p => { GT.desk = p; gtSetModel(gtFromDesktop(p)); }).catch(() => {});
 }
 function paintGtError() { const el = $('#gtErr'); if (el) el.textContent = GT.error; }
 
@@ -2721,7 +2848,7 @@ function gtHistoryCard(m) {
 }
 function gtSettingsCard(m) {
   const d = m.mode === 'desktop', tz = m.settings.tz || '', zones = (() => { try { return Intl.supportedValuesOf('timeZone'); } catch { return [gtTz()]; } })();
-  return card('c6', 'Limits & settings', `<div class="form">
+  return card('c6', d ? 'Game tracking' : 'Limits & settings', `<div class="form">
     <label class="field"><span>Overall daily gaming limit (minutes)</span><input type="number" min="0" max="1440" step="5" id="gtOverall" value="${m.settings.overallLimitMin || ''}" placeholder="No limit"></label>
     <label class="field"><span>Day starts at midnight in</span><select id="gtTz"><option value="">This computer's time zone${d && m.settings.systemTz ? ` (${esc(m.settings.systemTz)})` : ''}</option>${zones.map(z => `<option translate="no" value="${esc(z)}"${z === tz ? ' selected' : ''}>${esc(z.replace(/_/g, ' '))}</option>`).join('')}</select></label>
     <div class="row" style="justify-content:space-between"><span>Reminders at 30, 10 and 0 minutes left<br><span class="muted small">Desktop notifications, once each per day</span></span><button class="switch" id="gtNotify" role="switch" aria-label="Limit reminders" aria-checked="${m.settings.notify !== false}"><i></i></button></div>
@@ -2739,7 +2866,7 @@ function gtLimitsInfoCard() {
 function gtConnCard(m) {
   if (m.mode === 'desktop') {
     const c = m.conn, on = c.state !== 'local' && c.state !== 'disconnected';
-    return card('c12', 'Your account', `${on ? `<p style="margin-top:0"><span>This PC syncs with your online account:</span> <b translate="no">${esc((c.member && (c.member.email || c.member.nickname)) || '')}</b></p><p class="muted" style="margin:0 0 8px">See your game time on the website, from any device.${c.lastSync ? ` <span class="small">Last sync: ${gtAgo(c.lastSync)}</span>` : ''}</p>${c.error ? `<p class="err">${esc(c.error)}</p>` : ''}
+    return card('c12', 'Sync with the website', `${on ? `<p style="margin-top:0"><span>This PC syncs with your online account:</span> <b translate="no">${esc((c.member && (c.member.email || c.member.nickname)) || '')}</b></p><p class="muted" style="margin:0 0 8px">See your game time on the website, from any device.${c.lastSync ? ` <span class="small">Last sync: ${gtAgo(c.lastSync)}</span>` : ''}</p>${c.error ? `<p class="err">${esc(c.error)}</p>` : ''}
         <div class="row">${c.state === 'signedOut' ? `<button class="btn primary" id="gtConnect">${icon('globe')}Connect again</button>` : ''}<button class="btn" id="gtWeb">${icon('link')}Open my dashboard</button><button class="btn" id="gtDisconnect">${icon('logout')}Disconnect this PC</button></div>`
       : `<p style="margin-top:0">Tracking works on this PC without an account. Connect your online account to see your game time and change limits on the website, from your phone too.</p>
         <div class="row"><button class="btn primary" id="gtConnect">${icon('globe')}Connect to my account</button></div>
@@ -2750,16 +2877,16 @@ function gtConnCard(m) {
   return card('c12', 'Your PCs', `${m.devices.length ? `<ul class="list">${m.devices.map(d => `<li class="item"><span class="gt-dot${d.fresh ? (d.tracking ? ' on' : ' warn') : ''}" aria-hidden="true"></span><div class="grow"><div class="t" translate="no">${esc(d.name || 'PC')}</div>
       <div class="s"><span>${d.fresh ? (d.tracking ? 'Connected · tracking on' : 'Connected · tracking paused') : `Last seen ${gtAgo(d.lastSeen || 0)}`}</span>${d.appVersion ? `<span translate="no"> · v${esc(d.appVersion)}</span>` : ''}</div></div>
       <button class="btn sm" data-gtrevoke="${esc(d.itemId)}">Disconnect</button></li>`).join('')}</ul>` : empty('No PC connected yet.')}
-    <div class="row" style="margin-top:14px"><a class="btn" href="${GT_DOWNLOAD}" rel="noopener">${icon('download')}Download for Windows</a><button class="btn ghost danger" id="gtDelOnline">${icon('trash')}Delete my online game history</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost danger" id="gtDelOnline">${icon('trash')}Delete my online game history</button></div>
     <p class="muted small" style="margin:8px 0 0">Disconnecting stops that PC from syncing within about a minute. It keeps tracking on the PC itself until you connect it again.</p>`);
 }
 function gtSetupCard() {
   const online = isOnlineAcc();
   const steps = [
-    ['Download', `Get the free LevelUp Life app for Windows 10 and 11.<div class="row" style="margin-top:8px"><a class="btn primary" href="${GT_DOWNLOAD}" rel="noopener">${icon('download')}Download for Windows</a><a class="btn ghost" href="${GT_RELEASES}" target="_blank" rel="noopener">All versions</a></div>`],
-    ['Install', 'Open the downloaded file. No administrator rights are needed. While the app is new, Windows may show "Windows protected your PC". If it does, choose "More info" and then "Run anyway".'],
-    ['Connect', online ? 'In the app, open Game Time and choose "Connect to my account". Sign in with the same online account you use here.' : 'Connecting needs an online account, so your PC and this website share your game time. You can also use the app on its own, without connecting.<br><a href="#options">Create an online account in Settings</a>'],
-    ['Choose games', 'The app finds games from Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot. Turn off anything you don\'t want tracked and add other games by hand.'],
+    ['Download', 'Get the free LevelUp Life app for Windows 10 and 11 with the "Download app" button under your profile, at the top right of this page.'],
+    ['Install', 'Open the downloaded file. No administrator rights are needed. While the app is new, Windows may show "Windows protected your PC". If it does, choose "More info" and then "Run anyway". The app opens with game tracking already on.'],
+    ['Connect', online ? 'In the app, open Settings and choose "Connect to my account" under Sync with the website. Sign in with the same online account you use here.' : 'Connecting needs an online account, so your PC and this website share your game time. You can also use the app on its own, without connecting.<br><a href="#options">Create an online account in Settings</a>'],
+    ['Choose games', 'The app finds games from Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot and tracks them straight away. Turn off anything you don\'t want tracked and add other games by hand.'],
     ['Set limits', 'Set a daily limit per game and an overall one. You get reminders at 30, 10 and 0 minutes left. Limits never close or block a game.'],
   ];
   return card('c12', 'Set up the Game Time companion', `<p class="muted" style="margin-top:-6px">A small Windows app counts the time you spend in games automatically, even when this website is closed, and shows your daily limits here.</p>
@@ -2773,13 +2900,13 @@ VIEWS.companion = () => {
   if (m.mode === 'web' && !m.devices.length && !m.games.length) return `<div class="grid">${gtSetupCard()}${gtConnCard(m)}${gtLimitsInfoCard()}${gtPrivacyCard()}</div>${err}`;
   return `${err}<div class="grid">${gtNowCard(m)}${gtTodayCard(m)}${gtGamesCard(m)}${gtWeekCard(m)}${gtHistoryCard(m)}${gtSettingsCard(m)}${gtLimitsInfoCard()}${gtConnCard(m)}${gtPrivacyCard()}</div>`;
 };
-function gtPrivacyCard() {
-  return card('c12', 'Privacy', `<p class="muted small" style="margin:0">The app only looks at the names and locations of running programs to recognise games, using the lowest access Windows allows. Only tracked games ever leave your PC: their names, program names, session times and your limits, never a list of your other programs, install folders, screenshots, keystrokes or game accounts. <a href="#privacy">Read the full privacy notice (section 4f)</a>.</p>`);
+function gtPrivacyCard(cls = 'c12') {
+  return card(cls, IS_DESKTOP ? 'Game tracking privacy' : 'Privacy', `<p class="muted small" style="margin:0">The app only looks at the names and locations of running programs to recognise games, using the lowest access Windows allows. Only tracked games ever leave your PC: their names, program names, session times and your limits, never a list of your other programs, install folders, screenshots, keystrokes or game accounts. <a href="#privacy">Read the full privacy notice (section 4f)</a>.</p>`);
 }
 function gtTickLive() { // the session clocks count every second without redrawing the page
-  if (current !== 'companion') return;
+  if (!gtOnPage(current)) return;
   for (const el of document.querySelectorAll('.gt-clock[data-since]')) el.textContent = gtClock(Date.now() - Number(el.dataset.since));
-  if (GT.dirty && !(document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName))) { GT.dirty = false; rerender(); }
+  if (GT.dirty && !(document.activeElement && /INPUT|SELECT/.test(document.activeElement.tagName))) { GT.dirty = false; gtRefresh(); }
 }
 
 /* ---------- changes ---------- */
@@ -2799,12 +2926,12 @@ async function gtEditGame(id, patch) {
 }
 async function gtSettings(patch) {
   const d = desktop();
-  if (d) return gtDo(async () => { GT.desk = await d.setSettings(patch); gtSetModel(gtFromDesktop(GT.desk)); });
+  if (d) return gtDo(async () => { GT.desk = await d.setSettings(patch); gtLink(GT.desk); gtSetModel(gtFromDesktop(GT.desk)); });
   return gtDo(() => gtSaveRemote(c => { Object.assign(c, patch, {settingsAt: Date.now()}); }));
 }
-BIND.companion = () => {
-  startGameTime();
-  const m = $('#main'), d = desktop();
+BIND.companion = () => { startGameTime(); gtBind($('#main')); };
+function gtBind(m) { // m: the Game Time page, or one of the app's slots
+  const d = desktop();
   m.onchange = e => {
     const t = e.target;
     if (t.dataset.gtlimit) gtEditGame(t.dataset.gtlimit, {limitMin: Math.max(0, Math.min(1440, Math.round(+t.value || 0)))});
@@ -2821,7 +2948,7 @@ BIND.companion = () => {
     if (b.dataset.gtrevoke) { if (!confirm(tr('Disconnect this PC? It stops syncing within about a minute.'))) return;
       return gtDo(async () => { await gtRevoke(b.dataset.gtrevoke); await gtLoad(); }, 'PC disconnected'); }
     if (b.dataset.gtpick !== undefined) { const p = GT.picker[+b.dataset.gtpick], name = ($('#gtPickName') || {}).value || '';
-      return gtDo(async () => { const r = await d.addGameFromProcess(p, name.trim()); GT.desk = r.payload; GT.picker = null; gtSetModel(gtFromDesktop(GT.desk)); rerender(); }, 'Game added'); }
+      return gtDo(async () => { const r = await d.addGameFromProcess(p, name.trim()); GT.desk = r.payload; GT.picker = null; gtSetModel(gtFromDesktop(GT.desk)); gtRefresh(); }, 'Game added'); }
     switch (b.id) {
       case 'gtPause': return gtDo(async () => { GT.desk = await d.setPaused(!GT.model.paused); gtSetModel(gtFromDesktop(GT.desk)); }, GT.model.paused ? 'Tracking resumed' : 'Tracking paused');
       case 'gtNotify': { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); return gtSettings({notify: on}); }
@@ -2840,7 +2967,7 @@ BIND.companion = () => {
       case 'gtPickCancel': GT.picker = null; return gtPaintPicker();
     }
   };
-};
+}
 // Mark a PC as disconnected: only the "revoked" and "playing" fields change, so its other details stay for the list.
 async function gtRevoke(itemId) {
   const token = await memberToken(me());
@@ -2884,20 +3011,84 @@ function setupShell() {
     navigator.serviceWorker.register('levelup-sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'update' && !APP.update) { APP.update = true; bar.hidden = false; } });
   }
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); APP.install = e; if (current === 'options') rerender(); });
-  window.addEventListener('appinstalled', () => { APP.install = null; toast('LevelUp Life is installed'); if (current === 'options') rerender(); });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); APP.install = e; paintDownload(); });
+  window.addEventListener('appinstalled', () => { APP.install = null; toast('LevelUp Life is installed'); paintDownload(); });
 }
 async function installApp() {
-  if (!APP.install) { location.hash = '#options'; return; }
+  if (!APP.install) { toggleDownload(true); return; }
   APP.install.prompt(); const r = await APP.install.userChoice.catch(() => null); APP.install = null;
-  if (r && r.outcome === 'accepted') toast('Installing LevelUp Life…'); if (current === 'options') rerender();
+  if (r && r.outcome === 'accepted') toast('Installing LevelUp Life…'); paintDownload();
 }
-function appCard() {
-  const body = isStandalone() ? `<p class="muted" style="margin-top:-6px">You're using the installed app. It opens from your desktop or home screen and works offline.</p>`
-    : APP.install ? `<p class="muted" style="margin-top:-6px">Install LevelUp Life to open it from your desktop or home screen like a normal app. It works offline too.</p><button type="button" class="btn primary" id="installBtn">${icon('download')}Install app</button>`
-    : isIOS() ? `<p class="muted" style="margin-top:-6px">To install on iPhone or iPad: tap the <b>Share</b> button in Safari, then <b>Add to Home Screen</b>.</p>`
-    : `<p class="muted" style="margin-top:-6px">To install: in Chrome or Edge, use the install icon at the right of the address bar, or open the browser menu and choose <b>Install LevelUp Life</b>. On Windows you can also use the desktop installer.</p>`;
-  return card('c6', 'App', body + `<p class="muted small" style="margin:12px 0 0">After your first visit the app opens offline too. Chat and Players need the internet.</p>`);
+/* ---------- the Download app button (under the profile, website only) ----------
+   Where the Windows installer lives is looked up, not hard-coded, so the download keeps working wherever it is
+   published: first downloads.json on this website (any https address), then the latest GitHub release. If neither
+   has one yet, the panel says so instead of showing a broken link. */
+const DL = {info: null, busy: null, repo: 'wanling326002-cmd/levelup-life'};
+const isWindowsPC = () => /Windows NT/i.test(navigator.userAgent) && !/Windows Phone/i.test(navigator.userAgent);
+const okUrl = u => typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u);
+async function dlResolve() {
+  if (DL.info) return DL.info;
+  if (!DL.busy) DL.busy = (async () => {
+    try { const c = JSON.parse(sessionStorage.getItem('levelup-dl') || 'null'); if (c && c.info && okUrl(c.info.url) && Date.now() - c.at < 600000) return c.info; } catch {}
+    let info = {url: '', version: '', size: 0, all: ''};
+    try {
+      const r = await fetch('downloads.json', {cache: 'no-cache'});
+      if (r.ok) { const j = await r.json(), w = (j && j.windows) || {};
+        if (j && typeof j.github === 'string' && /^[\w.-]+\/[\w.-]+$/.test(j.github)) DL.repo = j.github;
+        if (okUrl(w.url)) info = {url: w.url, version: String(w.version || '').slice(0, 20), size: +w.size || 0, all: okUrl(w.all) ? w.all : ''}; }
+    } catch {}
+    if (!info.url) try {
+      const r = await fetch(`https://api.github.com/repos/${DL.repo}/releases/latest`, {headers: {Accept: 'application/vnd.github+json'}});
+      if (r.ok) { const j = await r.json(), as = j.assets || [], a = as.find(x => x.name === 'LevelUp-Life-Setup.exe') || as.find(x => /\.exe$/i.test(x.name));
+        if (a && okUrl(a.browser_download_url)) info = {url: a.browser_download_url, version: String(j.tag_name || '').replace(/^v/, '').slice(0, 20), size: a.size || 0, all: okUrl(j.html_url) ? j.html_url : ''}; }
+    } catch {}
+    if (info.url) try { sessionStorage.setItem('levelup-dl', JSON.stringify({at: Date.now(), info})); } catch {}
+    return info;
+  })().then(info => { if (info.url) DL.info = info; DL.last = info; return info; }).finally(() => { DL.busy = null; });
+  return DL.busy;
+}
+function dlPwaHtml() {
+  const body = isStandalone() ? `<p class="muted small">You're using the installed web app already. It works offline too.</p>`
+    : APP.install ? `<p class="muted small">Install this website as an app. It opens from your home screen and works offline.</p><button type="button" class="btn" id="dlPwa">${icon('download')}Install the web app</button>`
+    : isIOS() ? `<p class="muted small">In Safari, tap the Share button, then "Add to Home Screen".</p>`
+    : `<p class="muted small">Open your browser menu and choose "Install LevelUp Life" or "Add to Home Screen".</p>`;
+  return `<div class="dl-sec"><h3>On a phone, tablet, Mac or Chromebook?</h3>${body}</div>`;
+}
+function dlWinHtml(info) {
+  const mb = info && info.size ? Math.round(info.size / 1048576) : 0;
+  const get = !info ? `<p class="muted small" role="status">Checking for the latest version…</p>`
+    : info.url ? `<a class="btn primary wide" id="dlGo" href="${esc(info.url)}" rel="noopener">${icon('download')}Download for Windows</a>
+      <p class="muted small dl-meta">${info.version ? `<span>Version</span> <span translate="no">${esc(info.version)}</span>` : ''}${info.version && mb ? ' · ' : ''}${mb ? `<span translate="no">${mb} MB</span>` : ''}${info.all ? `${info.version || mb ? ' · ' : ''}<a href="${esc(info.all)}" target="_blank" rel="noopener">All versions</a>` : ''}</p>`
+    : `<p class="dl-soon" role="status"><b>Coming soon.</b> <span>The Windows download isn't published yet. Please check back shortly.</span></p>`;
+  return `<div class="dl-sec"><h3>LevelUp Life for Windows</h3>
+    <p class="muted small">Free, for Windows 10 and 11 (64-bit). Everything on this website, plus game time that counts itself: it finds your games, tracks your play time automatically and reminds you before your daily limit. No setup needed.</p>
+    ${get}
+    <div class="dl-note" role="note">${icon('help')}<p><b>Seeing "Windows protected your PC"?</b> <span>That's normal for a new app that isn't code-signed yet, and doesn't mean anything is wrong with the file. Choose "More info", then "Run anyway". It installs just for you, without administrator rights, and keeps itself up to date.</span></p></div></div>`;
+}
+function paintDownload() {
+  const p = $('#dlPanel'); if (!p) return;
+  const info = DL.info || DL.last || null, win = dlWinHtml(DL.busy && !DL.info ? null : info), pwa = dlPwaHtml();
+  p.innerHTML = `<div class="dl-head"><img src="icon.svg" alt="" width="36" height="36"><h2 id="dlTitle">Get the LevelUp Life app</h2><button type="button" class="iconbtn" id="dlClose" aria-label="Close">${icon('x')}</button></div>
+    <div class="dl-body">${isWindowsPC() ? win + pwa : pwa + win}</div>`;
+}
+function toggleDownload(open) {
+  let p = $('#dlPanel'); const btn = $('#dlBtn'); if (!btn || (!p && open === false)) return;
+  if (!p) { p = document.createElement('div'); p.id = 'dlPanel'; p.className = 'note-panel dl-panel'; p.hidden = true; p.setAttribute('role', 'dialog'); p.setAttribute('aria-labelledby', 'dlTitle'); document.body.append(p);
+    p.addEventListener('click', e => {
+      if (e.target.closest('#dlClose')) return toggleDownload(false);
+      if (e.target.closest('#dlPwa')) return installApp();
+      if (e.target.closest('#dlGo')) toast('Downloading LevelUp Life. Open the file when it finishes.');
+    }); }
+  open = open === undefined ? p.hidden : open;
+  if (open) {
+    const first = () => p.querySelector('#dlGo') || p.querySelector('button');
+    paintDownload(); p.hidden = false;
+    const r = btn.getBoundingClientRect(); p.style.top = `${r.bottom + 10}px`; // under the button, but always on screen
+    p.style.right = `${Math.max(12, Math.min(innerWidth - r.right - 8, innerWidth - p.offsetWidth - 12))}px`;
+    const f = first(); if (f) f.focus();
+    if (!DL.info) dlResolve().then(() => { if (!p.hidden) { const had = p.contains(document.activeElement); paintDownload(); if (had) { const g = first(); if (g) g.focus(); } } });
+  } else if (!p.hidden) { p.hidden = true; if (p.contains(document.activeElement)) btn.focus(); }
+  btn.setAttribute('aria-expanded', String(open));
 }
 
 /* ---------- first-visit tour ---------- */
@@ -3144,9 +3335,12 @@ function events() {
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
   $('#bellBtn').onclick = () => toggleNotes();
+  if (IS_DESKTOP) { $('#dlBtn').remove(); gtDesktopStart(); } // this is the app already
+  else $('#dlBtn').onclick = () => toggleDownload();
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
   document.addEventListener('click', e => {
     const np = $('#notePanel'); if (np && !np.hidden && !np.contains(e.target) && !e.target.closest('#bellBtn')) toggleNotes(false);
+    const dp = $('#dlPanel'); if (dp && !dp.hidden && !dp.contains(e.target) && !e.target.closest('#dlBtn')) toggleDownload(false);
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
     else if (e.target.id === 'sheet') $('#sheet').hidden = true;
     if (e.target.id === 'palette') closePalette();
@@ -3156,10 +3350,10 @@ function events() {
   $('#paletteInput').onkeydown = e => {
     if (e.key === 'ArrowDown') { palSel = Math.min(pal.length - 1, palSel + 1); paintPalette(); e.preventDefault(); }
     else if (e.key === 'ArrowUp') { palSel = Math.max(0, palSel - 1); paintPalette(); e.preventDefault(); }
-    else if (e.key === 'Enter') runPal(palSel);
+    else if (e.key === 'Enter') { e.preventDefault(); runPal(palSel); } // (so the Enter doesn't also press whatever gets focus next)
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { endTour(); toggleNotes(false); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
+    if (e.key === 'Escape') { endTour(); toggleNotes(false); toggleDownload(false); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;
     if (typing || e.ctrlKey || e.metaKey) return;
@@ -3250,6 +3444,7 @@ function resetTimers() {
 function init() {
   stopGroup(); GR.key = null; GR.code = ''; GR.members = []; DM.keys.clear(); DM.open = ''; // a different account may have logged in
   applyTheme(); applySeason(); markDay(); paintPlayer(); route(); paintBell(); dmDot(); startSocialPoll(); checkProgress();
+  if (IS_DESKTOP && GT.desk) gtLink(GT.desk); // a different profile on this PC gets the PC's game time too
   if (isOnlineAcc()) { OL.status = ''; setTimeout(() => cloudSync(), 1500); }
   if (S.group) openGroup(S.group).then(() => { sendGroupState(); startGroup(); paintGroup(); }).catch(() => {});
   if (me() && (S.pub || S.friends.length || S.staffAdds.length)) setTimeout(() => { if (me()) loadPlayers(); }, 2500); // shows the friend-request dot
@@ -3260,5 +3455,6 @@ buildNav(); events();
 resumeFocus();
 if (S.run.game) startGame(S.run.game.game, S.run.game.start);
 init();
+hostedReturn();
 verifyOwner();
 })();

@@ -1,7 +1,15 @@
 # Game Time companion (Windows)
 
-The LevelUp Life desktop app now includes **Game Time**: it recognises running games, counts playtime, shows daily
-limits with reminders, and (optionally) syncs with the website so the same numbers appear on the **Game Time** page.
+The LevelUp Life desktop app has game tracking built in: it recognises running games, counts playtime, shows daily
+limits with reminders, and (optionally) syncs with the website so the same numbers appear on the website's **Game Time**
+page.
+
+**Plug and play.** There is nothing to set up after installing. The installer opens the app, tracking is already on,
+games from the launchers are found and tracked straight away, and the app is set to start with Windows (in the tray).
+A notification says "Game tracking is on". In the app there is no separate Game Time tab: live tracking (Now, Today,
+Tracked games) is at the top of the **Gaming** tab, and its settings (limits, time zone, reminders, startup, website
+sync, history) are in **Settings**. Tracked minutes also count in Gaming's weekly stats, Balance, badges and
+challenges, and the Balance gaming limit is the same as the app's overall daily limit.
 
 ## How it fits together
 
@@ -87,8 +95,8 @@ shortcuts, and removes the old 1.0 entry from "Installed apps".
 
 ## Release (and auto-update)
 
-1. Set the new `version` in `package.json` (for example `1.1.1`) and commit.
-2. Tag and push: `git tag v1.1.1 && git push origin v1.1.1`.
+1. Set the new `version` in `package.json` (for example `1.2.1`) and commit.
+2. Tag and push: `git tag v1.2.1 && git push origin v1.2.1`.
 3. The **Windows app** workflow tests everything, builds the installer and publishes a GitHub Release with the
    installer, `latest.yml`, the blockmap and a fixed-name copy `LevelUp-Life-Setup.exe`.
 4. Installed apps check for updates on every start (splash screen with a loading bar) and every 6 hours; a new version
@@ -96,17 +104,27 @@ shortcuts, and removes the old 1.0 entry from "Installed apps".
 
 The repository must be **public** so that apps and visitors can download releases without signing in.
 
-## Add the download to the website
+## The website's Download app button
 
-The Game Time page already links to
-`https://github.com/wanling326002-cmd/levelup-life/releases/latest/download/LevelUp-Life-Setup.exe`, which always
-points at the newest release. To add the button anywhere else:
+The **Download app** button sits under the profile button in the website's top bar (it is hidden inside the desktop
+app). It opens a panel with the Windows download, the SmartScreen explanation right next to it, and the "install as a
+web app" option for phones and Macs. Where the installer is found is looked up at the moment someone opens the panel,
+so no code change is needed when a release is published:
 
-```html
-<a class="btn primary" href="https://github.com/wanling326002-cmd/levelup-life/releases/latest/download/LevelUp-Life-Setup.exe">Download for Windows</a>
-```
+1. `web/downloads.json` on the website: if `windows.url` holds an `https://` address, that is used. This lets the
+   installer live anywhere (a GitHub release, a file host, a CDN). Optional `version`, `size` (bytes) and `all`
+   (a "All versions" page) are shown too.
+2. Otherwise the latest GitHub release of the repository named in `downloads.json` (`github`) is read from the GitHub
+   API, preferring the fixed-name asset `LevelUp-Life-Setup.exe`.
+3. If neither has an installer, the panel says **"Coming soon"** instead of showing a broken link.
 
-The link works once the first release (step 2 above) exists.
+### If GitHub isn't available
+
+The desktop app checks GitHub Releases first and then the website's own update feed at
+`<website>/updates/latest.yml`. To publish without GitHub: upload `LevelUp-Life-Setup-<version>.exe` anywhere with a
+public `https://` address, put that address in `downloads.json` (`windows.url`), and publish `dist/latest.yml` as
+`updates/latest.yml` on the website with its `url`/`path` changed to the same full address (the `sha512` must stay
+the one electron-builder wrote).
 
 ## SmartScreen and code signing
 
@@ -150,10 +168,13 @@ the Game Time page. As the site owner you can see these collections in the Wix d
 Automated tests cover the logic with a fake clock, fake processes and a fake website, plus the real process reader on
 the Windows CI runner. Please check these by hand:
 
-- [ ] Download from the website, install, and get past SmartScreen ("More info → Run anyway").
+- [ ] Website: the Download app button under the profile opens the panel with the download and the SmartScreen note.
+- [ ] Download, install, and get past SmartScreen ("More info → Run anyway").
+- [ ] Right after installing: the app opens, says "Game tracking is on", has no Game Time tab, and the Gaming tab shows
+      your found games; Settings shows "Launch at Windows startup" switched on.
 - [ ] On launch the splash shows the logo, name and a loading bar, then the app opens.
 - [ ] After publishing a newer release, starting the app shows "Downloading update…", installs it and reopens.
-- [ ] Game Time → "Find games again" lists your Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot games.
+- [ ] Gaming → "Find games again" lists your Steam, Epic, Xbox, GOG, EA, Ubisoft, Battle.net and Riot games.
 - [ ] Start a Steam game and an Epic game: each shows as playing within ~5 seconds; the launchers do not.
 - [ ] A game with anti-cheat (for example Fortnite, Valorant or Apex) is detected and the game is unaffected.
 - [ ] An Xbox / Game Pass game is detected, or can be added with "Add a running program".

@@ -1,0 +1,5 @@
+{
+  "about": "Where the website's Download app button sends people. Leave windows.url empty to use the latest GitHub release of the repository below; put any https address of LevelUp-Life-Setup.exe there to use another host.",
+  "github": "wanling326002-cmd/levelup-life",
+  "windows": {"url": "", "version": "", "size": 0, "all": ""}
+}

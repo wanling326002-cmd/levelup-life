@@ -50,11 +50,14 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   if (await win.isVisible('#guestBtn')) await win.click('#guestBtn');
   ok('the splash closes once the app window is ready', await until(() => app.windows().length === 1, 8000));
 
-  // Game Time page, desktop mode
-  await win.evaluate(() => { location.hash = '#companion'; });
+  // plug and play: no Game Time tab and no download button in the app; tracking is built into Gaming and Settings
+  ok('the app has no Game Time tab and no download button', !(await win.$('#nav [data-route="companion"]')) && !(await win.$('#dlBtn')) && !(await win.$('#sheetGrid a[href="#companion"]')));
+  ok('on the first start, a notification says game tracking is already on', !!await until(async () => (await notes(app)).some(n => n.title === 'Game tracking is on'), 8000));
+  await win.evaluate(() => { location.hash = '#companion'; }); // an old link to the Game Time tab
+  ok('an old link to the Game Time tab opens Gaming', !!await until(() => win.evaluate(() => location.hash === '#gaming'), 5000));
   await until(async () => (await text(win)).includes('Tracking on'));
   let t = await text(win);
-  ok('Game Time shows tracking is on and that this PC is not connected', t.includes('Tracking on') && t.includes('Not connected: this PC only'));
+  ok('the Gaming tab shows tracking is on and that this PC is not connected', t.includes('Tracking on') && t.includes('Not connected: this PC only') && t.includes('Tracked games'));
   ok('the tray menu is available while the app runs', await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows().length >= 1));
 
   // add a game from the running programs list
@@ -87,12 +90,24 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   await sleep(2500);
   ok('the reminder is not repeated', (await notes(app)).filter(n => n.title === 'Daily limit reached').length === 1);
   ok('the game is still running and counting (reminders only)', (await text(win, '.gt-games')).includes('overtime'));
+  ok('tracked minutes count in the Gaming and Balance stats too', !!await until(() => win.evaluate(() => Object.keys(localStorage).some(k => { try { return (JSON.parse(localStorage.getItem(k)).log || []).some(e => e.ref && e.ref.startsWith('gt:') && e.g === 'My Game' && e.m >= 1); } catch { return false; } })), 8000));
+  ok('the app stays on the same page while it updates (no jumping or reloads)', await win.evaluate(() => location.hash === '#gaming'));
 
   // pause / resume
   await win.click('#gtPause');
   ok('pausing shows "Tracking paused" and stops the session', !!await until(async () => (await text(win)).includes('Tracking paused') && !(await win.$('.gt-playing'))));
   await win.click('#gtPause');
   ok('resuming shows "Tracking on" again', !!await until(async () => (await text(win)).includes('Tracking on')));
+
+  // settings live in Settings; the Balance gaming limit is the same as the app's overall limit
+  await win.evaluate(() => { location.hash = '#options'; });
+  await until(async () => (await text(win)).includes('Game tracking'));
+  ok('Settings has the game tracking settings, without any install or download buttons', (await text(win)).includes('Launch at Windows startup') && !(await win.$('#installBtn')) && !/Install app|Download for Windows/.test(await text(win)));
+  ok('the overall daily limit starts as the Balance gaming limit', !!await until(async () => (await win.inputValue('#gtOverall')) === '120', 8000));
+  await win.evaluate(() => { location.hash = '#balance'; });
+  await win.fill('[data-goal="play"]', '90'); await win.press('[data-goal="play"]', 'Tab');
+  await win.evaluate(() => { location.hash = '#options'; });
+  ok('changing the gaming limit in Balance changes the app\'s daily limit', !!await until(async () => (await win.inputValue('#gtOverall')) === '90', 8000));
 
   // connect to the (fake) website
   await win.click('#gtConnect');
@@ -106,6 +121,7 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   ok('no other program names ever leave the PC', !/notepad|EpicGamesLauncher/i.test(sent));
 
   // a limit changed on the website reaches the PC
+  await win.evaluate(() => { location.hash = '#gaming'; });
   const cfg = JSON.parse(cfgItem.data.data); const g = cfg.games.find(x => x.name === 'My Game'); g.limitMin = 45; g.editedAt = Date.now() + 1000;
   cfgItem.data.data = JSON.stringify(cfg); cfgItem.data.updatedAt = Date.now();
   ok('a limit changed on the website reaches the PC', !!await until(async () => (await win.inputValue(`[data-gtlimit="${gid}"]`)) === '45', 12000));
@@ -116,15 +132,20 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   ok('the closed session is uploaded as closed', !!await until(() => [...wix.state.sessions.values()].filter(s => s.data.name === 'My Game').every(s => s.data.open === false), 10000));
 
   // disconnected from the website
+  await win.evaluate(() => { location.hash = '#options'; });
   const dev = [...wix.state.devices.values()][0]; dev.data.revoked = true;
   ok('a disconnect from the website is noticed and explained', !!await until(async () => (await text(win)).includes('disconnected from the website'), 12000));
   ok('the user is told with a notification', (await notes(app)).some(n => n.title === 'Disconnected'));
 
-  // accessibility of the desktop page
+  // accessibility of the pages with game tracking
   await win.addScriptTag({path: require.resolve('axe-core/axe.min.js')});
-  const v = await win.evaluate(async () => (await axe.run(document.querySelector('#main'), {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}, resultTypes: ['violations']})).violations.map(x => x.id));
-  ok('no accessibility problems on the desktop Game Time page', v.length === 0, v.join(', '));
-  await win.screenshot({path: path.join(OUT, 'desktop-gametime.png'), fullPage: true});
+  const axeRun = () => win.evaluate(async () => (await axe.run(document.querySelector('#main'), {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}, resultTypes: ['violations']})).violations.map(x => x.id));
+  let v = await axeRun();
+  await win.screenshot({path: path.join(OUT, 'desktop-settings.png'), fullPage: true});
+  await win.evaluate(() => { location.hash = '#gaming'; }); await until(async () => (await text(win)).includes('Tracked games'));
+  v = v.concat(await axeRun());
+  ok('no accessibility problems on the desktop Gaming and Settings pages', v.length === 0, v.join(', '));
+  await win.screenshot({path: path.join(OUT, 'desktop-gaming.png'), fullPage: true});
 
   // closing the window keeps the app (and tracking) running in the tray
   await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].close());
@@ -136,9 +157,10 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   app = await launch();
   win = await mainOf(app);
   await win.waitForLoadState('domcontentloaded'); await sleep(1200);
-  await win.evaluate(() => { location.hash = '#companion'; });
+  await win.evaluate(() => { location.hash = '#gaming'; });
   await until(async () => (await text(win)).includes('My Game'));
   t = await text(win);
+  ok('the "tracking is on" welcome is only shown on the first start', !(await notes(app)).some(n => n.title === 'Game tracking is on'));
   ok('after a restart the game, its limit and today\'s time are still there', t.includes('My Game') && (await win.inputValue(`[data-gtlimit="${gid}"]`)) === '45' && !/Played today 0m/.test(t));
   await app.close();
 
