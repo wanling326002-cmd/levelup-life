@@ -57,7 +57,7 @@ async function mock(route){
  fs.appendFileSync(SITE+'app.js','\n// new version\n'); await s1.reload(); await s1.waitForTimeout(2500);
  ok('a new version shows the Reload prompt', await s1.isVisible('#updateBar'));
  await s1.click('#updateBtn'); await s1.waitForTimeout(1500);
- ok('Reload loads the new version', (await (await s1.evaluate(()=>caches.open('levelup-shell-v1').then(c=>c.match('app.js')).then(r=>r.text()))).includes('// new version')));
+ ok('Reload loads the new version', (await (await s1.evaluate(()=>caches.open('levelup-shell-v2').then(c=>c.match('app.js')).then(r=>r.text()))).includes('// new version')));
  await s1.context().close();
 
  // ---- tour (new player, a real browser)
