@@ -26,7 +26,7 @@ async function mock(route){
  const mk=async(name,{w=1440,h=950,human=false}={})=>{ const ctx=await b.newContext({viewport:{width:w,height:h}}); await ctx.route(/wixapis\.com/,mock);
    if(human) await ctx.addInitScript(()=>Object.defineProperty(navigator,'webdriver',{get:()=>false}));
    const p=await ctx.newPage(); p._reqs=[]; p.on('request',r=>p._reqs.push(r.url())); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(BASE); return p; };
- const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  const unlock=async(p,k)=>{ await p.goto(BASE+'#options'); await p.fill('#ownKey',k); await p.click('#ownForm .btn.primary'); await p.waitForTimeout(5000); };
  const goPublic=async p=>{ await p.goto(BASE+'#players'); await p.waitForTimeout(300); const g=await p.$('#goPublic'); if(g){ await g.click(); await p.waitForTimeout(2500);} };
 

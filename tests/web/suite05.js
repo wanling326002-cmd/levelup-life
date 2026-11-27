@@ -19,7 +19,7 @@ async function mock(route){
 const viaMenu=async(p,q,sel)=>{ const m=`#chatList .msg:has-text("${q}")`; await p.hover(m); await p.click(`${m} .msg-more`); await p.click(`${m} ${sel}`); }; // actions live in the message's ⋯ menu
  const mk=async(name)=>{ const ctx=await b.newContext({viewport:{width:1440,height:950}}); await ctx.route(/fonts\.(googleapis|gstatic)/,r=>r.abort()); await ctx.route(/wixapis\.com/,mock);
    const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(URL); return p; };
- const signup=async(p,u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(p,u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  const join=async(p,code)=>{ await p.goto(URL+'#chat'); await p.waitForTimeout(200); await p.fill('#joinCode',code); await p.click('#joinForm .btn'); await p.waitForTimeout(1200); };
  const say=async(p,t)=>{ await p.fill('#chatIn',t); await p.click('#chatForm .btn'); await p.waitForTimeout(1500); };
  const texts=p=>p.$$eval('#chatList .msg',els=>els.map(e=>({name:e.querySelector('b').textContent,t:e.querySelector('.msg-t').textContent,own:e.classList.contains('own')})));

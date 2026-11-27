@@ -1,4 +1,5 @@
 // Shared setup for the browser test suites.
+/* global document */
 // Builds a throwaway copy of web/ where the owner and admin keys are replaced by freshly generated TEST keys,
 // so the suites never need (or contain) the real keys. Each run gets its own copy and output folder.
 const fs = require('fs'), os = require('os'), path = require('path'), crypto = require('crypto');
@@ -62,11 +63,41 @@ const keys = build();
 // A fresh copy of the patched site, for suites that change files or serve from their own folder.
 function copySite(dest) { fs.rmSync(dest, {recursive: true, force: true}); fs.cpSync(SITE, dest, {recursive: true}); }
 
+// The suites open the site over http://127.0.0.1 (a tiny server inside this process), not as file:// pages:
+// on a busy machine Chrome can drop localStorage writes on a file:// page that reloads right away, which made
+// suites that save, reload and read back fail now and then. The offline helper (service worker) is not served,
+// so these pages behave exactly like the file:// pages did; the offline suites use their own server for it.
+function startServer() {
+  const http = require('http'), {execFileSync} = require('child_process');
+  const port = Number(execFileSync(process.execPath, ['-e',
+    "const s=require('net').createServer().listen(0,'127.0.0.1',()=>{process.stdout.write(String(s.address().port));s.close();})"], {encoding: 'utf8'}));
+  const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
+    '.json': 'application/json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8'};
+  const srv = http.createServer((req, res) => {
+    let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html';
+    const f = path.join(SITE, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
+    if (!f.startsWith(SITE) || /levelup-sw\.js$/.test(f)) { res.writeHead(404); return res.end(); }
+    fs.readFile(f, (err, data) => {
+      if (err) { res.writeHead(404, {'Content-Type': 'text/html'}); return res.end('<h1>404</h1>'); }
+      res.writeHead(200, {'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store'}); res.end(data);
+    });
+  });
+  srv.listen(port, '127.0.0.1'); srv.unref(); // (unref: the server never keeps a finished suite running)
+  return `http://127.0.0.1:${port}/index.html`;
+}
+const PAGE_URL = startServer();
+
+// Creating an account or logging in hashes the password (150,000 rounds), which can take seconds on a busy machine.
+// The forms grey out their button while they work, so wait for that instead of guessing a fixed time.
+const authDone = page => page.waitForFunction(() => ![...document /* (runs in the page) */.querySelectorAll('#signupForm .btn.primary, #loginForm .btn.primary')].some(b => b.disabled),
+  null, {timeout: 30000, polling: 50}).catch(() => {});
+
 module.exports = {
   ROOT, WEB, SITE, OUT, FIX,
   OKEY: keys.OKEY, AKEY: keys.AKEY,
-  FILE_URL: 'file://' + (process.platform === 'win32' ? '/' : '') + path.join(SITE, 'index.html').split(path.sep).join('/'),
+  FILE_URL: PAGE_URL, // (kept under its old name: every suite uses it) the site's page over http://127.0.0.1
+  REAL_FILE_URL: 'file://' + (process.platform === 'win32' ? '/' : '') + path.join(SITE, 'index.html').split(path.sep).join('/'),
   SERVE: path.join(__dirname, 'serve.js'),
   AXE: require.resolve('axe-core/axe.min.js'),
-  copySite,
+  copySite, authDone,
 };

@@ -27,7 +27,7 @@ const XSS='<img src=x onerror="window.__xss=1"><b id=pwn>x</b>';
  const mk=async(name,w=1440,h=950)=>{ const ctx=await b.newContext({viewport:{width:w,height:h}}); await ctx.route(/fonts\.(googleapis|gstatic)|ytimg|youtube\.com/,r=>r.abort()); await ctx.route(/wixapis\.com/,mock); const p=await ctx.newPage(); p._name=name;
    p.on('pageerror',e=>issues.push(`${name}: JS error: ${e.message}`)); p.on('dialog',d=>{issues.push(`${name}: unexpected dialog: ${d.message()}`); d.dismiss();});
    p.on('console',m=>{ if(m.type()==='error' && !/ERR_FAILED|ERR_ABORTED|Failed to load resource/.test(m.text())) issues.push(`${name}: console error: ${m.text()}`); }); await p.goto(URL); return p; };
- const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  const unlock=async(p,k)=>{ await p.goto(URL+'#options'); await p.fill('#ownKey',k); await p.click('#ownForm .btn.primary'); await p.waitForTimeout(5000); };
  const goPublic=async p=>{ await p.goto(URL+'#players'); await p.waitForTimeout(300); const g=await p.$('#goPublic'); if(g){ await g.click(); await p.waitForTimeout(2500);} };
  const scan=async(p)=>{ for (const r of ROUTES) { await p.goto(URL+'#'+r); await p.waitForTimeout(r==='players'||r==='chat'?900:250);

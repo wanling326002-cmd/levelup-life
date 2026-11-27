@@ -13,7 +13,7 @@ const ROUTES=['home','study','focus','gaming','series','youtube','balance','impa
   const ctx=await b.newContext({viewport:{width:w,height:h}}); await ctx.route(/fonts\.(googleapis|gstatic)|wixapis|ytimg/,r=>r.abort());
   const p=await ctx.newPage(); await p.goto(URL); await p.waitForTimeout(300);
   await run(p,'signup dialog',' '+tag);
-  await p.fill('#suUser','Jinx002'); await p.fill('#suPass','password123'); await p.fill('#suPass2','password123'); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900);
+  await p.fill('#suUser','Jinx002'); await p.fill('#suPass','password123'); await p.fill('#suPass2','password123'); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900);
   if (tag==='desktop') { await p.goto(URL+'#options'); await p.fill('#ownKey',OKEY); await p.click('#ownForm .btn.primary'); await p.waitForTimeout(5000);
     await p.goto(URL+'#study'); await p.fill('#taskIn','Read about flexbox'); await p.press('#taskIn','Enter'); await p.goto(URL+'#series'); await p.fill('#sTitle','Arcane'); await p.press('#sTitle','Enter'); }
   for (const theme of ['dark','light']) {

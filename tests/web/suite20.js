@@ -101,7 +101,7 @@ const recoveries=[]; let saves=0;
  await a.goto(BASE+'#options'); await a.waitForTimeout(300); await a.click('#cloudSync'); await a.waitForTimeout(3000);
  const sa=await st(a,'cloudy_1'); ok('when both devices changed, nothing is lost', sa.tasks.some(t=>t.text==='task from B') && sa.tasks.some(t=>t.text==='second task from A'), JSON.stringify(sa.tasks.map(t=>t.text)));
  // offline login on B with the same password (local)
- await bb.click('#acLogout'); await bb.waitForTimeout(300); await bb.click('[data-auth="login"]'); await bb.fill('#liUser','Cloudy_1'); await bb.fill('#liPass','supersecret1'); await bb.click('#loginForm .btn.primary'); await bb.waitForTimeout(1500);
+ await bb.click('#acLogout'); await bb.waitForTimeout(300); await bb.click('[data-auth="login"]'); await bb.fill('#liUser','Cloudy_1'); await bb.fill('#liPass','supersecret1'); await bb.click('#loginForm .btn.primary'); await H.authDone(bb); await bb.waitForTimeout(1500);
  ok('the online password also works for a normal login on that device', (await acc(bb)).current==='Cloudy_1');
 
  // ---- password reset: a new device needs the old password once
@@ -118,7 +118,7 @@ const recoveries=[]; let saves=0;
  ok('after unlocking, the new password works everywhere', !(await d.isVisible('#olOld').catch(()=>false)) && (await st(d,'cloudy_1')).tasks.some(t=>t.text==='task from B'));
 
  // ---- connect an existing local account
- const e=await mk('E'); await e.fill('#suUser','Local_2'); await e.fill('#suPass','password123'); await e.fill('#suPass2','password123'); await e.check('#suAgree'); await e.click('#signupForm .btn.primary'); await e.waitForTimeout(900);
+ const e=await mk('E'); await e.fill('#suUser','Local_2'); await e.fill('#suPass','password123'); await e.fill('#suPass2','password123'); await e.check('#suAgree'); await e.click('#signupForm .btn.primary'); await H.authDone(e); await e.waitForTimeout(900);
  await e.goto(BASE+'#study'); await e.fill('#taskIn','local only task'); await e.press('#taskIn','Enter'); await e.waitForTimeout(300);
  await e.goto(BASE+'#options'); await e.waitForTimeout(300); await e.click('[data-online="connect"]'); await e.waitForTimeout(500);
  ok('“Make it an online account” keeps the username', (await e.inputValue('#olUser'))==='Local_2' && await e.getAttribute('#olUser','readonly')!==null);

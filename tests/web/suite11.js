@@ -20,7 +20,7 @@ async function mock(route){
 (async()=>{
  const b=await chromium.launch(); const errs=[]; const res=[]; const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${x}`);
  const mk=async(name,w=1440)=>{ const ctx=await b.newContext({viewport:{width:w,height:950}}); await ctx.route(/fonts\.(googleapis|gstatic)/,r=>r.abort()); await ctx.route(/wixapis\.com/,mock); const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(URL); return p; };
- const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  const unlock=async(p,k)=>{ await p.goto(URL+'#options'); await p.fill('#ownKey',k); await p.click('#ownForm .btn.primary'); await p.waitForTimeout(5000); };
  const goPublic=async p=>{ await p.goto(URL+'#players'); await p.waitForTimeout(300); await p.click('#goPublic'); await p.waitForTimeout(2500); };
  const rows=p=>p.$$eval('#lbList .lb-row',els=>els.map(e=>({u:e.dataset.player,lv:e.querySelector('.lb-lv').textContent,owner:!!e.querySelector('.tag.owner'),admin:!!e.querySelector('.tag.adm')})));

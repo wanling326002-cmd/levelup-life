@@ -9,7 +9,7 @@ const KEY=H.OKEY;
  const ctx=await b.newContext({viewport:{width:1440,height:950}});
  await ctx.route(/fonts\.(googleapis|gstatic)/,r=>r.abort());
  const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(e.message));
- const signup=async(u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(u,pw)=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  await p.goto(URL); await signup('Jinx002','ownerpass1');
  // before unlocking: no studio
  await p.goto(URL+'#badges'); await p.waitForTimeout(200);
@@ -46,7 +46,7 @@ const KEY=H.OKEY;
  await p.goto(URL+'#study'); await p.fill('#taskIn','hi :gg:'); await p.press('#taskIn','Enter'); await p.waitForTimeout(200);
  ok("other accounts can't use the owner's emoji", (await p.$$('.item .t img.emoji')).length===0);
  // delete owner emoji works
- await p.goto(URL+'#options'); await p.click('#acLogout'); await p.click('[data-auth="login"]'); await p.fill('#liUser','jinx002'); await p.fill('#liPass','ownerpass1'); await p.click('#loginForm .btn.primary'); await p.waitForTimeout(2500);
+ await p.goto(URL+'#options'); await p.click('#acLogout'); await p.click('[data-auth="login"]'); await p.fill('#liUser','jinx002'); await p.fill('#liPass','ownerpass1'); await p.click('#loginForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(2500);
  await p.goto(URL+'#badges'); await p.waitForTimeout(400); await p.click('[data-emodel] >> nth=0'); await p.waitForTimeout(500);
  ok('delete emoji works', (await p.$$('.emo-tile')).length===1);
  const m=await (await b.newContext({viewport:{width:375,height:812}})).newPage(); m.on('pageerror',e=>errs.push('m:'+e.message));

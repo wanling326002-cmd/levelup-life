@@ -2659,7 +2659,7 @@ async function hostedReturn() { // back from the sign-in page: ?code=â€¦&state=â
     const email = String(m.loginEmail || ''), P = {mode:'login', email:EMAIL_RE.test(email) ? email : '', name:'', connect:OL.connect, memberId:id, rt:k.refresh_token, nick:String((m.profile || {}).nickname || ''), hosted:true};
     P.item = await cloudGet({online:{id, rt:k.refresh_token}});
     OL.pending = P; OL.step = 'syncpw'; paintOnline();
-    setTimeout(() => { const f = $('#olSync'); if (f) f.focus(); }, 30);
+    setTimeout(() => focusIfIdle($('#olSync'), $('#consent')), 30);
   } catch (e) { OL.step = 'form'; paintOnline(); const el = $('#olErr'); if (el) el.textContent = "Couldn't finish signing in. Please try again."; }
 }
 async function forgotOnline() {
@@ -3537,9 +3537,13 @@ function setAuthTab(t) {
   if (t === 'online') { bindOnline(); paintOnline(); } else OL.connect = '';
   hidePeeks($('#consent'));
 }
+// put the cursor in a field a moment after a box opens, unless you have already started typing in that box
+// (on a slow device the moment can come late, and moving the cursor then would send your typing to the wrong field)
+const focusIfIdle = (f, box) => { if (!f) return; const a = document.activeElement;
+  if (a && box && box.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; f.focus(); };
 function openAuth(t = 'signup') {
   $('#consent').hidden = false; $('#authClose').hidden = !ACC.current; $('#guestBtn').hidden = !!ACC.current; setAuthTab(t);
-  setTimeout(() => { const f = t === 'online' ? $('#onlineForm input:not([readonly])') : $(t === 'login' ? '#liUser' : '#suUser'); if (f) f.focus(); }, 30);
+  setTimeout(() => focusIfIdle(t === 'online' ? $('#onlineForm input:not([readonly])') : $(t === 'login' ? '#liUser' : '#suUser'), $('#consent')), 30);
 }
 function switchTo(name) { // a username, GUEST, or null for "logged out"
   ACC.current = name; saveAcc(); KEY = keyFor(name);

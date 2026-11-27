@@ -19,7 +19,7 @@ const OUT=H.OUT+'shots2/';
  ok('eye hides it again', (await p.getAttribute('#suPass','type'))==='password');
  await p.click('#signupForm .peek >> nth=0'); await p.click('[data-auth="login"]');
  ok('switching tabs hides passwords again', (await p.getAttribute('#suPass','type'))==='password');
- await p.click('[data-auth="signup"]'); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900);
+ await p.click('[data-auth="signup"]'); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900);
  await p.goto(URL+'#options'); await p.waitForTimeout(200);
  await p.click('details.pw summary');
  ok('change-password and owner key boxes have eye buttons', (await p.$$('#main .peek')).length===4);

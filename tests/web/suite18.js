@@ -27,7 +27,7 @@ const dayOff=k=>{ const d=new Date(); d.setDate(d.getDate()-k); return `${d.getF
  const b=await chromium.launch(); const errs=[]; const ok=(t,c,x='')=>console.log(`${c?'PASS':'FAIL'}  ${t} ${c?'':x}`);
  const mk=async(name,{w=1440,h=950}={})=>{ const ctx=await b.newContext({viewport:{width:w,height:h}}); await ctx.route(/wixapis\.com/,mock);
    const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(name+': '+e.message)); await p.goto(BASE); return p; };
- const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await p.waitForTimeout(900); };
+ const signup=async(p,u,pw='password123')=>{ await p.fill('#suUser',u); await p.fill('#suPass',pw); await p.fill('#suPass2',pw); await p.check('#suAgree'); await p.click('#signupForm .btn.primary'); await H.authDone(p); await p.waitForTimeout(900); };
  const st=async(p,u)=>p.evaluate(k=>JSON.parse(localStorage.getItem('levelup-life-v1:u:'+k)),u);
  const edit=async(p,u,fn)=>{ await p.evaluate(([k,src])=>{ const s=JSON.parse(localStorage.getItem('levelup-life-v1:u:'+k)); (new Function('s',src))(s); localStorage.setItem('levelup-life-v1:u:'+k,JSON.stringify(s)); },[u,fn]); await p.reload(); await p.waitForTimeout(1200); };
  const goPublic=async p=>{ await p.goto(BASE+'#players'); await p.waitForTimeout(300); const g=await p.$('#goPublic'); if(g){ await g.click(); await p.waitForTimeout(2500);} };
