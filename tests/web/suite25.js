@@ -112,6 +112,15 @@ const URL = H.FILE_URL;
   await ph.goto(URL); await ph.click('#guestBtn'); await ph.goto(URL + '#study'); await ph.fill('#newPathIn', 'Exam prep'); await ph.click('#newPathForm .btn.primary');
   for (const t of ['Chapter 1 summary with a fairly long title that has to wrap on a small phone screen', 'Practice test']) { await ph.fill('#stepIn', t); await ph.click('#stepForm .btn.primary'); await ph.waitForTimeout(80); }
   ok('on a phone: no sideways scrolling, and each step keeps its buttons on the same row', await ph.evaluate(() => document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.sp-steps .item')].every(li => { const t = li.querySelector('.grow').getBoundingClientRect(), d = li.querySelector('[data-delstep]').getBoundingClientRect(); return Math.abs((t.top + t.bottom) / 2 - (d.top + d.bottom) / 2) < 30; })));
+  // a path name or step with a very long word (a pasted link, a made-up word) must not push the page sideways
+  const LONG = 'Supercalifragilisticexpialidocious'.repeat(2);
+  await ph.click('#newPathBtn'); await ph.fill('#newPathIn', 'Spanish ' + LONG); await ph.click('#newPathForm .btn.primary'); await ph.waitForTimeout(100);
+  await ph.fill('#stepIn', 'Watch ' + LONG); await ph.click('#stepForm .btn.primary'); await ph.waitForTimeout(100);
+  const wide = async () => ph.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+  const fitsStudy = await wide(), stepWhole = await ph.evaluate(() => [...document.querySelectorAll('.sp-steps .item .t')].every(t => t.scrollWidth <= t.clientWidth + 1));
+  await ph.goto(URL + '#home'); await ph.waitForTimeout(250);
+  ok('on a phone: a path or step with a very long word wraps instead of pushing Study and Home sideways, and step names are shown in full', fitsStudy && stepWhole && await wide() && (await ph.textContent('#main')).includes('Watch ' + LONG.slice(0, 20)), `study ${fitsStudy} whole ${stepWhole}`);
+  await ph.evaluate(() => { const S = JSON.parse(localStorage.getItem('levelup-life-v1')); S.paths = S.paths.filter(x => x.name === 'Exam prep'); S.path = S.paths[0].id; localStorage.setItem('levelup-life-v1', JSON.stringify(S)); });
   await ph.evaluate(() => localStorage.setItem('levelup-lang', 'de')); await ph.reload(); await ph.waitForTimeout(500); await ph.goto(URL + '#study'); await ph.waitForTimeout(200);
   const de = await ph.textContent('#main');
   ok('the study path page is translated (German)', de.includes('Schritt hinzufügen') && de.includes('0 von 2 Schritten erledigt'), de.slice(0, 200));

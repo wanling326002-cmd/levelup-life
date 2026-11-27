@@ -292,7 +292,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 .sheet-grid .tile svg{width:22px;height:22px}
 .sheet-grid .tile span{font-size:.82rem;text-align:center}
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);opacity:0;z-index:60;padding:12px 22px;border-radius:99px;
-  background:linear-gradient(180deg,#7c5dff,#4f31d6);color:#fff;box-shadow:0 10px 30px var(--glow);transition:.3s;pointer-events:none;max-width:90vw;text-align:center}
+  background:linear-gradient(180deg,#7c5dff,#4f31d6);color:#fff;box-shadow:0 10px 30px var(--glow);transition:.3s;pointer-events:none;max-width:90vw;text-align:center;overflow-wrap:anywhere}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .bottomnav{display:none}
 
@@ -738,17 +738,18 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 #consent{padding-top:max(16px,2vh);padding-bottom:16px}
 /* study paths */
 .sp-top{gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.sp-tabs{flex-wrap:wrap;max-width:100%}
+.sp-tabs{flex-wrap:wrap;max-width:100%;border-radius:20px}
+.sp-tabs button{max-width:100%;overflow-wrap:anywhere;text-align:left;border-radius:16px}
 .sp-head{display:flex;align-items:center;gap:8px;margin-top:4px}
 .sp-head h2{font-size:1.3rem;margin:0 0 2px;overflow-wrap:anywhere}
 .sp-new,.sp-add{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .sp-new input,.sp-add input{min-width:0;flex:1 1 200px}
 .sp-confirm{margin-top:12px;padding:14px 16px;border:1px solid rgba(242,114,127,.35);border-radius:16px;background:rgba(242,114,127,.06)}
-.sp-confirm p{margin:0 0 10px}
+.sp-confirm p{margin:0 0 10px;overflow-wrap:anywhere}
 .sp-empty{text-align:center;display:grid;gap:12px;justify-items:center;padding:24px 8px}
 .sp-empty h2{margin:0;font-size:1.4rem}.sp-empty p{max-width:470px;margin:0}
 .sp-empty .sp-new{width:100%;max-width:540px}
-.sp-steps .item .t{overflow-wrap:anywhere}
+.sp-steps .item .t{white-space:normal;overflow-wrap:anywhere}
 .sp-steps .item{flex-wrap:nowrap;gap:8px}.sp-steps .item .grow{flex:1 1 auto;min-width:0}
 .sp-card .err:empty{display:none}
 .iconbtn.sm{width:30px;height:30px;font-size:.9rem}

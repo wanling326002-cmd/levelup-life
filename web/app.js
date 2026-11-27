@@ -596,7 +596,7 @@ VIEWS.home = () => {
     `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
   ${card(side, 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p style="text-align:center;margin:0">${esc(next.step.t)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px">${esc(next.path.name)} · ${stepsDone(pathDone(next.path), next.path.steps.length)}</p>
+    <p style="text-align:center;margin:0;overflow-wrap:anywhere">${esc(next.step.t)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px;overflow-wrap:anywhere">${esc(next.path.name)} · ${stepsDone(pathDone(next.path), next.path.steps.length)}</p>
     <div class="row" style="justify-content:center">${next.step.url ? `<a class="btn" target="_blank" rel="noopener" href="${esc(next.step.url)}">${icon('link')}Open link</a>` : ''}<a class="btn primary" href="#study">Study Path</a></div>`
     : S.paths.length ? `<div class="empty">🏆 You finished all your study steps! Add more steps or start a new path.</div><div class="row" style="justify-content:center;margin-top:12px"><a class="btn primary" href="#study">Study Path</a></div>`
     : `<p class="muted" style="margin:0 0 14px">Make your own study path: pick what you want to learn and split it into small steps.</p><a class="btn primary" href="#study">${icon('plus')}Make a study path</a>`,
