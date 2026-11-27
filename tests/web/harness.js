@@ -92,6 +92,10 @@ const PAGE_URL = startServer();
 // The forms grey out their button while they work, so wait for that instead of guessing a fixed time.
 const authDone = page => page.waitForFunction(() => ![...document /* (runs in the page) */.querySelectorAll('#signupForm .btn.primary, #loginForm .btn.primary')].some(b => b.disabled),
   null, {timeout: 30000, polling: 50}).catch(() => {});
+// A reload always opens Home (see app.js). Tests that check that something survives a reload on a certain tab
+// use this: reload, then go back to the tab the page was on.
+const reloadKeep = async page => { const h = await page.evaluate(() => location.hash); await page.reload();
+  if (h && h !== '#home') await page.evaluate(x => { location.hash = x; }, h); };
 
 module.exports = {
   ROOT, WEB, SITE, OUT, FIX,
@@ -100,5 +104,5 @@ module.exports = {
   REAL_FILE_URL: 'file://' + (process.platform === 'win32' ? '/' : '') + path.join(SITE, 'index.html').split(path.sep).join('/'),
   SERVE: path.join(__dirname, 'serve.js'),
   AXE: require.resolve('axe-core/axe.min.js'),
-  copySite, authDone,
+  copySite, authDone, reloadKeep,
 };

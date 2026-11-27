@@ -38,7 +38,7 @@ const pay=id=>JSON.parse(JSON.parse(players.get(id).data.payload).d);
  ok('owner toast says friends', (await own.textContent('#toast')).includes('now friends'));
  await own.keyboard.press('Escape');
  // kid sees it without accepting
- await kid.reload(); await kid.waitForTimeout(1500);
+ await H.reloadKeep(kid); await kid.waitForTimeout(1500);
  ok('player is told the owner added them', (await kid.textContent('#toast')).includes('Owner) added you as a friend'), await kid.textContent('#toast'));
  ok("player's friends list shows the owner, no request to accept", (await kid.textContent('#friendsBox')).includes('Jinx002') && (await kid.$$('#friendsBox [data-fr="add"]')).length===0 && (await kid.textContent('#friendsBox')).includes('Added by the owner'));
  ok('no red request dot for staff adds', (await kid.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===0);
