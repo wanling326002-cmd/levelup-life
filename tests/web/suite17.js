@@ -46,7 +46,7 @@ async function mock(route){
  if(!(await s1.evaluate(()=>!!navigator.serviceWorker.controller))) { await s1.reload(); await s1.waitForTimeout(1000); }
  ok('service worker is active', await s1.evaluate(()=>!!navigator.serviceWorker.controller));
  await s1.click('#guestBtn'); await s1.goto(BASE+'#study'); await s1.fill('#taskIn','offline test task'); await s1.press('#taskIn','Enter');
- await s1.context().setOffline(true); await s1.reload(); await s1.waitForTimeout(800);
+ await s1.context().setOffline(true); await H.reloadKeep(s1); await s1.waitForTimeout(800);
  ok('opens with no internet', (await s1.textContent('#pageTitle'))!=='' && (await s1.textContent('#main')).includes('offline test task'));
  ok('offline chip shows', await s1.isVisible('#netChip'), JSON.stringify(await s1.evaluate(()=>({on:navigator.onLine,h:document.querySelector('#netChip')&&document.querySelector('#netChip').hidden}))));
  for (const r of ['home','focus','badges','options','help']) { await s1.goto(BASE+'#'+r); await s1.waitForTimeout(150); }
