@@ -1341,4 +1341,16 @@ Der Download ist eine .zip-Datei: Öffne sie und starte darin das LevelUp Life S
 Öffne die heruntergeladene Datei LevelUp-Life-Setup.zip.
 Wenn Windows fragt „Wie möchten Sie diese .zip-Datei öffnen?“, wähle Windows-Explorer (oder WinRAR) und klicke auf OK.
 Doppelklicke darin auf LevelUp-Life-Setup.exe, um zu installieren.
+## cleanup
+Weitere Seiten
+Zum hellen Modus wechseln
+Zum dunklen Modus wechseln
+Willkommen bei LevelUp Life! Wähle etwas für den Start:
+Starte eine Fokus-Session
+25 Minuten konzentriert arbeiten, dann eine Pause
+Öffne deine erste Lektion
+Webdesign und App-Entwicklung, Schritt für Schritt
+Trage eine Spielsession ein
+Sieh, wie Spielen in deine Woche passt
+Lernen, Fokus, Gaming und Chat. Serien, YouTube, Spieler und der Rest sind unter Mehr.
 `);

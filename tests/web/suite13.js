@@ -54,7 +54,7 @@ const pay=id=>JSON.parse(JSON.parse(players.get(id).data.payload).d);
  await kid.keyboard.press('Escape');
  // snowyy sees the request + dot, accepts with "go public & accept"
  await adm.goto(URL+'#players'); await adm.waitForTimeout(1500);
- ok('red dot on Players for a friend request', (await adm.$$('#nav [data-route="players"].has-req')).length===1);
+ ok('red dot on Players for a friend request', (await adm.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===2);
  const acc=await adm.$('#friendsBox [data-fr="pubadd"][data-u="kid123"]');
  ok('private player sees "Go public & accept"', !!acc && (await acc.textContent()).includes('Go public & accept'));
  await adm.screenshot({path:D+'shots2/request-dot.png',clip:{x:0,y:0,width:1440,height:620}});
@@ -62,7 +62,7 @@ const pay=id=>JSON.parse(JSON.parse(players.get(id).data.payload).d);
  ok('accepting makes the profile public with the friend', players.has('p-snowyy') && pay('p-snowyy').fr.includes('kid123') && pay('p-snowyy').role==='admin');
  await kid.goto(URL+'#players'); await kid.waitForTimeout(300); await kid.click('#lbRefresh'); await kid.waitForTimeout(1500);
  ok('now friends on both sides', (await kid.$$('#friendsBox [data-fr="remove"][data-u="snowyy"]')).length===1);
- ok('the dot goes away after accepting', (await adm.$$('#nav [data-route="players"].has-req')).length===0);
+ ok('the dot goes away after accepting', (await adm.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===0);
  // older owner message still opens the verified owner profile
  await kid.goto(URL+'#chat'); await kid.waitForTimeout(4500);
  t=await clickMsg(kid,'welcome all');

@@ -51,7 +51,7 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
   ok('the splash closes once the app window is ready', await until(() => app.windows().length === 1, 8000));
 
   // plug and play: no Game Time tab and no download button in the app; tracking is built into Gaming and Settings
-  ok('the app has no Game Time tab and no download button', !(await win.$('#nav [data-route="companion"]')) && !(await win.$('#dlBtn')) && !(await win.$('#sheetGrid a[href="#companion"]')));
+  ok('the app has no Game Time tab and no download button', !(await win.$('#nav [data-route="companion"], #navMoreMenu [data-route="companion"]')) && !(await win.$('#dlBtn')) && !(await win.$('#sheetGrid a[href="#companion"]')));
   ok('on the first start, a notification says game tracking is already on', !!await until(async () => (await notes(app)).some(n => n.title === 'Game tracking is on'), 8000));
   await win.evaluate(() => { location.hash = '#companion'; }); // an old link to the Game Time tab
   ok('an old link to the Game Time tab opens Gaming', !!await until(() => win.evaluate(() => location.hash === '#gaming'), 5000));

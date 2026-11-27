@@ -1339,3 +1339,15 @@ De download is een .zip-bestand: open het en start daarin de LevelUp Life-instal
 Open het gedownloade LevelUp-Life-Setup.zip.
 Vraagt Windows "Hoe wilt u dit .zip-bestand openen?", kies dan Windows Verkenner (of WinRAR) en klik op OK.
 Dubbelklik daarin op LevelUp-Life-Setup.exe om te installeren.
+## cleanup
+Meer pagina's
+Overschakelen naar lichte modus
+Overschakelen naar donkere modus
+Welkom bij LevelUp Life! Kies er een om te beginnen:
+Start een focussessie
+25 minuten geconcentreerd werken, dan een pauze
+Open je eerste les
+Webdesign en app-ontwikkeling, stap voor stap
+Leg een gamesessie vast
+Zie hoe gamen in je week past
+Leren, Focus, Gaming en Chat. Series, YouTube, Spelers en de rest staan onder Meer.

@@ -1339,3 +1339,15 @@ Windows 应用
 打开下载的 LevelUp-Life-Setup.zip。
 如果 Windows 询问“你要如何打开这个 .zip 文件？”，请选择“Windows 资源管理器”（或 WinRAR），然后点“确定”。
 双击其中的 LevelUp-Life-Setup.exe 进行安装。
+## cleanup
+更多页面
+切换到浅色模式
+切换到深色模式
+欢迎来到 LevelUp Life！选一项开始吧：
+开始一次专注
+专注 25 分钟，然后休息
+打开你的第一节课
+网页设计和应用开发，一步一步来
+记录一次游戏
+看看游戏在你一周中的占比
+学习、专注、游戏和聊天。剧集、YouTube、玩家等都在“更多”里。

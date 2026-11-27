@@ -75,6 +75,7 @@ function trTree(root) {
 /* ---------- icons ---------- */
 const P = {
   home:'<rect x="3" y="3" width="7" height="7" rx="3.5"/><rect x="14" y="3" width="7" height="7" rx="3.5"/><rect x="3" y="14" width="7" height="7" rx="3.5"/><rect x="14" y="14" width="7" height="7" rx="3.5"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
   study:'<path d="M2 9 12 4l10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/>',
   focus:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   companion:'<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5.5 8 9s-8 4-8 9M16 3c0 5-8 5.5-8 9s8 4 8 9"/>',
@@ -112,16 +113,16 @@ const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</sv
 // In the Windows app, game tracking is built into the Gaming tab and Settings, so there is no separate Game Time tab.
 const IS_DESKTOP = !!(window.levelupDesktop && window.levelupDesktop.isDesktop);
 const ROUTES = [
-  {id:'home', name:'Home', sub:'Your day at a glance.', key:'1', main:true},
-  {id:'study', name:'Study Path', short:'Study', sub:'Learn Web Design & App Development, step by step.', key:'2', main:true},
-  {id:'focus', name:'Focus', sub:'Pomodoro timer — deep work, then a real break.', key:'3', main:true},
-  {id:'gaming', name:'Gaming', sub:IS_DESKTOP ? 'Your game time is tracked automatically on this PC. Plus your backlog and healthy breaks.' : 'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
+  {id:'home', top:true, name:'Home', sub:'Your day at a glance.', key:'1', main:true},
+  {id:'study', top:true, name:'Study Path', short:'Study', sub:'Learn Web Design & App Development, step by step.', key:'2', main:true},
+  {id:'focus', top:true, name:'Focus', sub:'Pomodoro timer — deep work, then a real break.', key:'3', main:true},
+  {id:'gaming', top:true, name:'Gaming', sub:IS_DESKTOP ? 'Your game time is tracked automatically on this PC. Plus your backlog and healthy breaks.' : 'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
   {id:'companion', name:'Game Time', sub:'Automatic game tracking and daily play limits, with the Windows app.', main:true},
   {id:'series', name:'Series', sub:'Never forget which episode you are on.', key:'5', main:true},
   {id:'youtube', name:'YouTube', sub:'Save videos to learn from — or just enjoy.', key:'6', main:true},
   {id:'balance', name:'Balance', sub:'Play, watch and learn — see how your week adds up.', key:'7', main:true},
   {id:'impact', name:'Help the World', short:'Impact', sub:'Small daily quests that make things better.', key:'8', main:true},
-  {id:'chat', name:'Chat', sub:'Talk with everyone who has your invite code.', main:true},
+  {id:'chat', top:true, name:'Chat', sub:'Talk with everyone who has your invite code.', main:true},
   {id:'messages', name:'Messages', sub:'Private, end-to-end encrypted chats with your friends.', main:true},
   {id:'players', name:'Players', sub:'Leaderboard, friends and player profiles.', main:true},
   {id:'badges', name:'Badges', sub:'Your level, rank and achievements.', key:'9'},
@@ -457,13 +458,35 @@ function paintPlayer() {
 }
 function applyTheme() {
   document.documentElement.dataset.theme = S.theme;
-  $('#themeBtn').setAttribute('aria-checked', S.theme === 'dark');
+  const tb = $('#themeBtn'); tb.setAttribute('aria-checked', S.theme === 'dark');
+  tb.title = S.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 }
-function buildNav() {
-  $('#nav').innerHTML = ROUTES.filter(r => r.main).map(r => `<a href="#${r.id}" data-route="${r.id}" title="${r.name}${r.key ? ` (${r.key})` : ''}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
+const navLink = r => `<a href="#${r.id}" data-route="${r.id}" title="${r.name}${r.key ? ` (${r.key})` : ''}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`;
+const MORE_ROUTES = ROUTES.filter(r => r.main && !r.top); // the pages behind the top menu's "More" button
+function buildNav() { // the top menu: five main pages, the rest behind "More"
+  $('#nav').innerHTML = ROUTES.filter(r => r.top).map(navLink).join('') +
+    `<button type="button" class="nav-more-btn" id="navMoreBtn" aria-expanded="false" aria-controls="navMoreMenu" title="More pages"><span id="navMoreLbl">More</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>`;
+  $('#navMoreMenu').innerHTML = MORE_ROUTES.map(navLink).join('');
   $('#bottomnav').innerHTML = ['home','study','focus','gaming'].map(id => { const r = ROUTES.find(x => x.id === id);
     return `<a href="#${id}" data-route="${id}">${iconFor(id)}${r.short || r.name}</a>`; }).join('') + `<button id="moreBtn">${icon('more')}More</button>`;
   $('#sheetGrid').innerHTML = ROUTES.map(r => `<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
+}
+
+/* the top menu's "More" button: it shows the page you are on when that page lives in its list, and a red dot when one there has news */
+function paintNavMore() {
+  const b = $('#navMoreBtn'); if (!b) return;
+  const r = MORE_ROUTES.find(x => x.id === current);
+  b.classList.toggle('active', !!r); r ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current');
+  const lbl = $('#navMoreLbl'), t = r ? r.short || r.name : 'More'; if (lbl.textContent !== t) lbl.textContent = t;
+  b.classList.toggle('has-req', !!$('#navMoreMenu .has-req'));
+}
+function toggleNavMore(open) {
+  const b = $('#navMoreBtn'), m = $('#navMoreMenu'); if (!b || !m) return;
+  open = open ?? m.hidden; if (open === !m.hidden) return;
+  if (open) { const bar = $('.topbar').getBoundingClientRect(), r = b.getBoundingClientRect();
+    m.style.left = Math.max(0, Math.min(r.left - bar.left, bar.width - 240)) + 'px'; }
+  m.hidden = !open; b.setAttribute('aria-expanded', open);
+  if (open) (m.querySelector('a.active') || m.querySelector('a')).focus();
 }
 
 /* ---------- router ---------- */
@@ -476,6 +499,7 @@ function route() {
   current = r.id;
   $$('[data-route]').forEach(a => { const on = a.dataset.route === r.id; a.classList.toggle('active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   const act = $(`#nav [data-route="${r.id}"]`); if (act) act.scrollIntoView({block:'nearest', inline:'nearest'});
+  toggleNavMore(false); paintNavMore();
   $('#pageTitle').textContent = r.name; $('#pageSub').textContent = r.sub; baseTitle = `${r.name} · LevelUp Life`; document.title = baseTitle;
   $('#sheet').hidden = true;
   render();
@@ -531,32 +555,41 @@ VIEWS.home = () => {
   const qi = dailyQuests()[0];
   const hr = new Date().getHours();
   const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  // brand-new players get a short "Start here" list instead of an empty chart and a row of zeros;
+  // the 7-day chart appears once there are at least 2 days to draw
+  const fresh = !S.log.length && !S.questsTotal && !pctDone();
+  const days = Array.from({length:7}, (_, i) => dayOffset(i)).filter(day => ['learn','play','watch'].some(c => minsOn(day, c) > 0)).length;
+  const g = S.backlog.find(b => b.status === 'playing'), v = S.yt.find(y => !y.watched);
+  const upNext = !!(ep || g || v), side = upNext ? 'c4' : 'c6';
+  const step = (href, ic, t, d) => `<a class="start-step" href="${href}"><span class="thumb" style="--h:var(--accent)">${icon(ic)}</span><span class="grow"><b>${t}</b><span class="muted small">${d}</span></span>${icon('chev')}</a>`;
   return `<div class="grid">
   ${needBackup() ? `<section class="card c12 backup-note" role="note">${icon('download')}<div class="grow"><b>Back up your progress</b><p class="muted small" style="margin:2px 0 0">${S.lastBackup ? `Your last backup was ${Math.floor((Date.now() - S.lastBackup) / 864e5)} days ago.` : 'You have never made a backup.'} Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.</p></div>
     <div class="row"><button type="button" class="btn primary sm" data-backup="now">${icon('download')}Download backup</button><button type="button" class="btn sm" data-backup="later">Remind me next week</button></div></section>` : ''}
-  ${card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
+  ${fresh ? card('c12 start-card', `${greet}, ${emo(displayName())}`, `<p class="muted" style="margin:-4px 0 16px">Welcome to LevelUp Life! Pick one to get started:</p>
+    <div class="start-steps">${step('#focus', 'focus', 'Start a focus session', '25 minutes of deep work, then a break')}${step('#study', 'study', 'Open your first lesson', 'Web Design and App Development, step by step')}${step('#gaming', 'gaming', 'Log a game session', 'See how play fits into your week')}</div>`,
+    `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`) : ''}
+  ${!fresh && days >= 2 ? card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
-    <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`)}
-  ${card('c7', `${greet}, ${emo(displayName())}`, `<div class="statrow">
+    <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`) : ''}
+  ${fresh ? '' : card(days >= 2 ? 'c7' : 'c12', `${greet}, ${emo(displayName())}`, `<div class="statrow">
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
     <div class="stat"><span class="k">Learning streak</span><span class="v">${streak()}🔥</span><span class="d">${S.questsTotal} good deeds</span></div></div>`,
     `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
-  ${card('c4', 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
+  ${card(side, 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
     <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px"><span>${esc(TRACKS[next.track].name)}</span> · <span>${esc(next.module)}</span></p>
     <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
     : empty('🏆 You finished every lesson! Build something and share it.'), `<span class="tag p">${pctDone()}% done</span>`)}
-  ${card('c4', 'Up next', `<ul class="list">
-    <li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? emo(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>
-    ${(() => { const g = S.backlog.find(b=>b.status==='playing'); return `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? emo(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`; })()}
-    ${(() => { const v = S.yt.find(y=>!y.watched); return `<li class="item"><span class="thumb" style="--h:#e0465a">${icon('youtube')}</span><div class="grow"><div class="t">${v ? emo(v.title) : 'No saved videos'}</div><div class="s">${v ? (v.kind === 'learn' ? 'Learning' : 'Fun') : 'Save one in YouTube'}</div></div><a class="btn sm" href="#youtube">Open</a></li>`; })()}
-  </ul>`, '<span class="more">···</span>')}
-  ${card('c4', "Today's quest", `<div class="quest" style="border:0;padding:0"><span class="thumb" style="--h:var(--accent)">${icon('impact')}</span><div><b>${esc(qi[1][0])}</b><p class="muted small" style="margin:4px 0 0">${esc(qi[1][1])}</p></div></div>
+  ${upNext ? card('c4', 'Up next', `<ul class="list">
+    ${ep ? `<li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? emo(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>` : ''}
+    ${g ? (() => `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? emo(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`)() : ''}
+    ${v ? (() => `<li class="item"><span class="thumb" style="--h:#e0465a">${icon('youtube')}</span><div class="grow"><div class="t">${v ? emo(v.title) : 'No saved videos'}</div><div class="s">${v ? (v.kind === 'learn' ? 'Learning' : 'Fun') : 'Save one in YouTube'}</div></div><a class="btn sm" href="#youtube">Open</a></li>`)() : ''}
+  </ul>`, '<span class="more">···</span>') : ''}
+  ${card(side, "Today's quest", `<div class="quest" style="border:0;padding:0"><span class="thumb" style="--h:var(--accent)">${icon('impact')}</span><div><b>${esc(qi[1][0])}</b><p class="muted small" style="margin:4px 0 0">${esc(qi[1][1])}</p></div></div>
     <div class="row" style="margin-top:16px"><button class="btn primary" data-quest="${qi[0]}" ${questDone(qi[0]) ? 'disabled' : ''}>${questDone(qi[0]) ? 'Done ✓' : 'Complete +15 XP'}</button><a class="btn" href="#impact">All quests</a></div>`)}
-  ${card('c12', 'Programs', `<div class="tiles cols-5">${ROUTES.filter(r=>r.id!=='home'&&r.id!=='privacy').map(r=>`<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short||r.name}</span></a>`).join('')}</div>`, '<span class="more">···</span>')}
   </div>`;
 };
 BIND.home = m => {
@@ -1458,7 +1491,7 @@ async function changeFriend(u, act) {
 function reqDot() { // a dot on the Players menu item for friend requests (and open reports, for the owner/admins)
   const fr = me() ? friendRequests().length : 0, rp = isOwner || isAdmin ? RP.list.length : 0, n = fr + rp;
   const msg = [fr ? `${fr} friend request${fr === 1 ? '' : 's'}` : '', rp ? `${rp} open report${rp === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');
-  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${msg}` : 'Players'; });
+  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${msg}` : 'Players'; }); paintNavMore();
 }
 async function setHidden(u, hide) {
   const st = await staffKey(); if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
@@ -2189,7 +2222,7 @@ const dmFriends = () => PL.list.filter(p => p.u !== myU() && isFriend(friendStat
 const canDM = p => !!(p && p.dx && p.dy && isFriend(friendState(p.u)) && S.pub);
 const dmUnread = u => (S.dm[u] || []).filter(x => !x.f && x.at > (S.dmRead[u] || 0)).length;
 const dmUnreadAll = () => Object.keys(S.dm).reduce((a, u) => a + dmUnread(u), 0);
-function dmDot() { const n = dmUnreadAll(); $$('[data-route="messages"], .tile[href="#messages"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Messages · ${n} unread` : 'Messages'; }); }
+function dmDot() { const n = dmUnreadAll(); $$('[data-route="messages"], .tile[href="#messages"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Messages · ${n} unread` : 'Messages'; }); paintNavMore(); }
 async function publishOutbox() {
   if (!me() || !S.pub || DM.busy) return false; DM.busy = true;
   try {
@@ -3194,10 +3227,10 @@ function toggleDownload(open) {
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
 const TOUR = [
   {t:'Welcome to LevelUp Life! 👋', b:'Here is a quick tour of where everything is. It takes about 30 seconds, and you can skip it any time.'},
-  {sel:() => isPhone() ? '#bottomnav' : '#nav', t:'Pages', b:'Study, Focus, Gaming, Series, YouTube and more. On a computer you can scroll this menu with your mouse wheel.'},
+  {sel:() => isPhone() ? '#bottomnav' : '#nav', t:'Pages', b:'Study, Focus, Gaming and Chat. Series, YouTube, Players and the rest are under More.'},
   {sel:'.profile', t:'Your level', b:'Earn XP by studying, focusing, finishing games and doing good deeds. Click here to see your badges.'},
   {sel:'#searchBtn', t:'Search everything', b:'Find any page or action. Shortcut: Ctrl + K. The number keys 1 to 9 jump between pages.'},
-  {sel:() => isPhone() ? '#moreBtn' : '#nav [data-route="players"]', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
+  {sel:() => isPhone() ? '#moreBtn' : '#navMoreBtn', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
   {sel:'a.round[href="#options"]', t:'Settings', b:'Light or dark mode, your account, public profile, backups and installing the app.'},
   {t:"You're ready! 🎮", b:'Start with today’s quests on the Help the World page, or open Study to pick a track. Have fun!'},
 ];
@@ -3445,6 +3478,8 @@ function events() {
   document.addEventListener('click', e => {
     const np = $('#notePanel'); if (np && !np.hidden && !np.contains(e.target) && !e.target.closest('#bellBtn')) toggleNotes(false);
     const dp = $('#dlPanel'); if (dp && !dp.hidden && !dp.contains(e.target) && !e.target.closest('#dlBtn')) toggleDownload(false);
+    if (e.target.closest('#navMoreBtn')) toggleNavMore();
+    else if (!e.target.closest('#navMoreMenu')) toggleNavMore(false);
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
     else if (e.target.id === 'sheet') $('#sheet').hidden = true;
     if (e.target.id === 'palette') closePalette();
@@ -3457,6 +3492,7 @@ function events() {
     else if (e.key === 'Enter') { e.preventDefault(); runPal(palSel); } // (so the Enter doesn't also press whatever gets focus next)
   };
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('#navMoreMenu').hidden) { toggleNavMore(false); $('#navMoreBtn').focus(); return; }
     if (e.key === 'Escape') { endTour(); toggleNotes(false); toggleDownload(false); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;

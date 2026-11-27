@@ -105,7 +105,7 @@ async function mock(route){
  await kid.keyboard.press('Escape');
  await own.goto(BASE+'#players'); await own.waitForTimeout(2500);
  ok('owner sees the report, decrypted', (await own.textContent('#repBox')).includes('Bullying or hate') && (await own.textContent('#repBox')).includes('noobs') && (await own.textContent('#repBox')).includes('keeps insulting people'));
- ok('red dot for open reports', (await own.$$('#nav [data-route="players"].has-req')).length===1);
+ ok('red dot for open reports', (await own.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===2);
  await own.screenshot({path:D+'shots2/reports.png',fullPage:true});
  await own.click('[data-repres][data-act="hidden"]'); await own.waitForTimeout(2500);
  ok('"Hide from leaderboard" handles the report and hides the player', !(await own.textContent('#repBox')).includes('noobs') && (await own.textContent('#hiddenBox')).includes('Rude99'));

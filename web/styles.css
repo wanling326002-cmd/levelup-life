@@ -78,6 +78,30 @@ h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em}
 .round{width:52px;height:52px;border-radius:50%;border:1px solid var(--line2);background:transparent;color:var(--text);
   display:grid;place-items:center;cursor:pointer;flex:none;text-decoration:none;transition:.2s}
 .round:hover{background:var(--soft)}
+.topbar{position:relative}
+.start-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.start-step{display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;border:1px solid var(--line2);background:var(--soft);color:var(--text);text-decoration:none;transition:.2s}
+.start-step:hover,.start-step:focus-visible{border-color:var(--accent2);background:var(--soft2)}
+.start-step .grow{display:grid;gap:3px;min-width:0}
+.start-step>svg{color:var(--muted)}
+@media (max-width:980px){.start-steps{grid-template-columns:1fr}}
+.pillnav .nav-more-btn{display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:var(--pill);border:0;background:none;font:inherit;
+  color:var(--muted);font-size:.98rem;white-space:nowrap;position:relative;cursor:pointer;transition:.2s}
+.pillnav .nav-more-btn:hover,.pillnav .nav-more-btn[aria-expanded="true"]{color:var(--text)}
+.pillnav .nav-more-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s;display:block!important}
+.pillnav .nav-more-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
+.pillnav .nav-more-btn.active{color:var(--text);background:linear-gradient(180deg,var(--soft2),var(--soft));box-shadow:inset 0 1px 0 var(--soft2)}
+:root[data-theme="light"] .pillnav .nav-more-btn.active{background:#fff;box-shadow:0 2px 8px rgba(40,30,90,.08)}
+.nav-more-menu{position:absolute;top:calc(100% + 10px);z-index:60;min-width:220px;padding:6px;display:grid;gap:2px;border-radius:20px;
+  border:1px solid var(--line2);background:var(--frame);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.nav-more-menu[hidden]{display:none}
+.nav-more-menu a{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;color:var(--muted);text-decoration:none;white-space:nowrap;position:relative}
+.nav-more-menu a svg{width:18px;height:18px}
+.nav-more-menu a:hover,.nav-more-menu a:focus-visible{color:var(--text);background:var(--soft)}
+.nav-more-menu a.active{color:var(--text);background:var(--soft2)}
+.nav-more-menu .has-req::before{top:50%;right:14px;transform:translateY(-50%)}
+.theme-btn .sun{display:none}
+:root[data-theme="light"] .theme-btn .sun{display:block}:root[data-theme="light"] .theme-btn .moon{display:none}
 .switch{width:44px;height:24px;border-radius:99px;border:1px solid var(--line2);background:var(--soft);position:relative;cursor:pointer;flex:none}
 .switch i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--dim);transition:.25s}
 .switch[aria-checked="true"] i{left:22px;background:var(--accent2)}
@@ -264,8 +288,6 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
 .bottomnav{display:none}
 
 /* responsive */
-@media (max-width:1560px){.pillnav a svg{display:none}}
-@media (max-width:1500px){.pillnav a{padding:10px 9px}} /* 13 tabs still fit on a 1440px laptop */
 @media (max-width:1180px){.topbar{gap:8px}.profile .xpbar{display:none}.profile{padding-right:12px}.pillnav a{padding:9px 8px;font-size:.9rem}.round{width:46px;height:46px}}
 @media (max-width:980px){.profile .lv{display:none}.profile{padding-right:4px}.pillnav a{padding:8px 7px;font-size:.86rem}.frame{padding-left:18px;padding-right:18px}}
 @media (max-width:1200px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}.statrow{grid-template-columns:repeat(2,1fr)}.tiles.cols-4{grid-template-columns:repeat(2,1fr)}}
@@ -300,7 +322,7 @@ kbd{font-family:inherit;font-size:.75rem;padding:2px 8px;border:1px solid var(--
   .spark{flex-direction:column;align-items:stretch}
   .card-h{flex-wrap:wrap}
 }
-@media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.switch{display:none}}
+@media (max-width:480px){.statrow{grid-template-columns:1fr 1fr;gap:14px}.stat .v{font-size:1.8rem}.timer{width:220px;height:220px}.profile .lv{display:none}.profile{padding-right:4px}.theme-btn{display:none}}
 /* chat */
 .chat-list{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:6px;height:min(56vh,560px);overflow-y:auto;border:1px solid var(--line);border-radius:18px;background:var(--soft)}
 .chat-list .empty{margin:auto}
@@ -649,6 +671,14 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .dl-note svg{color:var(--warn);margin-top:1px}.dl-note p{margin:0;font-size:.86rem;color:var(--text)}
 :root[data-theme="light"] .dl-note{background:#fff7e3;border-color:#ecd391}:root[data-theme="light"] .dl-note svg{color:#9a6a00}
 @media (max-width:980px){.dl-btn{padding:0 8px}.dl-btn span{display:none}}
+/* on a computer the Download link sits just under the profile, so the header row keeps one even height */
+@media (min-width:861px){
+  .me-stack{position:relative}
+  .me-stack .dl-btn{position:absolute;top:calc(100% + 3px);left:50%;transform:translateX(-50%);height:22px;padding:0 10px;border-color:transparent;background:none;color:var(--muted);font-size:.78rem}
+  .me-stack .dl-btn:hover,.me-stack .dl-btn[aria-expanded="true"]{color:var(--text);border-color:transparent;background:var(--soft)}
+  .me-stack .dl-btn span{display:inline}
+}
+@media (max-width:860px){.nav-more-menu{display:none!important}}
 /* the Windows app shows its game tracking inside the Gaming tab and Settings */
 .gt-slot{display:contents}
 /* Settings: header, grouped menu on the left, all settings on the right */
@@ -678,3 +708,5 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
   .set-nav button.on::before{display:none}
   .set-main{gap:14px}
 }
+@media (max-width:1180px){.pillnav .nav-more-btn{padding:9px 8px;font-size:.9rem}}
+@media (max-width:980px){.pillnav .nav-more-btn{padding:8px 7px;font-size:.86rem}}
