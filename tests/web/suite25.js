@@ -16,6 +16,8 @@ const URL = H.FILE_URL;
   ok('the built-in Web Design and App Development courses are gone', !/Web Design|App Development|HTML foundations|React/.test(t0) && !(await p.$('[data-track]')) && !(await p.$('[data-lesson]')));
   ok('the page subtitle no longer mentions them', (await p.textContent('#pageSub')) === 'Make your own study paths and learn step by step.');
   ok('an empty Study page invites you to make your own study path', t0.includes('Make your own study path') && await p.isVisible('#newPathIn'));
+  await p.fill('#taskIn', 'Read chapter 3'); await p.press('#taskIn', 'Enter'); await p.waitForTimeout(150);
+  ok('study tasks work before you have made any study path', (await st()).tasks.some(x => x.text === 'Read chapter 3') && (await p.textContent('#main')).includes('Read chapter 3'));
 
   // 2. making a path
   await p.click('#newPathForm .btn.primary');

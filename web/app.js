@@ -654,6 +654,11 @@ VIEWS.study = () => `<div class="grid">
   </div></div>`;
 function undoStep(p, st) { const key = stepKey(p, st); if (!S.lessons[key]) return; delete S.lessons[key]; dropLog('lesson:' + key); gainXP(-20); } // a finished step that is unticked or deleted gives its XP back
 BIND.study = m => {
+  // study tasks (they work whether or not you have a study path)
+  $('#taskForm').onsubmit = e => { e.preventDefault(); const v = $('#taskIn').value.trim(); if (!v) return; S.tasks.unshift({id:uid(), text:v, done:false}); save(); rerender(); $('#taskIn').focus(); };
+  m.querySelectorAll('[data-task]').forEach(c => c.onchange = () => { const t = S.tasks.find(x=>x.id===c.dataset.task); t.done = c.checked; gainXP(c.checked ? 5 : -5, 'task done'); save(); rerender(); });
+  m.querySelectorAll('[data-deltask]').forEach(b => b.onclick = () => { S.tasks = S.tasks.filter(x=>x.id!==b.dataset.deltask); save(); rerender(); });
+  // study paths
   const p = curPath(), err = (id, t) => { const e = $(id); if (e) e.textContent = t; };
   const nameOk = (v, self) => { v = noCtl(v).trim().slice(0, 60);
     if (!v) return ['', 'Give your study path a name.'];
@@ -695,9 +700,6 @@ BIND.study = m => {
   m.querySelectorAll('[data-stepdown]').forEach(b => b.onclick = () => move(b.dataset.stepdown, 1));
   m.querySelectorAll('[data-delstep]').forEach(b => b.onclick = () => { const st = p.steps.find(x => x.id === b.dataset.delstep); if (!st) return;
     undoStep(p, st); p.steps = p.steps.filter(x => x !== st); save(); rerender(); });
-  $('#taskForm').onsubmit = e => { e.preventDefault(); const v = $('#taskIn').value.trim(); if (!v) return; S.tasks.unshift({id:uid(), text:v, done:false}); save(); rerender(); $('#taskIn').focus(); };
-  m.querySelectorAll('[data-task]').forEach(c => c.onchange = () => { const t = S.tasks.find(x=>x.id===c.dataset.task); t.done = c.checked; gainXP(c.checked ? 5 : -5, 'task done'); save(); rerender(); });
-  m.querySelectorAll('[data-deltask]').forEach(b => b.onclick = () => { S.tasks = S.tasks.filter(x=>x.id!==b.dataset.deltask); save(); rerender(); });
 };
 
 /* focus (pomodoro) — timer survives navigation */
