@@ -14,7 +14,8 @@
     "lint": "eslint --no-eslintrc -c web/.eslintrc.json web/app.js web/levelup-sw.js web/companion-core.js && eslint --no-eslintrc -c .eslintrc-node.json main.js companion tests/unit tests/web/harness.js tests/web/run.js",
     "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:web": "node tests/web/run.js",
-    "test": "npm run lint && npm run test:unit && npm run test:web"
+    "test": "npm run lint && npm run test:unit && npm run test:web",
+    "build:landing": "cd landing && npm ci --ignore-scripts && npx vite build"
   },
   "build": {
     "appId": "app.levelup.life",
@@ -26,6 +27,8 @@
       "web/**/*",
       "!web/.eslintrc.json",
       "!web/downloads.json",
+      "!web/index.html",
+      "!web/landing{,/**}",
       "!**/*.map",
       "!node_modules/@koromix/koffi-linux-*{,/**}",
       "!node_modules/@koromix/koffi-darwin-*{,/**}",

@@ -2,10 +2,10 @@
    App files are served from a saved copy and refreshed in the background; when a new version is
    downloaded, the page is told so it can offer a "Reload" button. Wix APIs, YouTube and other sites
    are never cached: they always go straight to the network. No personal data is stored here. */
-const CACHE = 'levelup-shell-v2'; // v2 also clears anything the old version saved from Wix's own addresses
-const SHELL = ['./', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
+const CACHE = 'levelup-shell-v3'; // v3: the app moved to app.html (the front page is now the landing page); clears older saved copies
+const SHELL = ['app.html', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
   'fonts/inter-tight.woff2'];
-const WATCH = /\/(app\.js|styles\.css)?$/; // a change to these means a new version of the app
+const WATCH = /\/(app\.html|app\.js|styles\.css)$/; // a change to these means a new version of the app
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -23,14 +23,14 @@ self.addEventListener('fetch', e => {
   // Wix's own pages and services on this address (its sign-in page at /_api/oauth2/authorize, /__auth/..., /_partials/...)
   // always go to the network: answering them with the saved home page broke "Continue with Google or Wix"
   if (!url.pathname.startsWith(base) || rel.startsWith('_')) return;
-  if (req.mode === 'navigate' && rel !== '' && rel !== 'index.html') return; // only the app's own page is served offline
-  const key = req.mode === 'navigate' ? './' : url.pathname.replace(/\/index\.html$/, '/');
+  if (req.mode === 'navigate' && rel !== 'app.html') return; // only the app's own page is served offline (the front page always comes from the network)
+  const key = req.mode === 'navigate' ? 'app.html' : url.pathname;
   e.respondWith(fromCache(req, key, e));
 });
 async function fromCache(req, key, e) {
   const cache = await caches.open(CACHE);
   const hit = await cache.match(key, {ignoreSearch:true});
-  const fresh = fetch(req.mode === 'navigate' ? './' : req, {cache:'no-cache'}).then(async res => {
+  const fresh = fetch(req.mode === 'navigate' ? 'app.html' : req, {cache:'no-cache'}).then(async res => {
     if (res.ok && res.type === 'basic') {
       const changed = hit && WATCH.test(new URL(res.url).pathname) && (hit.headers.get('etag') || '') !== (res.headers.get('etag') || '');
       await cache.put(key, res.clone());

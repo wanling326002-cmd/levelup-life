@@ -44,7 +44,7 @@ const URL = H.FILE_URL;
       return [...document.querySelectorAll('body *')].filter(e => { const s = getComputedStyle(e); return [s.color, s.backgroundColor, s.backgroundImage, s.borderTopColor, s.boxShadow].some(bad); }).map(e => `#${r} ${e.className}`).slice(0, 3); }, r));
   }
   ok('none of the old purple colours are left on any page', !purple.length, purple.join(' | '));
-  ok('the logo is the new deep-teal mark', (await (await p.request.get(URL.replace('index.html', 'icon.svg'))).text()).includes('#0f3238'));
+  ok('the logo is the new deep-teal mark', (await (await p.request.get(URL.replace('app.html', 'icon.svg'))).text()).includes('#0f3238'));
 
   console.log(res.join('\n')); console.log('JS errors:', errs.length ? errs : 'none'); await b.close();
 })();

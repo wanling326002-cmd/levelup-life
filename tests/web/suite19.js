@@ -78,7 +78,7 @@ const dayOff=k=>{ const d=new Date(); d.setDate(d.getDate()-k); return `${d.getF
  ok('switching back to English works', (await a.textContent('#pageTitle'))==='Settings' && (await a.evaluate(()=>document.documentElement.lang))==='en');
  // the desktop app opens the files directly (file://)
  const ctx=await b.newContext(); const fp=await ctx.newPage(); fp.on('pageerror',e=>errs.push('file: '+e.message));
- await fp.goto('file://'+SITE+'index.html'); await fp.evaluate(()=>localStorage.setItem('levelup-lang','ko')); await fp.reload(); await fp.waitForTimeout(1000);
+ await fp.goto('file://'+SITE+'app.html'); await fp.evaluate(()=>localStorage.setItem('levelup-lang','ko')); await fp.reload(); await fp.waitForTimeout(1000);
  ok('desktop app (file://) also switches language', (await fp.textContent('#nav')).includes('공부'), await fp.textContent('#nav'));
  await a.goto(BASE+'#home'); await a.waitForTimeout(300);
  for (const l of ['de','ja']) { await a.evaluate(l=>localStorage.setItem('levelup-lang',l),l); await a.reload(); await a.waitForTimeout(1000); await a.screenshot({path:D+'shots2/lang-'+l+'.png'}); }

@@ -135,7 +135,7 @@ function createMain() {
     backgroundColor: '#f5f4ee', title: 'LevelUp Life', autoHideMenuBar: true, icon: ICON,
     webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.js')},
   });
-  mainWin.loadFile(path.join(__dirname, 'web', 'index.html'));
+  mainWin.loadFile(path.join(__dirname, 'web', 'app.html'));
   mainWin.once('ready-to-show', () => {
     const wait = Math.max(0, splashShownAt + 900 - Date.now()); // the splash stays at least 0.9 s, so it never just flashes
     setTimeout(() => { mainWin.show(); if (splashWin) { splashWin.close(); splashWin = null; } }, wait);

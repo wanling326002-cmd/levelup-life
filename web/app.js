@@ -18,7 +18,7 @@ const ytId = u => { try { const x = new URL(u); if (x.hostname.includes('youtu.b
   if (x.hostname.includes('youtube.com')) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || ''; } catch {} return ''; };
 
 /* ---------- languages ----------
-   The app is written in English. For another language, index.html first loads lang/keys.js (the English phrases)
+   The app is written in English. For another language, app.html first loads lang/keys.js (the English phrases)
    and lang/<code>.js (the same phrases translated, line by line), and every text on screen is swapped as it appears.
    In a phrase, "#" stands for a number and "{s}" for any other text (a name, or a phrase that is translated on its own).
    Anything inside an element with translate="no" (chat messages, bios, the Privacy Terms) stays as it is. */

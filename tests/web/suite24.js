@@ -5,7 +5,7 @@
 const {chromium} = require('playwright'); const fs = require('fs'); const {spawn, execFileSync} = require('child_process');
 const H = require('./harness'); const D = H.OUT;
 const SITE = D + 'served24/'; H.copySite(SITE);
-const PORT = 8776, BASE = `http://localhost:${PORT}/`;
+const PORT = 8776, BASE = `http://localhost:${PORT}/`, APP = BASE + 'app.html'; // the app (the front page is the landing page)
 const NEW_SW = fs.readFileSync(SITE + 'levelup-sw.js', 'utf8');
 let OLD_SW = ''; try { OLD_SW = execFileSync('git', ['show', '3b532b0:web/levelup-sw.js'], {cwd: H.ROOT, encoding: 'utf8'}).replace('fonts/outfit.woff2', 'fonts/inter-tight.woff2'); } catch {} // (the old helper's font has since been replaced; without it the old helper can't install)
 // stand-ins for Wix's pages on the website's address
@@ -30,18 +30,18 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
   // 1. someone who visited before the fix: the old helper reproduces the bug
   if (OLD_SW) {
     fs.writeFileSync(SITE + 'levelup-sw.js', OLD_SW);
-    await p.goto(BASE); await controlled();
+    await p.goto(APP); await controlled();
     const r = await wixPage('_api/oauth2/authorize.html?state=abc');
     ok('(before the fix) the old helper answers Wix\'s sign-in address with LevelUp Life', r.ours && !r.wix, JSON.stringify(r));
     // 2. the fixed helper arrives on their next visit and takes over by itself
     fs.writeFileSync(SITE + 'levelup-sw.js', NEW_SW);
-    await p.goto(BASE);
+    await p.goto(APP);
     for (let i = 0; i < 60; i++) { // the browser checks for a new helper on each visit; it takes over in a moment
       if (await p.evaluate(async () => { const k = await caches.keys(); const r = await navigator.serviceWorker.getRegistration();
-        return k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1') && !!r.active && r.active.state === 'activated' && !r.installing && !r.waiting; }).catch(() => false)) break;
+        return k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1') && !!r.active && r.active.state === 'activated' && !r.installing && !r.waiting; }).catch(() => false)) break;
       await p.waitForTimeout(250); }
-    ok('a returning visitor gets the fixed helper, and the old saved copy is removed', await p.evaluate(async () => { const k = await caches.keys(); return k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1'); }), JSON.stringify(await p.evaluate(() => caches.keys())));
-  } else { await p.goto(BASE); await controlled(); }
+    ok('a returning visitor gets the fixed helper, and the old saved copy is removed', await p.evaluate(async () => { const k = await caches.keys(); return k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1'); }), JSON.stringify(await p.evaluate(() => caches.keys())));
+  } else { await p.goto(APP); await controlled(); }
   await controlled();
   ok('the offline helper is running', await p.evaluate(() => !!navigator.serviceWorker.controller));
 
@@ -52,19 +52,19 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
   ok('the exact sign-in address goes to the website host, not the saved home page', !r.ours, JSON.stringify(r));
   r = await wixPage('some/unknown/page');
   ok('an unknown page is not answered with a broken copy of the home page', !r.ours, JSON.stringify(r));
-  await p.goto(BASE); await p.waitForTimeout(400);
+  await p.goto(APP); await p.waitForTimeout(400);
   const fetched = await p.evaluate(async () => { await fetch('__auth/loginv2.html'); await fetch('_api/oauth2/authorize.html'); await new Promise(r => setTimeout(r, 300));
     const c = await caches.open('levelup-shell-v2'); return (await c.keys()).map(q => new URL(q.url).pathname); });
   ok('nothing from Wix\'s addresses is saved by the helper', !fetched.some(x => /\/_/.test(x)), fetched.join(','));
 
   // 4. the app itself still opens instantly and offline
-  await p.goto(BASE + '#study'); await p.waitForTimeout(500);
+  await p.goto(APP + '#study'); await p.waitForTimeout(500);
   await ctx.setOffline(true);
-  await p.goto(BASE + '#settings').catch(() => {}); await p.waitForTimeout(800);
+  await p.goto(APP + '#settings').catch(() => {}); await p.waitForTimeout(800);
   ok('the app still opens with no internet', (await p.title()).includes('LevelUp Life') && await p.isVisible('#main'));
   ok('and it is styled (its design loaded)', await p.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Inter Tight') || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'));
-  await p.goto(BASE + 'index.html').catch(() => {}); await p.waitForTimeout(500);
-  ok('index.html opens offline too', (await p.title()).includes('LevelUp Life'));
+  await p.goto(BASE + 'app.html?x=1').catch(() => {}); await p.waitForTimeout(500);
+  ok('app.html opens offline too (with a query string)', (await p.title()).includes('LevelUp Life'));
   await ctx.setOffline(false);
 
   ok('no page errors', !errs.length, errs.join(' | '));

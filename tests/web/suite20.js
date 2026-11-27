@@ -149,7 +149,7 @@ const recoveries=[]; let saves=0;
 
  // ---- desktop app (file://)
  const ctx=await b.newContext(); const fp=await ctx.newPage(); fp.on('pageerror',e=>errs.push('file: '+e.message));
- await fp.goto('file://'+SITE+'index.html'); await fp.waitForTimeout(500); await fp.click('[data-auth="online"]'); await fp.waitForTimeout(300);
+ await fp.goto('file://'+SITE+'app.html'); await fp.waitForTimeout(500); await fp.click('[data-auth="online"]'); await fp.waitForTimeout(300);
  ok('the desktop app points to the website for online accounts', (await fp.textContent('#onlineForm')).includes('Open the website'));
  // phone layout
  const ph=await mk('phone',{w:390,h:800}); await onlineForm(ph);

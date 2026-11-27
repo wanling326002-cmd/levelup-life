@@ -87,7 +87,7 @@ function startServer() {
     });
   });
   srv.listen(port, '127.0.0.1'); srv.unref(); // (unref: the server never keeps a finished suite running)
-  return `http://127.0.0.1:${port}/index.html`;
+  return `http://127.0.0.1:${port}/app.html`;
 }
 const PAGE_URL = startServer();
 
@@ -104,7 +104,7 @@ module.exports = {
   ROOT, WEB, SITE, OUT, FIX,
   OKEY: keys.OKEY, AKEY: keys.AKEY,
   FILE_URL: PAGE_URL, // (kept under its old name: every suite uses it) the site's page over http://127.0.0.1
-  REAL_FILE_URL: 'file://' + (process.platform === 'win32' ? '/' : '') + path.join(SITE, 'index.html').split(path.sep).join('/'),
+  REAL_FILE_URL: 'file://' + (process.platform === 'win32' ? '/' : '') + path.join(SITE, 'app.html').split(path.sep).join('/'),
   SERVE: path.join(__dirname, 'serve.js'),
   AXE: require.resolve('axe-core/axe.min.js'),
   copySite, authDone, reloadKeep,
