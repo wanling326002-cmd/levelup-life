@@ -1414,3 +1414,16 @@ in your study steps, YouTube searches and charities open those websites, which h
 study steps
 Finish # study steps
 Track games, series and YouTube, follow your own study paths, and do a bit of good every day.
+## ytsearch
+How to study effectively
+The Pomodoro technique
+Better note-taking
+Memory techniques
+Learn a language faster
+Beat procrastination
+Time management tips
+Mind mapping
+Ideas from your study paths, plus tips for learning anything.
+Tips for learning anything. Make a study path and you get searches for it here too.
+Next step: {s}
+{s} tutorials

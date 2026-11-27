@@ -1416,4 +1416,17 @@ in je leerstappen, YouTube-zoekopdrachten en goede doelen openen die websites, d
 leerstappen
 Rond # leerstappen af
 Houd games, series en YouTube bij, volg je eigen leerpaden en doe elke dag een beetje goed.
+## ytsearch
+Effectief studeren
+De pomodorotechniek
+Betere aantekeningen
+Geheugentechnieken
+Sneller een taal leren
+Uitstelgedrag verslaan
+Tips voor timemanagement
+Mindmappen
+Ideeën uit je leerpaden, plus tips om alles te leren.
+Tips om alles te leren. Maak een leerpad en je krijgt hier ook zoekopdrachten ervoor.
+Volgende stap: {s}
+{s} – tutorials
 `);

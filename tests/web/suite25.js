@@ -17,6 +17,10 @@ const URL = H.FILE_URL;
   ok('the page subtitle no longer mentions them', (await p.textContent('#pageSub')) === 'Make your own study paths and learn step by step.');
   ok('an empty Study page invites you to make your own study path', t0.includes('Make your own study path') && await p.isVisible('#newPathIn'));
   await p.fill('#taskIn', 'Read chapter 3'); await p.press('#taskIn', 'Enter'); await p.waitForTimeout(150);
+  await p.goto(URL + '#youtube'); await p.waitForTimeout(150);
+  const yt0 = await p.$$eval('.yt-searches .tile', a => a.map(x => x.textContent.trim()));
+  ok('with no study path, YouTube suggests general learning tips (no coding courses)', yt0.length === 8 && yt0[0] === 'How to study effectively' && !yt0.some(t => /HTML|JavaScript|React|Flutter|Figma|Godot|Electron/.test(t)), yt0.join(' | '));
+  await p.goto(URL + '#study'); await p.waitForTimeout(150);
   ok('study tasks work before you have made any study path', (await st()).tasks.some(x => x.text === 'Read chapter 3') && (await p.textContent('#main')).includes('Read chapter 3'));
 
   // 2. making a path
@@ -64,6 +68,15 @@ const URL = H.FILE_URL;
   ok('a path can be renamed', (await p.textContent('.sp-head h2')) === 'Guitar basics' && (await st()).paths[1].name === 'Guitar basics');
   await p.click('[data-path] >> nth=0'); await p.waitForTimeout(120);
   ok('tabs switch between paths', (await p.textContent('.sp-head h2')) === 'Learn Spanish');
+
+  // 6b. YouTube quick searches come from your study paths, then general learning tips (no coding courses)
+  await p.goto(URL + '#youtube'); await p.waitForTimeout(200);
+  const yt = await p.$$eval('.yt-searches .tile', a => a.map(x => ({t: x.textContent.trim(), mine: x.classList.contains('mine'), q: new URL(x.href).searchParams.get('search_query')})));
+  ok('YouTube suggestions start with your next step and your study paths', yt[0].t === 'Next step: 100 common words' && yt[0].mine && yt[0].q === '100 common words Learn Spanish'
+    && yt.some(x => x.t === 'Learn Spanish tutorials' && x.mine) && yt.some(x => x.t === 'Guitar basics tutorials' && x.mine), JSON.stringify(yt.slice(0, 4)));
+  ok('...then general tips for learning anything, 8 in all, and no coding courses', yt.length === 8 && yt.some(x => x.t === 'How to study effectively' && !x.mine)
+    && !yt.some(x => /HTML|JavaScript|React|Flutter|Figma|Godot|Electron|UI\/UX/.test(x.t)), yt.map(x => x.t).join(' | '));
+  ok('they open a YouTube search in a new tab', await p.getAttribute('.yt-searches .tile >> nth=0', 'href').then(h => h.startsWith('https://www.youtube.com/results?search_query=')) && await p.getAttribute('.yt-searches .tile >> nth=0', 'target') === '_blank');
 
   // 7. Home shows the next step
   await p.goto(URL + '#home'); await p.waitForTimeout(250);

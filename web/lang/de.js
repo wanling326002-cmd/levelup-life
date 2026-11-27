@@ -1416,4 +1416,17 @@ in deinen Lernschritten, YouTube-Suchen und Spendenseiten öffnen diese Websites
 Lernschritte
 Schaffe # Lernschritte
 Verfolge Spiele, Serien und YouTube, folge deinen eigenen Lernpfaden und tu jeden Tag ein bisschen Gutes.
+## ytsearch
+Effektiv lernen
+Die Pomodoro-Technik
+Bessere Notizen
+Gedächtnistechniken
+Schneller eine Sprache lernen
+Aufschieben besiegen
+Tipps zum Zeitmanagement
+Mindmapping
+Ideen aus deinen Lernpfaden, plus Tipps, um alles zu lernen.
+Tipps, um alles zu lernen. Erstelle einen Lernpfad und du bekommst hier auch Suchen dafür.
+Nächster Schritt: {s}
+{s} – Tutorials
 `);

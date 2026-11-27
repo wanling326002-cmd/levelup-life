@@ -142,12 +142,22 @@ const curPath = () => S.paths.find(p => p.id === S.path) || S.paths[0] || null;
 const pathDone = p => p.steps.filter(st => S.lessons[stepKey(p, st)]).length;
 const pathPct = p => p && p.steps.length ? Math.round(pathDone(p) / p.steps.length * 100) : 0;
 const stepsDone = (n, total) => total === 1 ? `${n} of 1 step done` : `${n} of ${total} steps done`;
+// YouTube quick searches: first ideas from your own study paths, then tips for learning anything
 const YT_SEARCHES = [
-  ['HTML & CSS full course','html css full course beginners'],['JavaScript for beginners','javascript full course beginners'],
-  ['Web design in Figma','figma web design tutorial'],['React tutorial','react tutorial beginners'],
-  ['Flutter app tutorial','flutter tutorial beginners'],['Game dev with Godot','godot beginner tutorial'],
-  ['UI/UX design principles','ui ux design principles'],['Build an Electron app','electron js tutorial'],
+  ['How to study effectively','how to study effectively'],['The Pomodoro technique','pomodoro technique explained'],
+  ['Better note-taking','note taking methods'],['Memory techniques','memory techniques to remember anything'],
+  ['Learn a language faster','how to learn a language fast'],['Beat procrastination','how to stop procrastinating'],
+  ['Time management tips','time management tips for students'],['Mind mapping','mind mapping tutorial'],
 ];
+const clip = (s, n) => s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
+function ytSearches() {
+  const out = [], seen = new Set();
+  const add = (name, q, mine) => { q = q.slice(0, 120); const k = q.toLowerCase(); if (seen.has(k) || out.length >= 8) return; seen.add(k); out.push({name, q, mine}); };
+  const nx = nextStep(); if (nx) add(`Next step: ${clip(nx.step.t, 48)}`, `${nx.step.t} ${nx.path.name}`, true);
+  for (const p of S.paths.slice(0, 4)) add(`${clip(p.name, 40)} tutorials`, `${p.name} tutorial for beginners`, true);
+  for (const [n, q] of YT_SEARCHES) add(n, q, false);
+  return out;
+}
 
 /* ---------- impact content ---------- */
 const QUESTS = [
@@ -878,7 +888,9 @@ VIEWS.youtube = () => {
       <div class="grow"><div class="t">${emo(v.title)}</div><div class="s">${v.kind==='learn'?'📚 Learning':'🍿 Fun'} · ${fmtMin(v.mins)}</div></div>
       ${v.url ? `<a class="btn sm" href="${esc(v.url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}
       <button class="btn sm" data-yw="${v.id}">${v.watched?'Unwatch':'Watched'}</button><button class="iconbtn" data-ydel="${v.id}" aria-label="Delete">${icon('trash')}</button></li>`; }).join('') || emptyLi('No videos saved. Paste a link to start your list.')}</ul>`)}
-  ${card('c12', 'Learn on YouTube — quick searches', `<div class="tiles">${YT_SEARCHES.map(([n,q])=>`<a class="tile" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}">${icon('youtube')}<span>${esc(n)}</span></a>`).join('')}</div>`)}
+  ${(() => { const list = ytSearches(), mine = list.some(x => x.mine);
+    return card('c12', 'Learn on YouTube — quick searches', `<p class="muted small" style="margin:-6px 0 14px">${mine ? 'Ideas from your study paths, plus tips for learning anything.' : 'Tips for learning anything. Make a study path and you get searches for it here too.'}</p>
+    <div class="tiles yt-searches">${list.map(x => `<a class="tile${x.mine ? ' mine' : ''}" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(x.q)}">${icon(x.mine ? 'study' : 'youtube')}<span>${esc(x.name)}</span></a>`).join('')}</div>`); })()}
   </div>`;
 };
 BIND.youtube = m => {
