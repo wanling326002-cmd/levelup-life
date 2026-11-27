@@ -65,8 +65,8 @@ function copySite(dest) { fs.rmSync(dest, {recursive: true, force: true}); fs.cp
 
 // The suites open the site over http://127.0.0.1 (a tiny server inside this process), not as file:// pages:
 // on a busy machine Chrome can drop localStorage writes on a file:// page that reloads right away, which made
-// suites that save, reload and read back fail now and then. The offline helper (service worker) is not served,
-// so these pages behave exactly like the file:// pages did; the offline suites use their own server for it.
+// suites that save, reload and read back fail now and then. The offline helper (service worker) is an empty one here,
+// so these pages behave exactly like the file:// pages did (nothing is cached); the offline suites use their own server for it.
 function startServer() {
   const http = require('http'), {execFileSync} = require('child_process');
   const port = Number(execFileSync(process.execPath, ['-e',
@@ -76,7 +76,8 @@ function startServer() {
   const srv = http.createServer((req, res) => {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html';
     const f = path.join(SITE, path.normalize(p).replace(/^(\.\.[/\\])+/, ''));
-    if (!f.startsWith(SITE) || /levelup-sw\.js$/.test(f)) { res.writeHead(404); return res.end(); }
+    if (!f.startsWith(SITE)) { res.writeHead(404); return res.end(); }
+    if (/levelup-sw\.js$/.test(f)) { res.writeHead(200, {'Content-Type': 'text/javascript', 'Cache-Control': 'no-store'}); return res.end('// (test copy: an offline helper that does nothing)\n'); }
     fs.readFile(f, (err, data) => {
       if (err) { res.writeHead(404, {'Content-Type': 'text/html'}); return res.end('<h1>404</h1>'); }
       res.writeHead(200, {'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store'}); res.end(data);
