@@ -507,6 +507,7 @@ function toggleNavMore(open) {
 
 /* ---------- router ---------- */
 let current = 'home', baseTitle = 'LevelUp Life';
+const KEEP_TAB = 'levelup-keep-tab'; // set just before a reload that should stay on the same tab
 function route() {
   const id = (location.hash.match(/^#\/?([\w-]+)/) || [])[1] || 'home';
   if (id === 'main') return; // the "Skip to content" link, not a tab
@@ -1954,7 +1955,7 @@ BIND.options = m => {
   $('#stBreak').onchange = e => { S.breakEvery = Math.max(0, +e.target.value || 0); save(); toast('Saved'); };
   $('#stEp').onchange = e => { S.epLen = Math.max(1, +e.target.value || 40); save(); toast('Saved'); };
   if (IS_DESKTOP) { startGameTime(); m.querySelectorAll('.gt-slot').forEach(gtBind); }
-  $('#stLang').onchange = e => { try { localStorage.setItem('levelup-lang', e.target.value); } catch {} location.reload(); };
+  $('#stLang').onchange = e => { try { localStorage.setItem('levelup-lang', e.target.value); sessionStorage.setItem(KEEP_TAB, '1'); } catch {} location.reload(); }; // stay on Settings in the new language
   $('#stSeason').onchange = e => { S.season = e.target.value; save(); applySeason(); toast('Theme updated'); };
   $('#stExport').onclick = () => { S.lastBackup = Date.now(); save(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], {type:'application/json'})); a.download = `levelup-life-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Backup downloaded'); };
   $('#stImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { const d = JSON.parse(t); if (typeof d !== 'object' || !d || Array.isArray(d)) throw 0; S = clean(d); save(); resetTimers(); init(); toast('Backup restored'); }).catch(() => toast('That file is not a valid backup')); };
@@ -3681,6 +3682,13 @@ function init() {
   maybeTour();
   if (ACC.current) $('#consent').hidden = true; else openAuth('signup');
 }
+// A reload, or reopening a closed tab, always starts on Home, even when the address still ends in #companion or
+// another tab (for example after "Reload" on the update bar). A link that opens a tab on purpose, like "Open on the
+// website" in the Windows app, still goes to that tab, and changing the language keeps you on Settings.
+(() => { let t = '', keep = false;
+  try { t = (performance.getEntriesByType('navigation')[0] || {}).type || ''; } catch {}
+  try { keep = sessionStorage.getItem(KEEP_TAB) === '1'; sessionStorage.removeItem(KEEP_TAB); } catch {}
+  if ((t === 'reload' || t === 'back_forward') && !keep && location.hash) history.replaceState(null, '', location.pathname + location.search); })();
 buildNav(); events();
 resumeFocus();
 if (S.run.game) startGame(S.run.game.game, S.run.game.start);
