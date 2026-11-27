@@ -861,3 +861,4 @@ input,select,textarea{border-radius:8px;background:var(--card);border-color:var(
 .seg button,.auth .seg button,.ol-seg button,.sp-tabs button{padding:6px 13px;border-radius:6px;font-size:13.5px;transition:background-color .25s,color .25s,box-shadow .25s}
 .seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(16,41,45,.12)}
 :root:not([data-theme="light"]) .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.3),0 0 0 1px var(--line)}
+:root[data-theme="light"] .live:not([data-state="off"]){color:#256647} /* the status pill's green, readable on its tint (WCAG AA) */

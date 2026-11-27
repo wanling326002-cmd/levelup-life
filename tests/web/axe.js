@@ -7,7 +7,7 @@ const OKEY=H.OKEY;
 const ROUTES=['home','study','focus','gaming','series','youtube','balance','impact','chat','messages','players','badges','options','help','privacy'];
 (async()=>{
  const b=await chromium.launch(); const found=new Map();
- const run=async(p,label,ctx='')=>{ await p.addScriptTag({path:AXE}); const r=await p.evaluate(async()=>{ const res=await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','best-practice']},resultTypes:['violations']}); return res.violations.map(v=>({id:v.id,impact:v.impact,help:v.help,nodes:v.nodes.slice(0,3).map(n=>n.target.join(' ')+' :: '+(n.failureSummary||'').split('\n').slice(1,2).join('').slice(0,140))})); });
+ const run=async(p,label,ctx='')=>{ await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>isFinite(a.effect.getComputedTiming().endTime)).map(a=>a.finished.catch(()=>{})))); /* colours are measured after fade-ins finish */ await p.addScriptTag({path:AXE}); const r=await p.evaluate(async()=>{ const res=await axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','best-practice']},resultTypes:['violations']}); return res.violations.map(v=>({id:v.id,impact:v.impact,help:v.help,nodes:v.nodes.slice(0,3).map(n=>n.target.join(' ')+' :: '+(n.failureSummary||'').split('\n').slice(1,2).join('').slice(0,140))})); });
    for (const v of r) { const k=v.id; if(!found.has(k)) found.set(k,{...v,where:new Set(),nodes:new Set()}); const f=found.get(k); f.where.add(label+ctx); v.nodes.forEach(n=>f.nodes.size<6&&f.nodes.add(n)); } };
  for (const [w,h,tag] of [[1440,950,'desktop'],[375,812,'phone']]) {
   const ctx=await b.newContext({viewport:{width:w,height:h}}); await ctx.route(/fonts\.(googleapis|gstatic)|wixapis|ytimg/,r=>r.abort());
