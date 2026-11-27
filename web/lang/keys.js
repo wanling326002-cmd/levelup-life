@@ -1429,4 +1429,10 @@ Ideas from your study paths, plus tips for learning anything.
 Tips for learning anything. Make a study path and you get searches for it here too.
 Next step: {s}
 {s} tutorials
+## hud
+# XP to level #
+Top level reached
+Focus sessions, study steps and good deeds all give XP.
+Level #, #% of the way to level #
+Level #, top level
 `);

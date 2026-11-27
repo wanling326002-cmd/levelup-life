@@ -1429,4 +1429,10 @@ Ideen aus deinen Lernpfaden, plus Tipps, um alles zu lernen.
 Tipps, um alles zu lernen. Erstelle einen Lernpfad und du bekommst hier auch Suchen dafür.
 Nächster Schritt: {s}
 {s} – Tutorials
+## hud
+# XP bis Level #
+Höchstes Level erreicht
+Fokus-Sitzungen, Lernschritte und gute Taten geben alle XP.
+Level #, #% des Wegs zu Level #
+Level #, höchstes Level
 `);

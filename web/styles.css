@@ -1,7 +1,7 @@
 :root{
   --bg:#06060b; --frame:#0d0d13; --card:#121219; --card2:#16161e;
   --line:rgba(255,255,255,.075); --line2:rgba(255,255,255,.13);
-  --text:#ecebf3; --muted:#8f8ea0; --dim:#6c6b7d;
+  --text:#ecebf3; --muted:#8f8ea0; --dim:#83829a; /* dim text still passes 4.5:1 on cards */
   --soft:rgba(255,255,255,.04); --soft2:rgba(255,255,255,.08); --orbit:rgba(255,255,255,.06);
   --accent:#6f4ef6; --accent2:#9a7bff; --glow:rgba(111,78,246,.45);
   --ok:#5fd3a5; --warn:#f2c46d; --bad:#f2727f; --cyan:#4fd4f0; --pink:#e65cf0; --orange:#f59a4a;
@@ -17,6 +17,7 @@
   --bg:#e9e8f1; --frame:#f6f5fb; --card:#ffffff; --card2:#f3f2f9;
   --line:rgba(20,10,60,.08); --line2:rgba(20,10,60,.16);
   --text:#17161f; --muted:#5f5d72; --dim:#66647a; --glow:rgba(111,78,246,.28);
+  --ok:#127050; --bad:#c42f43; --warn:#8f5f00; /* status colours dark enough to read on white (WCAG AA) */
   --soft:rgba(30,20,80,.04); --soft2:rgba(30,20,80,.08); --orbit:rgba(30,20,80,.07);
   --shadow:0 30px 60px rgba(40,30,90,.12);
   color-scheme:light;
@@ -164,7 +165,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent2);box-shadow:0
 .tag{font-size:.75rem;padding:2px 10px;border-radius:99px;background:var(--soft2);color:var(--muted)}
 .tag.p{background:rgba(111,78,246,.18);color:var(--accent2)}.tag.g{background:rgba(95,211,165,.14);color:var(--ok)}
 .tag.y{background:rgba(242,196,109,.14);color:var(--warn)}.tag.r{background:rgba(242,114,127,.14);color:var(--bad)}
-.check{appearance:none;width:22px;height:22px;padding:0;border-radius:50%;border:1.5px solid var(--line2);cursor:pointer;flex:none;display:grid;place-items:center;background:transparent}
+.check{appearance:none;width:24px;height:24px;padding:0;border-radius:50%;border:1.5px solid var(--line2);cursor:pointer;flex:none;display:grid;place-items:center;background:transparent}
 .check:checked{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px var(--glow)}
 .check:checked::after{content:"";width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
 
@@ -421,13 +422,13 @@ input:disabled{opacity:.65}
   box-shadow:0 0 0 4px color-mix(in srgb,var(--tc) 22%,transparent),0 8px 24px color-mix(in srgb,var(--tc) 28%,transparent)}
 .badge-tile .medal svg{width:28px;height:28px;stroke-width:2}
 .badge-tile b{font-weight:500}
-.badge-tile .tier{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tc)}
+.badge-tile .tier{font-size:.8rem;font-weight:500;color:var(--tc)}
 .badge-tile p{margin:0}
 .badge-tile .meter{width:100%;margin-top:6px}
 .badge-tile.locked .medal{background:var(--soft2);color:var(--dim);box-shadow:none}
 .badge-tile.locked .tier{color:var(--dim)}
 .badge-tile .medal{position:relative}
-.badge-tile .medal .num{position:absolute;right:-6px;bottom:-4px;min-width:24px;height:20px;padding:0 5px;border-radius:10px;display:grid;place-items:center;font-family:inherit;font-size:.68rem;font-weight:700;line-height:1;font-style:normal;letter-spacing:.02em;color:#17141f;background:var(--tc);border:2px solid var(--card)}
+.badge-tile .medal .num{position:absolute;right:-6px;bottom:-4px;min-width:24px;height:22px;padding:0 6px;border-radius:11px;display:grid;place-items:center;font-family:inherit;font-size:.75rem;font-weight:700;line-height:1;font-style:normal;letter-spacing:.02em;color:#17141f;background:var(--tc);border:2px solid var(--card)}
 .badge-tile.elite{border-color:color-mix(in srgb,var(--tc) 40%,transparent)}
 .badge-tile.top{border-color:rgba(255,107,107,.55);background:linear-gradient(180deg,rgba(255,107,107,.10),var(--soft))}
 .badge-tile.top .medal{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),transparent 45%),conic-gradient(from 210deg,#ff6b6b,#f2c46d,#ff9a5b,#ff5b8a,#ff6b6b);box-shadow:0 0 0 4px rgba(255,107,107,.22),0 8px 28px rgba(255,107,107,.38)}
@@ -756,3 +757,33 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .iconbtn:disabled{opacity:.35;cursor:default}
 .yt-searches .tile span{text-align:center;overflow-wrap:anywhere}
 .yt-searches .tile.mine{border-color:rgba(154,123,255,.45);background:rgba(111,78,246,.08)}
+/* ---------- design pass (UI/UX audit) ---------- */
+/* streak flame: an SVG icon instead of the emoji, so it looks the same everywhere and follows the theme */
+.flame{display:inline-grid;place-items:center;color:var(--orange);margin-left:4px;vertical-align:-.06em}
+.flame svg{width:.78em;height:.78em;stroke-width:1.9;fill:rgba(245,154,74,.22)}
+.streak-n .flame svg{width:.62em;height:.62em}
+/* Home: the player's level as a game HUD: the ring fills with XP towards the next level */
+.greet-body{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:center}
+.hud{display:flex;align-items:center;gap:16px;padding-right:30px;border-right:1px solid var(--line)}
+.hud-ring{--p:0;width:112px;height:112px;border-radius:50%;flex:none;display:grid;place-content:center;text-align:center;
+  background:radial-gradient(closest-side,var(--card) 82%,transparent 83% 100%),conic-gradient(var(--accent2) calc(var(--p)*1%),var(--soft2) 0)}
+.hud-ring b{font-size:2.5rem;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.hud-ring small{font-size:.8rem;color:var(--muted);margin-top:4px}
+.hud-t{display:grid;gap:4px;max-width:170px}.hud-t b{font-weight:500;font-variant-numeric:tabular-nums}
+.home-greet.c7 .greet-body,.home-greet.c6 .greet-body{grid-template-columns:1fr}
+.home-greet.c7 .hud,.home-greet.c6 .hud{padding:0 0 20px;border-right:0;border-bottom:1px solid var(--line)}
+.home-greet.c7 .hud-t,.home-greet.c6 .hud-t{max-width:none}
+.home-greet.c7 .statrow{grid-template-columns:repeat(2,1fr)}
+@media (max-width:860px){.greet-body{grid-template-columns:1fr;gap:20px}
+  .hud{padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}.hud-t{max-width:none}.hud-ring{width:92px;height:92px}.hud-ring b{font-size:2rem}}
+/* a study step's link: a bigger hit area than the text line */
+.sp-steps .item a.small{display:inline-flex;align-items:center;min-height:26px}
+/* touch screens: controls at least 44px tall so they are easy to hit with a thumb (Apple HIG / Material) */
+@media (pointer:coarse){
+  .btn,.btn.sm,.seg button,.chip{min-height:44px}
+  .iconbtn,.iconbtn.sm{width:44px;height:44px}
+  .check{width:30px;height:30px}
+  .item select,.list select{min-height:44px}
+  .sp-steps .item a.small{min-height:44px}
+}
+

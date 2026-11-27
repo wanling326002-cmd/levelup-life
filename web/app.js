@@ -89,6 +89,7 @@ const P = {
   privacy:'<rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   play:'<path d="m8 5 11 7-11 7z"/>', pause:'<path d="M8 5v14M16 5v14"/>', reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  flame:'<path d="M12 3c.6 3 2.4 4.6 4 6.4 1.5 1.6 2.5 3.4 2.5 5.4a6.5 6.5 0 0 1-13 0c0-1.7.7-3.2 1.8-4.4.3 1.6 1.2 2.6 2.4 2.9-.6-3.4.4-7.4 2.3-10.3z"/>',
   star:'<path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -449,6 +450,13 @@ const level = () => {
   while (xp >= need && lv < MAX_LEVEL) { xp -= need; lv++; need = xpForNext(lv); }
   return lv >= MAX_LEVEL ? {lv:MAX_LEVEL, xp:1, need:1, max:true} : {lv, xp, need, max:false};
 };
+// the streak flame (an SVG, not the emoji) and Home's level HUD: the ring fills with XP towards the next level
+const flame = `<span class="flame">${icon('flame')}</span>`;
+function hud() {
+  const l = level(), pct = l.max ? 100 : Math.min(99, Math.floor(l.xp / l.need * 100));
+  return `<div class="hud"><div class="hud-ring" style="--p:${pct}" role="img" aria-label="${l.max ? `Level ${l.lv}, top level` : `Level ${l.lv}, ${pct}% of the way to level ${l.lv + 1}`}"><b>${l.lv}</b><small>Level</small></div>
+    <div class="hud-t"><b>${l.max ? 'Top level reached' : `${l.need - l.xp} XP to level ${l.lv + 1}`}</b><span class="muted small">Focus sessions, study steps and good deeds all give XP.</span></div></div>`;
+}
 const displayName = () => (me() && me().username) || S.name || 'Player';
 const gainXP = (n, why, quiet) => { // quiet: rewards that happen in the background don't cover a message that is showing
   if (isAdminOnly()) n *= 2; // admin perk: double XP (both ways, so unticking still balances out)
@@ -589,11 +597,11 @@ VIEWS.home = () => {
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`) : ''}
-  ${fresh ? '' : card(days >= 2 ? 'c7 home-greet' : 'c12 home-greet', `${greet}, ${emo(displayName())}`, `<div class="statrow">
+  ${fresh ? '' : card(days >= 2 ? 'c7 home-greet' : 'c12 home-greet', `${greet}, ${emo(displayName())}`, `<div class="greet-body">${hud()}<div class="statrow">
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
-    <div class="stat"><span class="k">Learning streak</span><span class="v">${streak()}🔥</span><span class="d">${S.questsTotal} good deeds</span></div></div>`,
+    <div class="stat"><span class="k">Learning streak</span><span class="v">${streak()}${flame}</span><span class="d">${S.questsTotal} good deeds</span></div></div></div>`,
     `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
   ${card(side, 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -942,7 +950,7 @@ VIEWS.impact = () => {
     ${q.map(([i,[t,d,k]])=>`<div class="quest"><input type="checkbox" class="check" data-q="${i}" ${questDone(i)?'checked disabled':''} aria-label="Complete ${esc(t)}"><div><b style="font-weight:500">${esc(t)}</b> <span class="tag ${tag[k][1]}">${tag[k][0]}</span><p class="muted small" style="margin:4px 0 0">${esc(d)}</p></div><span class="xp">+15 XP</span></div>`).join('')}`,
     `<span class="tag p">${done}/4</span>`)}
   ${card('c4', 'Your impact', `<div style="text-align:center"><div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Good deeds</span><span class="v">${S.questsTotal}</span></div><div class="stat"><span class="k">Streak</span><span class="v">${streak()}🔥</span></div></div></div>`)}
+    <div class="statrow" style="grid-template-columns:1fr 1fr"><div class="stat"><span class="k">Good deeds</span><span class="v">${S.questsTotal}</span></div><div class="stat"><span class="k">Streak</span><span class="v">${streak()}${flame}</span></div></div></div>`)}
   ${card('c12', 'Gamers & learners helping the world', `<div class="tiles cols-4">${ORGS.map(([n,d,u])=>`<a class="tile" style="border-radius:24px;align-items:flex-start;text-align:left;padding:18px" href="${u}" target="_blank" rel="noopener">${icon('globe')}<span><b style="font-weight:500">${esc(n)}</b><br><span class="muted small">${esc(d)}</span></span></a>`).join('')}</div>`)}
   </div>`;
 };
@@ -2169,7 +2177,7 @@ function checkProgress() {
 }
 function weeklyCard() {
   const ch = weekChallenges(), n = loginStreak(), next = Object.keys(STREAK_BONUS).map(Number).find(x => x > n);
-  return card('c12', 'This week', `<div class="week-wrap"><div class="streak-box"><span class="streak-n">${n}<small>🔥</small></span><b>Day login streak</b>
+  return card('c12', 'This week', `<div class="week-wrap"><div class="streak-box"><span class="streak-n">${n}${flame}</span><b>Day login streak</b>
       <span class="muted small">${next ? `${next - n} more day${next - n === 1 ? '' : 's'} for a +${STREAK_BONUS[next]} XP bonus` : 'Legendary streak!'}<br>Best: ${bestLogin()} days · ${S.wk.xp} XP this week</span></div>
     <ul class="challenges">${ch.map(c => `<li class="${c.done ? 'done' : ''}"><div class="ch-row"><span class="ch-ic">${icon(c.done ? 'check' : 'star')}</span><span class="grow"><b>${esc(c.name)}</b>
       <span class="meter"><i style="width:${Math.min(100, c.val / c.goal * 100)}%"></i></span><span class="muted small">${c.done ? `Done · +${CH_XP} XP` : `${Math.min(c.val, c.goal)} / ${c.goal}${c.id === 'learn' ? ' minutes' : ''} · +${CH_XP} XP`}</span></span>${c.done ? '' : `<a class="btn sm" href="${c.href}" aria-label="Go: ${esc(c.name)}">Go</a>`}</div></li>`).join('')}</ul></div>

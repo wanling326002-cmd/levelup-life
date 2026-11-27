@@ -1429,4 +1429,10 @@ Ideeën uit je leerpaden, plus tips om alles te leren.
 Tips om alles te leren. Maak een leerpad en je krijgt hier ook zoekopdrachten ervoor.
 Volgende stap: {s}
 {s} – tutorials
+## hud
+# XP tot level #
+Hoogste level bereikt
+Focussessies, leerstappen en goede daden geven allemaal XP.
+Level #, #% op weg naar level #
+Level #, hoogste level
 `);
