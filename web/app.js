@@ -438,7 +438,7 @@ function clean(raw) {
 let S;
 try { S = clean(JSON.parse(localStorage.getItem(KEY) || '{}')); }
 catch { S = clean({}); }
-const save = () => { S.savedAt = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); queueProgress(); cloudSoon(); };
+const save = () => { S.savedAt = Date.now(); if (typeof paintSide === 'function') queueMicrotask(paintSide); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} if (S.pub) schedulePublish(); queueProgress(); cloudSoon(); };
 
 const addLog = (cat, m, ref) => { if (m > 0) { const e = {d: today(), cat, m: Math.round(m)}; if (ref) e.ref = ref; S.log.push(e); save(); } };
 const dropLog = ref => { S.log = S.log.filter(x => x.ref !== ref); save(); };
@@ -473,7 +473,20 @@ function notify(title, body) {
   toast(`${title} — ${body}`);
   if (S.notify && 'Notification' in window && Notification.permission === 'granted') try { new Notification(title, {body, icon:'icon.svg'}); } catch {}
 }
+/* the sidebar's "This week" list: minutes per kind over the last 7 days, each a link to its page */
+const SIDE_ACC = [['learn', 'study'], ['play', 'gaming'], ['watch', 'series']];
+function paintSide() {
+  const box = $('#sideAccs'); if (!box) return;
+  const days = new Set(Array.from({length:7}, (_, i) => dayOffset(i)));
+  const html = SIDE_ACC.map(([c, r]) => { const m = S.log.filter(x => x.cat === c && days.has(x.d)).reduce((a, x) => a + x.m, 0);
+    return `<a class="side-acc" href="#${r}" data-acc="${r}"><i style="background:${CAT[c].c}"></i><span>${CAT[c].n}</span><small>${fmtMin(m)}</small></a>`; }).join('');
+  if (box.innerHTML !== html) box.innerHTML = html;
+  box.querySelectorAll('.side-acc').forEach(a => a.toggleAttribute('data-on', a.dataset.acc === current));
+  const t = !navigator.onLine ? 'Offline' : isOnlineAcc() ? 'Synced' : me() ? 'Signed in' : 'On this device';
+  const pill = $('#livePill'); if (pill) { $('#liveTxt').textContent = t; pill.dataset.state = t === 'Offline' ? 'off' : 'on'; }
+}
 function paintPlayer() {
+  paintSide();
   const {lv, xp, need, max} = level();
   $('#lvl').textContent = max ? `${lv} MAX` : lv; $('#xpBar').style.width = (max ? 100 : xp / need * 100) + '%';
   $('.profile').title = `${displayName()}${me() ? '' : ' (guest)'} · ${max ? 'Max level' : `${xp}/${need} XP to level ${lv + 1}`}`;
@@ -508,8 +521,6 @@ function paintNavMore() {
 function toggleNavMore(open) {
   const b = $('#navMoreBtn'), m = $('#navMoreMenu'); if (!b || !m) return;
   open = open ?? m.hidden; if (open === !m.hidden) return;
-  if (open) { const bar = $('.topbar').getBoundingClientRect(), r = b.getBoundingClientRect();
-    m.style.left = Math.max(0, Math.min(r.left - bar.left, bar.width - 240)) + 'px'; }
   m.hidden = !open; b.setAttribute('aria-expanded', open);
   if (open) (m.querySelector('a.active') || m.querySelector('a')).focus();
 }
@@ -526,7 +537,7 @@ function route() {
   $$('[data-route]').forEach(a => { const on = a.dataset.route === r.id; a.classList.toggle('active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   const act = $(`#nav [data-route="${r.id}"]`); if (act) act.scrollIntoView({block:'nearest', inline:'nearest'});
   toggleNavMore(false); paintNavMore();
-  $('#pageTitle').textContent = r.name; $('#pageSub').textContent = r.sub; baseTitle = `${r.name} · LevelUp Life`; document.title = baseTitle;
+  $('#pageTitle').textContent = r.name; $('#crumb').textContent = r.short || r.name; paintSide(); $('#pageSub').textContent = r.sub; baseTitle = `${r.name} · LevelUp Life`; document.title = baseTitle;
   $('#sheet').hidden = true;
   render();
   $('#main').focus({preventScroll:true}); window.scrollTo({top:0});
@@ -2709,7 +2720,9 @@ function bindOnline() {
    the site owner's email, which Wix links to the owner's Wix account. The page comes back to this website with a
    one-time code (PKCE). Progress is still locked before upload, with a LevelUp Life password chosen afterwards. */
 const HOSTED_KEY = 'levelup-hosted-login';
-const hereUrl = () => location.origin + location.pathname;
+// the sign-in page sends people back to the site's main address (the one allowed in the site's settings); the front page
+// there passes the sign-in result straight on to app.html, so the app is still where it is finished
+const hereUrl = () => location.origin + location.pathname.replace(/app\.html$/, '');
 const swFresh = () => !('serviceWorker' in navigator) ? Promise.resolve() :
   Promise.race([navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}), new Promise(r => setTimeout(r, 2500))]);
 const canHosted = () => hereUrl() === SITE_URL || /^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(hereUrl()); // the return address must be allowed in the site's settings
@@ -3518,41 +3531,10 @@ document.addEventListener('click', e => {
 });
 
 /* ---------- global events ---------- */
-/* top menu: hide the icons when they don't fit, then let the mouse wheel (or a drag) scroll it sideways */
-function navScroll() {
-  const nav = $('#nav'); if (!nav) return;
-  const fades = () => { const max = nav.scrollWidth - nav.clientWidth;
-    nav.classList.toggle('fade-l', nav.scrollLeft > 2); nav.classList.toggle('fade-r', max > 2 && nav.scrollLeft < max - 2); };
-  const fit = () => { // measured with animations paused, so a link halfway through a size change can't fool it
-    nav.classList.add('measure'); nav.classList.remove('compact');
-    if (nav.scrollWidth > nav.clientWidth + 1) nav.classList.add('compact');
-    void nav.offsetWidth; nav.classList.remove('measure'); fades(); };
-  nav.addEventListener('wheel', e => {
-    const max = nav.scrollWidth - nav.clientWidth; if (max <= 0) return; // nothing to scroll: leave the page alone
-    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    const step = d * (e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? nav.clientWidth : 1);
-    e.preventDefault(); nav.scrollLeft += step; // while the mouse is over the menu, the wheel moves the menu
-  }, {passive:false});
-  let drag = null;
-  nav.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || e.button !== 0) return; drag = {x:e.clientX, left:nav.scrollLeft, moved:false}; });
-  window.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x;
-    if (Math.abs(dx) > 5) drag.moved = true; if (drag.moved) { nav.scrollLeft = drag.left - dx; nav.classList.add('dragging'); } });
-  window.addEventListener('pointerup', () => { if (!drag) return; const moved = drag.moved; drag = null; nav.classList.remove('dragging');
-    if (moved) nav._dragEnd = Date.now(); });
-  nav.addEventListener('click', e => { if (Date.now() - (nav._dragEnd || 0) < 80) { e.preventDefault(); e.stopPropagation(); } }, true); // a drag is not a click
-  nav.addEventListener('scroll', fades, {passive:true});
-  let lastW = -1; // re-fit whenever the top bar changes width (window resize, scrollbar appearing, fonts loading)
-  let fitT = 0;
-  const refit = () => { const w = nav.parentElement.clientWidth; if (w !== lastW) { lastW = w; clearTimeout(fitT); fitT = setTimeout(fit, 60); } }; // wait for the new layout to settle
-  if ('ResizeObserver' in window) new ResizeObserver(refit).observe(nav.parentElement);
-  window.addEventListener('resize', () => { lastW = -1; refit(); });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  fit();
-}
 function events() {
   window.addEventListener('hashchange', route);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && isOnlineAcc() && Date.now() - OL.syncAt > 60000) cloudSync(); });
-  navScroll(); setupShell();
+  setupShell(); window.addEventListener('online', paintSide); window.addEventListener('offline', paintSide);
   document.addEventListener('keydown', trapFocus);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;

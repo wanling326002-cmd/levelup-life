@@ -6,6 +6,8 @@
     <title>LevelUp Life</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#f5f4ee" />
+    <!-- coming back from "Continue with Google or Wix": hand the sign-in result to the app, which finishes signing in -->
+    <script>if (/[?&](code|state|error)=/.test(location.search)) location.replace("app.html" + location.search + location.hash)</script>
   </head>
   <body>
     <div id="root"></div>

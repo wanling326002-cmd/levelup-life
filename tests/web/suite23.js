@@ -4,7 +4,7 @@
 const {chromium} = require('playwright'); const {spawn} = require('child_process');
 const H = require('./harness'); const D = H.OUT;
 const SITE = D + 'served23/'; H.copySite(SITE);
-const PORT = 8774, BASE = `http://localhost:${PORT}/`;
+const PORT = 8774, ROOT = `http://localhost:${PORT}/`, BASE = ROOT + 'app.html'; // the app; sign-in returns to the main address (ROOT), whose front page hands it on to the app
 const hdr = {'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'content-type': 'application/json'};
 const CAPTCHA_JS = "(function(){var g={render:function(el,o){el.innerHTML='<div style=\"width:304px;height:78px;background:#fff\"><div><label class=\"fakecap\"><input type=\"checkbox\" class=\"fakeCaptcha\"> I am not a robot</label></div></div>';return 1;},getResponse:function(){var c=document.querySelector('.fakeCaptcha');return c&&c.checked?'ok-token':'';},reset:function(){var c=document.querySelector('.fakeCaptcha');if(c)c.checked=false;}};window.grecaptcha={enterprise:g};var m=(document.currentScript.src.match(/onload=([A-Za-z_]+)/)||[])[1];if(m&&window[m])window[m]();})();";
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -18,7 +18,7 @@ async function mock(route) {
   if (req.method() === 'OPTIONS') return route.fulfill({status: 204, headers: hdr});
   if (u.includes('/oauth2/token')) {
     if (body.grantType === 'authorization_code' && body.code === 'hosted-code') {
-      if (body.redirectUri !== BASE || !body.codeVerifier) return bad(400, {error: 'invalid_request'});
+      if (body.redirectUri !== ROOT || !body.codeVerifier) return bad(400, {error: 'invalid_request'});
       return ok({access_token: 'mem-owner', refresh_token: 'rt-owner', expires_in: 14400});
     }
     if (body.grantType === 'refresh_token' && body.refreshToken === 'rt-owner') return ok({access_token: 'mem-owner', refresh_token: 'rt-owner', expires_in: 14400});
@@ -28,7 +28,7 @@ async function mock(route) {
   if (u.endsWith('/_api/redirects-api/v1/redirect-session')) {
     const a = body.auth.authRequest;
     if (a.responseMode === 'query') { // the hosted sign-in page
-      if (a.redirectUri !== BASE || a.codeChallengeMethod !== 'S256' || !a.codeChallenge) return bad(400, {});
+      if (a.redirectUri !== ROOT || a.codeChallengeMethod !== 'S256' || !a.codeChallenge) return bad(400, {});
       return ok({redirectSession: {id: 'rs', fullUrl: 'https://login.mock.test/login?state=' + a.state + '&to=' + encodeURIComponent(a.redirectUri)}});
     }
     if (sessionFails) return bad(500, {message: 'boom'});

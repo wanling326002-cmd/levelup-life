@@ -25,7 +25,7 @@ const URL=H.FILE_URL;
  await p.click('#navMoreBtn'); await p.waitForTimeout(150);
  const more=await p.$$eval('#navMoreMenu a',a=>a.map(x=>x.dataset.route));
  ok('More opens a list with the other pages', await open() && (await p.getAttribute('#navMoreBtn','aria-expanded'))==='true' && more.join()==='companion,series,youtube,balance,impact,messages,players', more.join());
- ok('the list opens right under the More button', await p.evaluate(()=>{const b=document.querySelector('#navMoreBtn').getBoundingClientRect(),m=document.querySelector('#navMoreMenu').getBoundingClientRect();return m.top>=b.bottom && m.top-b.bottom<30 && Math.abs(m.left-b.left)<4;}));
+ ok('the list opens right under the More button, indented in the sidebar', await p.evaluate(()=>{const b=document.querySelector('#navMoreBtn').getBoundingClientRect(),m=document.querySelector('#navMoreMenu').getBoundingClientRect();return m.top>=b.bottom && m.top-b.bottom<30 && m.left>=b.left && m.left-b.left<40;}));
  ok('keyboard focus moves into the list', await p.evaluate(()=>document.activeElement.closest('#navMoreMenu')!==null));
  await p.keyboard.press('Escape'); await p.waitForTimeout(100);
  ok('Esc closes it and puts focus back on More', !(await open()) && await p.evaluate(()=>document.activeElement.id==='navMoreBtn'));

@@ -5,7 +5,7 @@ const {chromium} = require('playwright'); const fs = require('fs'); const {spawn
 const H = require('./harness'); const D = H.OUT;
 const SITE = D + 'served22/'; H.copySite(SITE);
 fs.writeFileSync(SITE + 'downloads.json', JSON.stringify({github: 'wanling326002-cmd/levelup-life', windows: {url: '', version: '', size: 0, all: ''}})); // start with nothing published
-const PORT = 8773, BASE = `http://localhost:${PORT}/`;
+const PORT = 8773, BASE = `http://localhost:${PORT}/app.html`; // the app (the front page is the landing page)
 const WIN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));

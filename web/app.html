@@ -21,17 +21,27 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="space" aria-hidden="true"><i class="orbit o1"></i><i class="orbit o2"></i><i class="orbit o3"></i></div>
+<div class="space" aria-hidden="true"></div>
 
 <div class="frame">
-  <header class="topbar">
-    <a class="brand" href="#home" aria-label="LevelUp Life home"><img src="icon.svg" alt="" width="34" height="34"><span>LevelUp</span></a>
-    <nav class="pillnav" id="nav" aria-label="Main navigation"></nav>
+  <aside class="side" aria-label="Sidebar">
+    <a class="side-brand" href="#home" aria-label="LevelUp Life home"><img src="icon.svg" alt="" width="22" height="22"><span>LevelUp Life</span></a>
+    <div class="side-label" id="sideLblMain">Overview</div>
+    <nav class="sidenav" id="nav" aria-label="Main navigation"></nav>
     <div class="nav-more-menu" id="navMoreMenu" hidden></div>
+    <div class="side-label" id="sideLblWeek">This week</div>
+    <div class="side-accs" id="sideAccs"></div>
+    <a class="side-foot" href="#help"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg><span>Help &amp; shortcuts</span></a>
+  </aside>
+
+  <div class="dash">
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="LevelUp Life home"><img src="icon.svg" alt="" width="30" height="30"><span>LevelUp</span></a>
+    <div class="crumbs"><span>LevelUp Life</span><span aria-hidden="true">/</span><b id="crumb">Home</b><span class="live" id="livePill"><i></i><span id="liveTxt">On this device</span></span></div>
+    <div class="spacer"></div>
     <button class="round" id="searchBtn" aria-label="Search and jump (Ctrl+K)" title="Search (Ctrl+K)">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     </button>
-    <div class="spacer"></div>
     <button class="round bell" id="bellBtn" aria-label="Notifications" aria-expanded="false" aria-controls="notePanel" title="Notifications">
       <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bell-n" id="bellN" hidden></span>
     </button>
@@ -62,12 +72,13 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
 
   <div id="main" tabindex="-1"></div>
   </main>
-</div>
 
-<footer class="foot">
-  <span class="trust"><span class="dot"></span>Private by design · your data stays on your device · no tracking</span>
-  <span class="links"><a href="#privacy">Privacy Terms</a><a href="#help">Help &amp; Shortcuts</a></span>
-</footer>
+  <footer class="foot">
+    <span class="trust"><span class="dot"></span>Private by design · your data stays on your device · no tracking</span>
+    <span class="links"><a href="#privacy">Privacy Terms</a><a href="#help">Help &amp; Shortcuts</a></span>
+  </footer>
+  </div>
+</div>
 
 <nav class="bottomnav" id="bottomnav" aria-label="Quick navigation"></nav>
 
