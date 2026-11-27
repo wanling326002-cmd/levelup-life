@@ -139,7 +139,9 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
 
   // accessibility of the pages with game tracking
   await win.addScriptTag({path: require.resolve('axe-core/axe.min.js')});
-  const axeRun = () => win.evaluate(async () => (await axe.run(document.querySelector('#main'), {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}, resultTypes: ['violations']})).violations.map(x => x.id));
+  const axeRun = () => win.evaluate(async () => { // first let the cards finish fading in: half-faded text is not what people read
+    for (let i = 0; i < 40 && document.getAnimations().some(x => x.playState === 'running'); i++) await new Promise(r => setTimeout(r, 50));
+    return (await axe.run(document.querySelector('#main'), {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}, resultTypes: ['violations']})).violations.map(x => `${x.id} [${x.nodes.slice(0, 3).map(n => n.target.join(' ') + (n.any[0] && n.any[0].data && n.any[0].data.contrastRatio ? ` ${n.any[0].data.contrastRatio} ${n.any[0].data.fgColor}/${n.any[0].data.bgColor}` : '')).join('; ')}]`); }); // which element and colours, so a failure can be fixed from the log
   let v = await axeRun();
   await win.screenshot({path: path.join(OUT, 'desktop-settings.png'), fullPage: true});
   await win.evaluate(() => { location.hash = '#gaming'; }); await until(async () => (await text(win)).includes('Tracked games'));
