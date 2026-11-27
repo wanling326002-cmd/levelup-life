@@ -49,6 +49,7 @@ const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) +
       .filter(e => e.getBoundingClientRect().height < 43.5).map(e => `#${r} ${e.className || e.tagName} ${Math.round(e.getBoundingClientRect().height)}`), r));
   }
   ok('on a phone every button, icon button, chip, tab and dropdown is at least 44px tall', !small.length, small.slice(0, 6).join(' | '));
+  await ph.goto(URL + '#home'); await ph.waitForTimeout(250);
   ok('on a phone the level ring sits above the day stats', await ph.evaluate(() => { const h = document.querySelector('.hud').getBoundingClientRect(), s = document.querySelector('.home-greet .statrow').getBoundingClientRect(); return h.bottom <= s.top + 1 && document.documentElement.scrollWidth <= innerWidth; }).catch(() => false));
   const pc = await (await b.newContext({viewport: {width: 1440, height: 900}})).newPage(); await pc.context().route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
   await seed(pc); await pc.goto(URL + '#study'); await pc.waitForTimeout(250);
