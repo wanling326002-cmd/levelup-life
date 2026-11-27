@@ -87,7 +87,7 @@ const P = {
   settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/>',
   privacy:'<rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  plus:'<path d="M12 5v14M5 12h14"/>', trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   play:'<path d="m8 5 11 7-11 7z"/>', pause:'<path d="M8 5v14M16 5v14"/>', reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   star:'<path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
@@ -114,7 +114,7 @@ const icon = n => `<svg viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</sv
 const IS_DESKTOP = !!(window.levelupDesktop && window.levelupDesktop.isDesktop);
 const ROUTES = [
   {id:'home', top:true, name:'Home', sub:'Your day at a glance.', key:'1', main:true},
-  {id:'study', top:true, name:'Study Path', short:'Study', sub:'Learn Web Design & App Development, step by step.', key:'2', main:true},
+  {id:'study', top:true, name:'Study Path', short:'Study', sub:'Make your own study paths and learn step by step.', key:'2', main:true},
   {id:'focus', top:true, name:'Focus', sub:'Pomodoro timer — deep work, then a real break.', key:'3', main:true},
   {id:'gaming', top:true, name:'Gaming', sub:IS_DESKTOP ? 'Your game time is tracked automatically on this PC. Plus your backlog and healthy breaks.' : 'Track sessions, your backlog and healthy breaks.', key:'4', main:true},
   {id:'companion', name:'Game Time', sub:'Automatic game tracking and daily play limits, with the Windows app.', main:true},
@@ -132,23 +132,16 @@ const ROUTES = [
 ].filter(r => !(IS_DESKTOP && r.id === 'companion'));
 const iconFor = id => icon(id === 'options' ? 'settings' : id === 'badges' ? 'badge' : id);
 
-/* ---------- learning content ---------- */
-const TRACKS = {
-  web: {name:'Web Design', modules:[
-    {t:'HTML foundations', l:[['How the web works','https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Web_standards/How_the_web_works'],['HTML elements & structure','https://web.dev/learn/html'],['Forms & semantic HTML','https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content'],['Build: a personal profile page','https://www.freecodecamp.org/learn']]},
-    {t:'CSS & layout', l:[['Selectors, box model, colours','https://web.dev/learn/css'],['Flexbox','https://css-tricks.com/snippets/css/a-guide-to-flexbox/'],['Grid','https://css-tricks.com/snippets/css/complete-guide-grid/'],['Responsive design','https://web.dev/learn/design'],['Build: recreate a dashboard like this app','https://developer.mozilla.org/en-US/docs/Web/CSS']]},
-    {t:'Design principles', l:[['Typography & spacing','https://m3.material.io/styles/typography/overview'],['Colour & contrast','https://webaim.org/resources/contrastchecker/'],['Laws of UX','https://lawsofux.com/'],['Figma basics','https://help.figma.com/hc/en-us']]},
-    {t:'JavaScript', l:[['Variables, functions, loops','https://javascript.info/first-steps'],['DOM & events','https://javascript.info/document'],['Fetch & APIs','https://javascript.info/fetch'],['Build: a to-do app','https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting']]},
-    {t:'Accessibility & shipping', l:[['Accessibility intro','https://www.w3.org/WAI/fundamentals/accessibility-intro/'],['Git & GitHub','https://git-scm.com/book/en/v2'],['Deploy a site for free','https://docs.github.com/en/pages'],['Build: your portfolio','https://web.dev/learn']]},
-  ]},
-  app: {name:'App Development', modules:[
-    {t:'Programming basics', l:[['Think like a programmer (JS)','https://javascript.info/'],['Data structures basics','https://www.freecodecamp.org/learn'],['Git version control','https://git-scm.com/book/en/v2']]},
-    {t:'Modern UI with React', l:[['React: Quick start','https://react.dev/learn'],['Thinking in React','https://react.dev/learn/thinking-in-react'],['State & effects','https://react.dev/learn/managing-state'],['Build: a watchlist app','https://react.dev/learn/tutorial-tic-tac-toe']]},
-    {t:'Mobile apps', l:[['React Native: get started','https://reactnative.dev/docs/getting-started'],['Flutter: get started','https://docs.flutter.dev/get-started'],['Android (Kotlin) courses','https://developer.android.com/courses'],['iOS: SwiftUI tutorials','https://developer.apple.com/tutorials/swiftui']]},
-    {t:'Desktop apps', l:[['Electron: build your first app','https://www.electronjs.org/docs/latest/tutorial/tutorial-prerequisites'],['Package an .exe installer','https://www.electron.build/'],['Build: turn a website into an app','https://www.electronjs.org/docs/latest/']]},
-    {t:'Backend & publishing', l:[['HTTP & REST APIs','https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview'],['Databases intro (SQL)','https://sqlbolt.com/'],['Publish to app stores','https://developer.android.com/studio/publish'],['Build: ship your first app','https://docs.github.com/en/get-started']]},
-  ]},
-};
+/* ---------- study paths ----------
+   Players make their own study paths: a name and a list of steps (each with an optional link). A finished step is
+   stored in S.lessons under "<path id>.<step id>", next to any lessons finished in the old built-in courses, so
+   badges, weekly challenges and history keep counting all of them. */
+const MAX_PATHS = 20, MAX_STEPS = 200;
+const stepKey = (p, st) => `${p.id}.${st.id}`;
+const curPath = () => S.paths.find(p => p.id === S.path) || S.paths[0] || null;
+const pathDone = p => p.steps.filter(st => S.lessons[stepKey(p, st)]).length;
+const pathPct = p => p && p.steps.length ? Math.round(pathDone(p) / p.steps.length * 100) : 0;
+const stepsDone = (n, total) => total === 1 ? `${n} of 1 step done` : `${n} of ${total} steps done`;
 const YT_SEARCHES = [
   ['HTML & CSS full course','html css full course beginners'],['JavaScript for beginners','javascript full course beginners'],
   ['Web design in Figma','figma web design tutorial'],['React tutorial','react tutorial beginners'],
@@ -315,10 +308,12 @@ const avatarInner = () => M.pfp ? pic(M.pfp, M.pfpVid) : esc(displayName().trim(
 
 /* ---------- state ---------- */
 const DEFAULT = {
-  name:'', agreed:false, theme:'dark', xp:0, notify:false, thumbs:true, breakEvery:60, epLen:40, track:'web',
+  name:'', agreed:false, theme:'dark', xp:0, notify:false, thumbs:true, breakEvery:60, epLen:40,
   goals:{learn:60, play:120, watch:90},
   log:[],                         // {d, cat:'learn'|'play'|'watch', m}
-  lessons:{},                     // id -> date
+  lessons:{},                     // finished study steps (and lessons of the old built-in courses): id -> date
+  paths:[],                       // my study paths: {id, name, steps:[{id, t, url}]}
+  path:'',                        // the study path that is open
   tasks:[],                       // {id,text,done}
   focus:{work:25, short:5, long:15, count:0},
   backlog:[],                     // {id,title,platform,status}
@@ -359,6 +354,7 @@ const DEFAULT = {
 const num = (v, d, lo = 0, hi = 1e6) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
 const str = (v, max = 200) => typeof v === 'string' ? v.slice(0, max) : '';
 const arr = v => Array.isArray(v) ? v : [];
+const noCtl = v => String(v).replace(/\p{Cc}/gu, ' '); // no line breaks or other control characters
 const okId = v => typeof v === 'string' && /^[\w-]{1,40}$/.test(v) ? v : uid();
 const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const CATS = ['learn', 'play', 'watch'];
@@ -366,12 +362,22 @@ function clean(raw) {
   const s = raw && typeof raw === 'object' ? raw : {}, d = structuredClone(DEFAULT);
   d.name = str(s.name, 24); d.agreed = s.agreed === true; d.theme = s.theme === 'light' ? 'light' : 'dark';
   d.xp = num(s.xp, 0); d.notify = s.notify === true; d.thumbs = s.thumbs !== false;
-  d.breakEvery = num(s.breakEvery, 60, 0, 600); d.epLen = num(s.epLen, 40, 1, 300); d.track = TRACKS[s.track] ? s.track : 'web';
+  d.breakEvery = num(s.breakEvery, 60, 0, 600); d.epLen = num(s.epLen, 40, 1, 300);
   const g = s.goals || {}; d.goals = {learn:num(g.learn, 60, 0, 1440), play:num(g.play, 120, 0, 1440), watch:num(g.watch, 90, 0, 1440)};
   if (s.gtLinked === true) d.gtLinked = true; // the Windows app's daily limit and this gaming limit are kept the same
   d.log = arr(s.log).filter(x => x && isDay(x.d) && CATS.includes(x.cat)).map(x => {
     const e = {d:x.d, cat:x.cat, m:num(x.m, 0, 0, 1440)}; if (x.g) e.g = str(x.g, 60); if (x.ref) e.ref = str(x.ref, 60); return e; });
-  for (const [k, v] of Object.entries(s.lessons || {})) if (/^\w+\.\d+\.\d+$/.test(k)) d.lessons[k] = str(v, 10);
+  for (const [k, v] of Object.entries(s.lessons || {})) if (/^\w+\.\d+\.\d+$/.test(k) || /^[\w-]{1,40}\.[\w-]{1,40}$/.test(k)) d.lessons[k] = str(v, 10);
+  const pids = new Set();
+  d.paths = arr(s.paths).filter(p => p && typeof p.name === 'string' && p.name.trim()).slice(0, MAX_PATHS).map(p => {
+    let id = okId(p.id); while (pids.has(id)) id = uid(); pids.add(id);
+    const sids = new Set();
+    return {id, name:noCtl(str(p.name, 60)).trim(), steps:arr(p.steps).filter(st => st && typeof st.t === 'string' && st.t.trim()).slice(0, MAX_STEPS).map(st => {
+      let sid = okId(st.id); while (sids.has(sid)) sid = uid(); sids.add(sid);
+      return {id:sid, t:noCtl(str(st.t, 120)).trim(), url:safeUrl(str(st.url, 500))};
+    })};
+  });
+  d.path = typeof s.path === 'string' && d.paths.some(p => p.id === s.path) ? s.path : (d.paths[0] ? d.paths[0].id : '');
   d.tasks = arr(s.tasks).filter(x => x && x.text).map(x => ({id:okId(x.id), text:str(x.text, 120), done:x.done === true}));
   const f = s.focus || {}; d.focus = {work:num(f.work, 25, 1, 120), short:num(f.short, 5, 1, 120), long:num(f.long, 15, 1, 120), count:num(f.count, 0)};
   d.backlog = arr(s.backlog).filter(x => x && x.title).map(x => ({id:okId(x.id), title:str(x.title, 60), platform:str(x.platform, 30),
@@ -550,14 +556,14 @@ VIEWS.home = () => {
   const wk = ['learn','play','watch'].map(c => week(c).reduce((a,b)=>a+b,0));
   const prevL = Array.from({length:7},(_,i)=>minsOn(dayOffset(13-i),'learn')).reduce((a,b)=>a+b,0);
   const trend = prevL ? Math.round((wk[0]-prevL)/prevL*100) : (wk[0] ? 100 : 0);
-  const next = nextLesson();
+  const next = nextStep();
   const ep = S.series.find(s => s.status === 'watching');
   const qi = dailyQuests()[0];
   const hr = new Date().getHours();
   const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   // brand-new players get a short "Start here" list instead of an empty chart and a row of zeros;
   // the 7-day chart appears once there are at least 2 days to draw
-  const fresh = !S.log.length && !S.questsTotal && !pctDone();
+  const fresh = !S.log.length && !S.questsTotal && !S.paths.length && !Object.keys(S.lessons).length;
   const days = Array.from({length:7}, (_, i) => dayOffset(i)).filter(day => ['learn','play','watch'].some(c => minsOn(day, c) > 0)).length;
   const g = S.backlog.find(b => b.status === 'playing'), v = S.yt.find(y => !y.watched);
   const upNext = !!(ep || g || v), side = upNext ? 'c4' : 'c6';
@@ -566,7 +572,7 @@ VIEWS.home = () => {
   ${needBackup() ? `<section class="card c12 backup-note" role="note">${icon('download')}<div class="grow"><b>Back up your progress</b><p class="muted small" style="margin:2px 0 0">${S.lastBackup ? `Your last backup was ${Math.floor((Date.now() - S.lastBackup) / 864e5)} days ago.` : 'You have never made a backup.'} Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.</p></div>
     <div class="row"><button type="button" class="btn primary sm" data-backup="now">${icon('download')}Download backup</button><button type="button" class="btn sm" data-backup="later">Remind me next week</button></div></section>` : ''}
   ${fresh ? card('c12 start-card home-greet', `${greet}, ${emo(displayName())}`, `<p class="muted" style="margin:-4px 0 16px">Welcome to LevelUp Life! Pick one to get started:</p>
-    <div class="start-steps">${step('#focus', 'focus', 'Start a focus session', '25 minutes of deep work, then a break')}${step('#study', 'study', 'Open your first lesson', 'Web Design and App Development, step by step')}${step('#gaming', 'gaming', 'Log a game session', 'See how play fits into your week')}</div>`,
+    <div class="start-steps">${step('#focus', 'focus', 'Start a focus session', '25 minutes of deep work, then a break')}${step('#study', 'study', 'Make your study path', 'Plan what you want to learn, step by step')}${step('#gaming', 'gaming', 'Log a game session', 'See how play fits into your week')}</div>`,
     `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`) : ''}
   ${!fresh && days >= 2 ? card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
@@ -580,9 +586,11 @@ VIEWS.home = () => {
     `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
   ${card(side, 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px"><span>${esc(TRACKS[next.track].name)}</span> · <span>${esc(next.module)}</span></p>
-    <div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="${next.url}">${icon('link')}Open lesson</a><a class="btn primary" href="#study">Study Path</a></div>`
-    : empty('🏆 You finished every lesson! Build something and share it.'), `<span class="tag p">${pctDone()}% done</span>`)}
+    <p style="text-align:center;margin:0">${esc(next.step.t)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px">${esc(next.path.name)} · ${stepsDone(pathDone(next.path), next.path.steps.length)}</p>
+    <div class="row" style="justify-content:center">${next.step.url ? `<a class="btn" target="_blank" rel="noopener" href="${esc(next.step.url)}">${icon('link')}Open link</a>` : ''}<a class="btn primary" href="#study">Study Path</a></div>`
+    : S.paths.length ? `<div class="empty">🏆 You finished all your study steps! Add more steps or start a new path.</div><div class="row" style="justify-content:center;margin-top:12px"><a class="btn primary" href="#study">Study Path</a></div>`
+    : `<p class="muted" style="margin:0 0 14px">Make your own study path: pick what you want to learn and split it into small steps.</p><a class="btn primary" href="#study">${icon('plus')}Make a study path</a>`,
+    next ? `<span class="tag p">${pathPct(next.path)}% done</span>` : '')}
   ${upNext ? card('c4', 'Up next', `<ul class="list">
     ${ep ? `<li class="item"><span class="thumb" style="--h:${ep ? hue(ep.title) : 'var(--dim)'}">${icon('series')}</span><div class="grow"><div class="t">${ep ? emo(ep.title) : 'No series in progress'}</div><div class="s">${ep ? `Season ${ep.s} · Episode ${ep.e + 1}` : 'Add one in Series'}</div></div>${ep ? `<button class="btn sm" data-ep="${ep.id}">Watched</button>` : '<a class="btn sm" href="#series">Add</a>'}</li>` : ''}
     ${g ? (() => `<li class="item"><span class="thumb" style="--h:${g ? hue(g.title) : 'var(--dim)'}">${icon('gaming')}</span><div class="grow"><div class="t">${g ? emo(g.title) : 'No game marked as playing'}</div><div class="s">${g ? esc(g.platform || 'Game') : 'Add one in Gaming'}</div></div><a class="btn sm" href="#gaming">${g ? 'Play' : 'Add'}</a></li>`)() : ''}
@@ -597,42 +605,96 @@ BIND.home = m => {
   m.querySelectorAll('[data-quest]').forEach(b => b.onclick = () => doQuest(+b.dataset.quest));
 };
 
-/* study */
-const lessonId = (t, mi, li) => `${t}.${mi}.${li}`;
-function nextLesson() {
-  for (const t of [S.track, ...Object.keys(TRACKS).filter(k => k !== S.track)])
-    for (const [mi, mod] of TRACKS[t].modules.entries())
-      for (const [li, [name, url]] of mod.l.entries()) if (!S.lessons[lessonId(t, mi, li)]) return {track:t, module:mod.t, lesson:name, url};
+/* study: your own study paths */
+const SP = {mode:''}; // '' | 'new' (new path form) | 'rename' | 'del' (asking to confirm a delete)
+function nextStep() { // the first unfinished step: in the open path first, then in the others
+  const p0 = curPath();
+  for (const p of p0 ? [p0, ...S.paths.filter(x => x !== p0)] : S.paths)
+    for (const st of p.steps) if (!S.lessons[stepKey(p, st)]) return {path:p, step:st};
   return null;
 }
-function pctDone(t = S.track) { const all = TRACKS[t].modules.flatMap((m, mi) => m.l.map((_, li) => lessonId(t, mi, li))); return Math.round(all.filter(i => S.lessons[i]).length / all.length * 100); }
-VIEWS.study = () => {
-  const t = S.track, tr = TRACKS[t];
-  return `<div class="grid">
-  ${card('c8', '', `<div class="row" style="margin-bottom:18px"><div class="seg">${Object.entries(TRACKS).map(([k,v])=>`<button data-track="${k}" class="${k===t?'on':''}">${v.name}</button>`).join('')}</div>
-    <span class="spacer" style="flex:1"></span><span class="muted small">${pctDone()}% complete</span></div>
-    <div class="meter" style="margin-bottom:20px"><i style="width:${pctDone()}%"></i></div>
-    ${tr.modules.map((mod, mi) => { const done = mod.l.filter((_, li) => S.lessons[lessonId(t,mi,li)]).length;
-      return `<details class="module" ${done < mod.l.length && (mi === 0 || tr.modules.slice(0,mi).every((m2,mj)=>m2.l.every((_,lj)=>S.lessons[lessonId(t,mj,lj)]))) ? 'open' : ''}>
-      <summary><span class="thumb" style="--h:${done===mod.l.length?'var(--ok)':'var(--accent)'};width:36px;height:36px;font-size:.9rem">${done===mod.l.length?'✓':mi+1}</span><span class="grow"><b style="font-weight:500">${esc(mod.t)}</b><br><span class="muted small">${done}/${mod.l.length} lessons</span></span><span class="tag ${done===mod.l.length?'g':'p'}">+20 XP each</span></summary>
-      <div class="lessons">${mod.l.map(([name,url],li)=>{ const id=lessonId(t,mi,li); return `<label><input type="checkbox" class="check" data-lesson="${id}" ${S.lessons[id]?'checked':''}><span>${esc(name)}</span><a href="${url}" target="_blank" rel="noopener">Open ↗</a></label>`; }).join('')}</div></details>`; }).join('')}`)}
+const pathLink = v => { v = noCtl(v).trim(); if (!v) return ''; if (!/^[a-z][\w+.-]*:/i.test(v)) v = 'https://' + v; return safeUrl(v) || null; }; // null: not a web link
+function studyPathCard() {
+  const p = curPath();
+  const newForm = (first) => `<form class="sp-new" id="newPathForm"><input id="newPathIn" class="grow" maxlength="60" placeholder="What do you want to learn?" aria-label="Name of the study path" autocomplete="off">
+    <button class="btn primary">${icon('plus')}Create path</button>${first ? '' : '<button type="button" class="btn" data-spcancel>Cancel</button>'}</form><p class="err" id="pathErr" role="alert"></p>`;
+  if (!p) return card('c8 sp-card', '', `<div class="sp-empty"><span class="thumb" style="--h:var(--accent)">${icon('study')}</span>
+    <h2>Make your own study path</h2>
+    <p class="muted">Pick anything you want to learn, like a language, coding, guitar or an exam, and split it into small steps. Tick each step when you finish it for +20 XP.</p>
+    ${newForm(true)}</div>`);
+  const done = pathDone(p), pct = pathPct(p);
+  return card('c8 sp-card', '', `<div class="row sp-top"><div class="seg sp-tabs" role="tablist" aria-label="Your study paths">${S.paths.map(x => `<button type="button" role="tab" data-path="${x.id}" class="${x === p ? 'on' : ''}" aria-selected="${x === p}">${esc(x.name)}</button>`).join('')}</div>
+      ${S.paths.length < MAX_PATHS && SP.mode !== 'new' ? `<button type="button" class="btn sm" id="newPathBtn">${icon('plus')}New path</button>` : ''}</div>
+    ${SP.mode === 'new' ? newForm(false) : ''}
+    ${SP.mode === 'rename' ? `<form class="sp-new" id="renameForm"><input id="renameIn" class="grow" maxlength="60" value="${esc(p.name)}" aria-label="New name for the study path" autocomplete="off"><button class="btn primary">Save</button><button type="button" class="btn" data-spcancel>Cancel</button></form><p class="err" id="pathErr" role="alert"></p>`
+      : `<div class="sp-head"><div class="grow"><h2>${esc(p.name)}</h2><span class="muted small">${stepsDone(done, p.steps.length)} · ${pct}%</span></div>
+      <button type="button" class="iconbtn" id="renamePath" aria-label="Rename this study path" title="Rename">${icon('edit')}</button><button type="button" class="iconbtn" id="delPath" aria-label="Delete this study path" title="Delete">${icon('trash')}</button></div>`}
+    ${SP.mode === 'del' ? `<div class="sp-confirm" role="alert"><p><span>${!p.steps.length ? `Delete “${esc(p.name)}”?` : p.steps.length === 1 ? `Delete “${esc(p.name)}” and its step?` : `Delete “${esc(p.name)}” and its ${p.steps.length} steps?`}</span>
+      ${done ? ` <span>${done === 1 ? 'The finished step gives back its XP.' : `The ${done} finished steps give back their XP.`}</span>` : ''}</p>
+      <div class="row"><button type="button" class="btn danger sm" id="delPathYes">Delete path</button><button type="button" class="btn sm" data-spcancel>Cancel</button></div></div>` : ''}
+    <div class="meter" style="margin:12px 0 16px"><i style="width:${pct}%"></i></div>
+    <ul class="list sp-steps">${p.steps.map((st, i) => { const key = stepKey(p, st), ok = !!S.lessons[key];
+      return `<li class="item ${ok ? 'done' : ''}"><input type="checkbox" class="check" data-step="${st.id}" ${ok ? 'checked' : ''} aria-label="Done: ${esc(st.t)}">
+        <div class="grow"><div class="t">${esc(st.t)}</div>${st.url ? `<a class="small" href="${esc(st.url)}" target="_blank" rel="noopener">Open link ↗</a>` : ''}</div>
+        <button type="button" class="iconbtn sm" data-stepup="${st.id}" aria-label="Move up" title="Move up" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="iconbtn sm" data-stepdown="${st.id}" aria-label="Move down" title="Move down" ${i === p.steps.length - 1 ? 'disabled' : ''}>↓</button>
+        <button type="button" class="iconbtn" data-delstep="${st.id}" aria-label="Delete step" title="Delete step">${icon('trash')}</button></li>`; }).join('') || emptyLi('No steps yet. Add your first step below.')}</ul>
+    ${p.steps.length < MAX_STEPS ? `<form class="sp-add" id="stepForm"><input id="stepIn" class="grow" maxlength="120" placeholder="Next step, e.g. Chapter 1: the basics" aria-label="New step" autocomplete="off">
+      <input id="stepUrl" class="grow" maxlength="500" placeholder="Link (optional)" aria-label="Link for the step (optional)" autocomplete="off" inputmode="url"><button class="btn primary">${icon('plus')}Add step</button></form><p class="err" id="stepErr" role="alert"></p>` : ''}
+    <p class="muted small" style="margin:10px 0 0">+20 XP for each step you finish.</p>`);
+}
+VIEWS.study = () => `<div class="grid">
+  ${studyPathCard()}
   <div class="c4" style="display:grid;gap:22px;align-content:start">
-  ${card('', 'Study tasks', `<form class="row" id="taskForm"><input id="taskIn" placeholder="e.g. Finish flexbox exercise" maxlength="120" aria-label="New task"><button class="iconbtn" aria-label="Add task">${icon('plus')}</button></form>
+  ${card('', 'Study tasks', `<form class="row" id="taskForm"><input id="taskIn" placeholder="e.g. Read chapter 3" maxlength="120" aria-label="New task"><button class="iconbtn" aria-label="Add task">${icon('plus')}</button></form>
     <ul class="list" style="margin-top:10px">${S.tasks.map(x=>`<li class="item ${x.done?'done':''}"><input type="checkbox" class="check" data-task="${x.id}" ${x.done?'checked':''} aria-label="Done"><div class="grow"><div class="t">${emo(x.text)}</div></div><button class="iconbtn" data-deltask="${x.id}" aria-label="Delete">${icon('trash')}</button></li>`).join('') || emptyLi('No tasks yet. Add your first one above.')}</ul>`)}
   ${card('', 'Study tips', `<ul class="tips">
-    <li>Build tiny projects. You learn fastest by making things.</li><li>Use 25-minute Focus sessions, then take a real break.</li>
-    <li>Recreate a menu or HUD from your favourite game in HTML &amp; CSS.</li><li>Watch a tutorial once, then rebuild it without looking.</li>
-    <li>Share your work. Feedback is a power-up.</li></ul>`)}
+    <li>Keep steps small. Something you can finish in one sitting.</li><li>Use 25-minute Focus sessions, then take a real break.</li>
+    <li>Teach what you just learned to a friend. Explaining it makes it stick.</li><li>Watch a tutorial once, then try it again without looking.</li>
+    <li>Share your progress. Feedback is a power-up.</li></ul>`)}
   </div></div>`;
-};
+function undoStep(p, st) { const key = stepKey(p, st); if (!S.lessons[key]) return; delete S.lessons[key]; dropLog('lesson:' + key); gainXP(-20); } // a finished step that is unticked or deleted gives its XP back
 BIND.study = m => {
-  m.querySelectorAll('[data-track]').forEach(b => b.onclick = () => { S.track = b.dataset.track; save(); rerender(); });
-  m.querySelectorAll('[data-lesson]').forEach(c => c.onchange = () => {
-    const ref = 'lesson:' + c.dataset.lesson;
-    if (c.checked) { S.lessons[c.dataset.lesson] = today(); addLog('learn', 20, ref); gainXP(20, 'lesson complete'); }
-    else { delete S.lessons[c.dataset.lesson]; dropLog(ref); gainXP(-20); }
-    save(); rerender();
+  const p = curPath(), err = (id, t) => { const e = $(id); if (e) e.textContent = t; };
+  const nameOk = (v, self) => { v = noCtl(v).trim().slice(0, 60);
+    if (!v) return ['', 'Give your study path a name.'];
+    if (S.paths.some(x => x !== self && x.name.toLowerCase() === v.toLowerCase())) return ['', 'You already have a study path with that name.'];
+    return [v, '']; };
+  m.querySelectorAll('[data-spcancel]').forEach(b => b.onclick = () => { SP.mode = ''; rerender(); });
+  m.querySelectorAll('[data-path]').forEach(b => b.onclick = () => { S.path = b.dataset.path; SP.mode = ''; save(); rerender(); });
+  const nb = $('#newPathBtn'); if (nb) nb.onclick = () => { SP.mode = 'new'; rerender(); $('#newPathIn').focus(); };
+  const nf = $('#newPathForm'); if (nf) nf.onsubmit = e => { e.preventDefault();
+    const [name, why] = nameOk($('#newPathIn').value); if (why) return err('#pathErr', why);
+    if (S.paths.length >= MAX_PATHS) return err('#pathErr', `You can have up to ${MAX_PATHS} study paths.`);
+    const np = {id:uid(), name, steps:[]}; S.paths.push(np); S.path = np.id; SP.mode = ''; save(); rerender(); toast(`Study path “${name}” created. Now add its first step.`);
+    const si = $('#stepIn'); if (si) si.focus(); };
+  if (!p) return;
+  $('#renamePath') && ($('#renamePath').onclick = () => { SP.mode = 'rename'; rerender(); const r = $('#renameIn'); r.focus(); r.select(); });
+  $('#delPath') && ($('#delPath').onclick = () => { SP.mode = 'del'; rerender(); $('#delPathYes').focus(); });
+  const rf = $('#renameForm'); if (rf) rf.onsubmit = e => { e.preventDefault();
+    const [name, why] = nameOk($('#renameIn').value, p); if (why) return err('#pathErr', why);
+    p.name = name; SP.mode = ''; save(); rerender(); };
+  const dy = $('#delPathYes'); if (dy) dy.onclick = () => {
+    p.steps.forEach(st => undoStep(p, st)); S.paths = S.paths.filter(x => x !== p); S.path = S.paths[0] ? S.paths[0].id : '';
+    SP.mode = ''; save(); rerender(); toast(`Deleted “${p.name}”`); };
+  const sf = $('#stepForm'); if (sf) sf.onsubmit = e => { e.preventDefault();
+    const t = noCtl($('#stepIn').value).trim().slice(0, 120), url = pathLink($('#stepUrl').value);
+    if (!t) return err('#stepErr', 'Type what the step is first.');
+    if (url === null) return err('#stepErr', 'That link does not look right. Use a web address like https://example.com, or leave it empty.');
+    if (p.steps.length >= MAX_STEPS) return err('#stepErr', `A study path can have up to ${MAX_STEPS} steps.`);
+    p.steps.push({id:uid(), t, url}); save(); rerender(); $('#stepIn').focus(); };
+  m.querySelectorAll('[data-step]').forEach(c => c.onchange = () => {
+    const st = p.steps.find(x => x.id === c.dataset.step); if (!st) return; const key = stepKey(p, st);
+    if (c.checked) { S.lessons[key] = today(); addLog('learn', 20, 'lesson:' + key); gainXP(20, 'study step');
+      if (p.steps.every(x => S.lessons[stepKey(p, x)])) toast(`🏆 You finished “${p.name}”! Add more steps or start a new path.`); }
+    else undoStep(p, st);
+    save(); rerender(); const again = m.isConnected ? $(`[data-step="${st.id}"]`) : null; if (again) again.focus();
   });
+  const move = (id, d) => { const i = p.steps.findIndex(x => x.id === id), j = i + d; if (i < 0 || j < 0 || j >= p.steps.length) return;
+    [p.steps[i], p.steps[j]] = [p.steps[j], p.steps[i]]; save(); rerender(); const b = $(`[data-step${d < 0 ? 'up' : 'down'}="${id}"]`); if (b && !b.disabled) b.focus(); };
+  m.querySelectorAll('[data-stepup]').forEach(b => b.onclick = () => move(b.dataset.stepup, -1));
+  m.querySelectorAll('[data-stepdown]').forEach(b => b.onclick = () => move(b.dataset.stepdown, 1));
+  m.querySelectorAll('[data-delstep]').forEach(b => b.onclick = () => { const st = p.steps.find(x => x.id === b.dataset.delstep); if (!st) return;
+    undoStep(p, st); p.steps = p.steps.filter(x => x !== st); save(); rerender(); });
   $('#taskForm').onsubmit = e => { e.preventDefault(); const v = $('#taskIn').value.trim(); if (!v) return; S.tasks.unshift({id:uid(), text:v, done:false}); save(); rerender(); $('#taskIn').focus(); };
   m.querySelectorAll('[data-task]').forEach(c => c.onchange = () => { const t = S.tasks.find(x=>x.id===c.dataset.task); t.done = c.checked; gainXP(c.checked ? 5 : -5, 'task done'); save(); rerender(); });
   m.querySelectorAll('[data-deltask]').forEach(b => b.onclick = () => { S.tasks = S.tasks.filter(x=>x.id!==b.dataset.deltask); save(); rerender(); });
@@ -883,7 +945,7 @@ function ladder(start, max, curve = 2) { // the amount needed for each of the 24
   for (let i = 0; i <= TOP; i++) { let v = Math.round(start + (max - start) * Math.pow(i / TOP, curve)); if (i && v <= t[i - 1]) v = t[i - 1] + 1; t.push(v); }
   return t;
 }
-const LESSON_TOTAL = Object.values(TRACKS).reduce((a, t) => a + t.modules.reduce((b, m) => b + m.l.length, 0), 0);
+const LESSON_TOTAL = 39; // the Scholar badge's top rank (as many lessons as the old built-in courses had, so earned ranks stay the same)
 function bestStreak() {
   const days = new Set(S.log.filter(x => x.cat === 'learn' && x.m > 0).map(x => x.d));
   Object.entries(S.quests).forEach(([d, q]) => { if (q.length) days.add(d); });
@@ -894,7 +956,7 @@ function bestStreak() {
 function goalDays() { const by = {}; S.log.forEach(x => { if (x.cat === 'learn') by[x.d] = (by[x.d] || 0) + x.m; }); return Object.values(by).filter(m => m >= Math.max(1, S.goals.learn)).length; }
 const BADGES = [
   {name:'Focus Master', icon:'focus', unit:'focus sessions', t:ladder(1, 500), v:() => S.focus.count},
-  {name:'Scholar', icon:'study', unit:'lessons', t:ladder(1, LESSON_TOTAL, 1), v:() => Object.keys(S.lessons).length},
+  {name:'Scholar', icon:'study', unit:'study steps', t:ladder(1, LESSON_TOTAL, 1), v:() => Object.keys(S.lessons).length},
   {name:'Goal Getter', icon:'star', unit:'days at your learning goal', t:ladder(1, 365), v:goalDays},
   {name:'On Fire', icon:'balance', unit:'day best streak', t:ladder(2, 365), v:bestStreak},
   {name:'World Helper', icon:'impact', unit:'good deeds', t:ladder(1, 500), v:() => S.questsTotal},
@@ -1896,7 +1958,7 @@ VIEWS.help = () => `<div class="grid">
   ${card('c7', 'How to use LevelUp Life', `<ol class="muted" style="padding-left:20px;margin:0;display:grid;gap:10px">
     ${IS_DESKTOP ? '<li><b style="color:var(--text)">Game time</b> on this PC is counted automatically in the Gaming tab, with reminders before your daily limit. Its settings are in Settings.</li>'
       : '<li><b style="color:var(--text)">Game Time</b> counts your game time automatically with the free Windows app and reminds you of your daily limits. Get it with the Download app button under your profile.</li>'}
-    <li><b style="color:var(--text)">Pick a study track</b> in Study Path (Web Design or App Development) and tick lessons as you finish them.</li>
+    <li><b style="color:var(--text)">Make your own study path</b> in Study Path: add the steps you want to learn and tick them as you finish them.</li>
     <li><b style="color:var(--text)">Start a Focus session</b> when you study. Finished sessions give XP and count toward your goal.</li>
     <li><b style="color:var(--text)">Track your fun</b>: start a gaming session, add series, save YouTube videos. Break reminders keep you healthy.</li>
     <li><b style="color:var(--text)">Check Balance</b> to see how your week splits between learning, playing and watching.</li>
@@ -1954,7 +2016,7 @@ VIEWS.privacy = () => card('c12', '', `${LANG !== 'en' ? '<p class="muted" style
   <h2>4g. Third-party content</h2>
   <p>Some features load content from other services only when you use them:</p>
   <ul><li><b>YouTube thumbnails</b> are loaded from YouTube (i.ytimg.com) for videos you saved. You can turn this off in Settings.</li>
-  <li><b>Links</b> to lessons, YouTube searches and charities open those websites, which have their own privacy policies.</li>
+  <li><b>Links</b> in your study steps, YouTube searches and charities open those websites, which have their own privacy policies.</li>
   <li><b>Fonts</b> are included with the website, so no font requests go to Google.</li>
   <li><b>Offline copy:</b> on the website, your browser keeps a copy of the app's own files (not your data) so it opens fast and works offline. Clearing site data removes it.</li>
   <li><b>Website hosting:</b> the website version is hosted by Wix, which may record page visits and show a cookie notice. The desktop app does not do this.</li></ul>
@@ -2035,7 +2097,7 @@ function rollWeek() { // a new week: fresh challenges and weekly XP
 const CHALLENGES = [
   {id:'learn', n:x => `Learn for ${fmtMin(x)}`, x:[120, 180, 240], v:() => weekDays().reduce((a, d) => a + minsOn(d, 'learn'), 0), href:'#study'},
   {id:'focus', n:x => `Finish ${x} focus sessions`, x:[4, 6, 8], v:b => S.focus.count - b.focus, href:'#focus'},
-  {id:'lessons', n:x => `Complete ${x} lessons`, x:[2, 3, 5], v:b => Object.keys(S.lessons).length - b.lessons, href:'#study'},
+  {id:'lessons', n:x => `Finish ${x} study steps`, x:[2, 3, 5], v:b => Object.keys(S.lessons).length - b.lessons, href:'#study'},
   {id:'deeds', n:x => `Do ${x} good deeds`, x:[3, 5, 7], v:b => S.questsTotal - b.deeds, href:'#impact'},
   {id:'days', n:x => `Open LevelUp Life on ${x} days`, x:[4, 5, 6], v:() => weekDays().filter(d => S.days.includes(d)).length, href:'#home'},
   {id:'balance', n:x => `Stay within your gaming limit on ${x} days`, x:[3, 4, 5], v:() => weekDays().filter(d => S.days.includes(d) && minsOn(d, 'play') <= S.goals.play).length, href:'#balance'},
@@ -2512,6 +2574,7 @@ function mergeStates(L, R, base) { // L = this device, R = online copy; both alr
   const cnt = arr => { const m = new Map(); for (const x of arr) { const k = JSON.stringify(x); m.set(k, (m.get(k) || 0) + 1); } return m; };
   const lc = cnt(L.log), rc = cnt(R.log); M.log = []; for (const k of new Set([...lc.keys(), ...rc.keys()])) for (let i = 0; i < Math.max(lc.get(k) || 0, rc.get(k) || 0); i++) M.log.push(JSON.parse(k));
   M.lessons = {...R.lessons, ...L.lessons}; M.ach = {...R.ach, ...L.ach};
+  M.paths = byId(L.paths, R.paths).slice(0, MAX_PATHS); if (!M.paths.some(p => p.id === M.path)) M.path = M.paths[0] ? M.paths[0].id : '';
   M.quests = {}; for (const d of new Set([...Object.keys(L.quests), ...Object.keys(R.quests)])) M.quests[d] = [...new Set([...(L.quests[d] || []), ...(R.quests[d] || [])])];
   M.days = [...new Set([...L.days, ...R.days])].sort().slice(-400);
   for (const k of ['friends', 'ignored', 'staffAdds']) M[k] = [...new Set([...L[k], ...R[k]])];

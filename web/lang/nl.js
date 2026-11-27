@@ -1355,4 +1355,65 @@ Zie hoe gamen in je week past
 Leren, Focus, Gaming en Chat. Series, YouTube, Spelers en de rest staan onder Meer.
 ## cleanup2
 of gebruik een LevelUp-account
+## studypaths
+Maak je eigen leerpaden en leer stap voor stap.
+Maak je leerpad
+Plan wat je wilt leren, stap voor stap
+Link openen
+Maak een leerpad
+Maak je eigen leerpad: kies wat je wilt leren en verdeel het in kleine stappen.
+🏆 Je hebt al je leerstappen afgerond! Voeg meer stappen toe of begin een nieuw pad.
+# van # stappen klaar · #%
+# van # stap klaar · #%
+{s} · # van # stappen klaar
+{s} · # van # stap klaar
+Maak je eigen leerpad
+Kies alles wat je wilt leren, zoals een taal, programmeren, gitaar of een examen, en verdeel het in kleine stappen. Vink elke stap af als je hem af hebt voor +# XP.
+Wat wil je leren?
+Naam van het leerpad
+Pad maken
+Nieuw pad
+Je leerpaden
+Nieuwe naam voor het leerpad
+Dit leerpad hernoemen
+Dit leerpad verwijderen
+Hernoemen
+Pad verwijderen
+“{s}” verwijderen?
+“{s}” en de stap verwijderen?
+“{s}” en de # stappen verwijderen?
+De afgeronde stap geeft zijn XP terug.
+De # afgeronde stappen geven hun XP terug.
+Klaar: {s}
+Link openen ↗
+Omhoog
+Omlaag
+Stap verwijderen
+Volgende stap, bijv. Hoofdstuk #: de basis
+Link (optioneel)
+Link voor de stap (optioneel)
+Nieuwe stap
+Stap toevoegen
++# XP voor elke stap die je afrondt.
+Nog geen stappen. Voeg hieronder je eerste stap toe.
+Geef je leerpad een naam.
+Je hebt al een leerpad met die naam.
+Je kunt tot # leerpaden hebben.
+Typ eerst wat de stap is.
+Die link ziet er niet goed uit. Gebruik een webadres zoals https://example.com, of laat het leeg.
+Een leerpad kan tot # stappen hebben.
+Leerpad “{s}” gemaakt. Voeg nu de eerste stap toe.
+🏆 Je hebt “{s}” afgerond! Voeg meer stappen toe of begin een nieuw pad.
+“{s}” verwijderd
+leerstap
+Houd stappen klein. Iets wat je in één keer af kunt maken.
+Leg wat je net hebt geleerd uit aan een vriend. Uitleggen zorgt dat het blijft hangen.
+Bekijk een tutorial één keer en probeer het daarna zonder te kijken.
+Deel je voortgang. Feedback is een power-up.
+bijv. Hoofdstuk # lezen
+in Leerpad: voeg de stappen toe die je wilt leren en vink ze af als je ze af hebt.
+in je leerstappen, YouTube-zoekopdrachten en goede doelen openen die websites, die hun eigen privacybeleid hebben.
+leerstappen
+Rond # leerstappen af
+Houd games, series en YouTube bij, volg je eigen leerpaden en doe elke dag een beetje goed.
 `);

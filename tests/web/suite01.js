@@ -8,6 +8,7 @@ const seed=()=>{const S=JSON.parse(localStorage.getItem('levelup-life-v1'));cons
   S.backlog=[{id:'c',title:'Elden Ring',platform:'PC',status:'playing'},{id:'d',title:'Hollow Knight',platform:'Switch',status:'backlog'}];
   S.yt=[{id:'e',url:'https://www.youtube.com/watch?v=abcdefghijk',title:'CSS Grid in 20 minutes',kind:'learn',mins:20,watched:false}];
   S.tasks=[{id:'t1',text:'Finish flexbox exercise',done:false}];
+  S.paths=[{id:'pa',name:'Spanish',steps:[{id:'s1',t:'Learn the alphabet',url:''},{id:'s2',t:'100 common words',url:'https://example.com/words'}]}]; S.path='pa';
   localStorage.setItem('levelup-life-v1',JSON.stringify(S));};
 (async()=>{
  const b=await chromium.launch(); const errs=[]; const res=[];
@@ -19,8 +20,8 @@ const seed=()=>{const S=JSON.parse(localStorage.getItem('levelup-life-v1'));cons
  const st=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('levelup-life-v1')));
  await p.evaluate(seed); await p.reload();
  await p.goto(URL+'#study'); let xp0=(await st()).xp;
- await p.click('[data-lesson="web.0.0"]'); await p.click('[data-lesson="web.0.0"]');
- let s=await st(); ok('lesson untick removes minutes & XP', s.log.filter(x=>x.ref).length===0 && s.xp===xp0, `xp ${xp0}->${s.xp}`);
+ await p.click('[data-step="s1"]'); await p.click('[data-step="s1"]');
+ let s=await st(); ok('study step untick removes minutes & XP', s.log.filter(x=>x.ref).length===0 && s.xp===xp0, `xp ${xp0}->${s.xp}`);
  xp0=s.xp; await p.click('[data-task="t1"]'); await p.click('[data-task="t1"]'); s=await st();
  ok('task untick takes XP back', s.xp===xp0);
  await p.goto(URL+'#youtube'); xp0=(await st()).xp;
@@ -43,10 +44,13 @@ const seed=()=>{const S=JSON.parse(localStorage.getItem('levelup-life-v1'));cons
  await p.goto(URL+'#focus'); ok('focus sessions count ignores lessons', (await p.textContent('.c5 .stat .v'))==='0');
  await p.goto(URL+'#gaming'); await p.focus('.skip'); await p.keyboard.press('Enter');
  ok('skip link stays on tab', (await p.textContent('#pageTitle'))==='Gaming');
- await p.evaluate(()=>localStorage.setItem('levelup-life-v1',JSON.stringify({agreed:true,track:'nope',series:[{id:'"><img src=x onerror=window.pwned=1>',title:'<b>x</b>',s:'2"',e:'x',status:'zzz'}],yt:[{title:'t',url:'javascript:alert(1)',mins:'"><b>'}],goals:{learn:'abc'}})));
+ await p.evaluate(()=>localStorage.setItem('levelup-life-v1',JSON.stringify({agreed:true,track:'nope',series:[{id:'"><img src=x onerror=window.pwned=1>',title:'<b>x</b>',s:'2"',e:'x',status:'zzz'}],yt:[{title:'t',url:'javascript:alert(1)',mins:'"><b>'}],goals:{learn:'abc'},
+   paths:[{id:'"><img src=x onerror=window.pwned=1>',name:'<img src=x onerror=window.pwned=1>',steps:[{id:'z',t:'<img src=x onerror=window.pwned=1>',url:'javascript:window.pwned=1'},{t:''},null]},{name:''},'x'],path:'nope'})));
  await p.reload(); await p.waitForTimeout(300);
  for(const t of TABS){ await p.goto(URL+'#'+t); await p.waitForTimeout(80); }
  ok('broken/malicious backup handled safely', !(await p.evaluate(()=>window.pwned)) && (await p.$$('img[src="x"]')).length===0);
+ await p.goto(URL+'#study'); await p.waitForTimeout(150);
+ ok('a booby-trapped study path shows as plain text, with no javascript: link', (await p.textContent('.sp-head h2')).includes('<img') && (await p.$$('.sp-steps a[href^="javascript"]')).length===0 && (await p.$$('[data-path]')).length===1);
  // clean demo data for screenshots
  await p.evaluate(()=>localStorage.clear()); await p.goto(URL); await p.click('#guestBtn');
  await p.evaluate(seed); await p.evaluate(()=>{const S=JSON.parse(localStorage.getItem('levelup-life-v1'));const x=new Date();const pad=n=>String(n).padStart(2,'0');const t=`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`;S.log.push({d:t,cat:'learn',m:45},{d:t,cat:'play',m:70,g:'Elden Ring'},{d:t,cat:'watch',m:40});S.xp=140;localStorage.setItem('levelup-life-v1',JSON.stringify(S));});

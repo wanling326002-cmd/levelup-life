@@ -736,3 +736,20 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 /* phones: the greeting with "Start focus" comes before the 7-day chart */
 @media (max-width:860px){.grid>.home-greet{order:-1}.grid>.backup-note{order:-2}}
 #consent{padding-top:max(16px,2vh);padding-bottom:16px}
+/* study paths */
+.sp-top{gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.sp-tabs{flex-wrap:wrap;max-width:100%}
+.sp-head{display:flex;align-items:center;gap:8px;margin-top:4px}
+.sp-head h2{font-size:1.3rem;margin:0 0 2px;overflow-wrap:anywhere}
+.sp-new,.sp-add{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.sp-new input,.sp-add input{min-width:0;flex:1 1 200px}
+.sp-confirm{margin-top:12px;padding:14px 16px;border:1px solid rgba(242,114,127,.35);border-radius:16px;background:rgba(242,114,127,.06)}
+.sp-confirm p{margin:0 0 10px}
+.sp-empty{text-align:center;display:grid;gap:12px;justify-items:center;padding:24px 8px}
+.sp-empty h2{margin:0;font-size:1.4rem}.sp-empty p{max-width:470px;margin:0}
+.sp-empty .sp-new{width:100%;max-width:540px}
+.sp-steps .item .t{overflow-wrap:anywhere}
+.sp-steps .item{flex-wrap:nowrap;gap:8px}.sp-steps .item .grow{flex:1 1 auto;min-width:0}
+.sp-card .err:empty{display:none}
+.iconbtn.sm{width:30px;height:30px;font-size:.9rem}
+.iconbtn:disabled{opacity:.35;cursor:default}

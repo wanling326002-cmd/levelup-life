@@ -47,7 +47,7 @@ const dayOff=k=>{ const d=new Date(); d.setDate(d.getDate()-k); return `${d.getF
 
  // ---- weekly challenges: make the counter-based ones complete
  const names=await a.$$eval('.challenges li b',x=>x.map(e=>e.textContent));
- const expectDone=names.filter(t=>/^(Finish \d+ focus session|Complete|Do |Watch|Send|Learn for)/.test(t)).length;
+ const expectDone=names.filter(t=>/^(Finish \d+ focus session|Finish \d+ study step|Complete|Do |Watch|Send|Learn for)/.test(t)).length;
  const xp0=(await st(a,'ana_01')).xp;
  await edit(a,'ana_01',`s.stats.chat+=20; s.stats.group+=5; s.focus.count+=10; s.questsTotal+=10; for(let i=0;i<6;i++) s.lessons['web.0.'+i]='${dayOff(0)}'; for(let i=0;i<5;i++) s.yt.push({id:'v'+i,url:'',title:'v',kind:'learn',mins:5,watched:true}); s.log.push({d:'${dayOff(0)}',cat:'learn',m:300});`);
  await a.waitForTimeout(800); s=await st(a,'ana_01');

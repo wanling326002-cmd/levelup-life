@@ -1353,3 +1353,64 @@ See how play fits into your week
 Study, Focus, Gaming and Chat. Series, YouTube, Players and the rest are under More.
 ## cleanup2
 or use a LevelUp account
+## studypaths
+Make your own study paths and learn step by step.
+Make your study path
+Plan what you want to learn, step by step
+Open link
+Make a study path
+Make your own study path: pick what you want to learn and split it into small steps.
+🏆 You finished all your study steps! Add more steps or start a new path.
+# of # steps done · #%
+# of # step done · #%
+{s} · # of # steps done
+{s} · # of # step done
+Make your own study path
+Pick anything you want to learn, like a language, coding, guitar or an exam, and split it into small steps. Tick each step when you finish it for +# XP.
+What do you want to learn?
+Name of the study path
+Create path
+New path
+Your study paths
+New name for the study path
+Rename this study path
+Delete this study path
+Rename
+Delete path
+Delete “{s}”?
+Delete “{s}” and its step?
+Delete “{s}” and its # steps?
+The finished step gives back its XP.
+The # finished steps give back their XP.
+Done: {s}
+Open link ↗
+Move up
+Move down
+Delete step
+Next step, e.g. Chapter #: the basics
+Link (optional)
+Link for the step (optional)
+New step
+Add step
++# XP for each step you finish.
+No steps yet. Add your first step below.
+Give your study path a name.
+You already have a study path with that name.
+You can have up to # study paths.
+Type what the step is first.
+That link does not look right. Use a web address like https://example.com, or leave it empty.
+A study path can have up to # steps.
+Study path “{s}” created. Now add its first step.
+🏆 You finished “{s}”! Add more steps or start a new path.
+Deleted “{s}”
+study step
+Keep steps small. Something you can finish in one sitting.
+Teach what you just learned to a friend. Explaining it makes it stick.
+Watch a tutorial once, then try it again without looking.
+Share your progress. Feedback is a power-up.
+e.g. Read chapter #
+in Study Path: add the steps you want to learn and tick them as you finish them.
+in your study steps, YouTube searches and charities open those websites, which have their own privacy policies.
+study steps
+Finish # study steps
+Track games, series and YouTube, follow your own study paths, and do a bit of good every day.

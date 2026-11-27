@@ -1,6 +1,6 @@
 # LevelUp Life
 
-Balance gaming, series and YouTube with learning (Web Design & App Development), focus and daily good deeds.
+Balance gaming, series and YouTube with learning (your own study paths), focus and daily good deeds.
 Local-first: all data stays on your device.
 
 ## Website

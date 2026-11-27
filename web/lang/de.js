@@ -1355,4 +1355,65 @@ Sieh, wie Spielen in deine Woche passt
 Lernen, Fokus, Gaming und Chat. Serien, YouTube, Spieler und der Rest sind unter Mehr.
 ## cleanup2
 oder mit einem LevelUp-Konto
+## studypaths
+Erstelle deine eigenen Lernpfade und lerne Schritt für Schritt.
+Erstelle deinen Lernpfad
+Plane, was du lernen willst, Schritt für Schritt
+Link öffnen
+Lernpfad erstellen
+Erstelle deinen eigenen Lernpfad: Wähle, was du lernen willst, und teile es in kleine Schritte auf.
+🏆 Du hast alle deine Lernschritte geschafft! Füge mehr Schritte hinzu oder starte einen neuen Pfad.
+# von # Schritten erledigt · #%
+# von # Schritt erledigt · #%
+{s} · # von # Schritten erledigt
+{s} · # von # Schritt erledigt
+Erstelle deinen eigenen Lernpfad
+Wähle alles, was du lernen willst, zum Beispiel eine Sprache, Programmieren, Gitarre oder eine Prüfung, und teile es in kleine Schritte auf. Hake jeden Schritt ab, wenn du ihn geschafft hast, für +# XP.
+Was möchtest du lernen?
+Name des Lernpfads
+Pfad erstellen
+Neuer Pfad
+Deine Lernpfade
+Neuer Name für den Lernpfad
+Diesen Lernpfad umbenennen
+Diesen Lernpfad löschen
+Umbenennen
+Pfad löschen
+„{s}“ löschen?
+„{s}“ und seinen Schritt löschen?
+„{s}“ und seine # Schritte löschen?
+Der erledigte Schritt gibt seine XP zurück.
+Die # erledigten Schritte geben ihre XP zurück.
+Erledigt: {s}
+Link öffnen ↗
+Nach oben
+Nach unten
+Schritt löschen
+Nächster Schritt, z. B. Kapitel #: die Grundlagen
+Link (optional)
+Link zum Schritt (optional)
+Neuer Schritt
+Schritt hinzufügen
++# XP für jeden erledigten Schritt.
+Noch keine Schritte. Füge unten deinen ersten Schritt hinzu.
+Gib deinem Lernpfad einen Namen.
+Du hast schon einen Lernpfad mit diesem Namen.
+Du kannst bis zu # Lernpfade haben.
+Schreib zuerst, was der Schritt ist.
+Dieser Link sieht nicht richtig aus. Nutze eine Webadresse wie https://example.com oder lass das Feld leer.
+Ein Lernpfad kann bis zu # Schritte haben.
+Lernpfad „{s}“ erstellt. Füge jetzt den ersten Schritt hinzu.
+🏆 Du hast „{s}“ geschafft! Füge mehr Schritte hinzu oder starte einen neuen Pfad.
+„{s}“ gelöscht
+Lernschritt
+Halte die Schritte klein. Etwas, das du in einer Sitzung schaffst.
+Erkläre einem Freund, was du gerade gelernt hast. Das Erklären lässt es hängen bleiben.
+Schau ein Tutorial einmal an und versuch es dann ohne hinzusehen.
+Teile deinen Fortschritt. Feedback ist ein Power-up.
+z. B. Kapitel # lesen
+unter Lernpfad: Füge die Schritte hinzu, die du lernen willst, und hake sie ab, sobald du sie geschafft hast.
+in deinen Lernschritten, YouTube-Suchen und Spendenseiten öffnen diese Websites, die ihre eigenen Datenschutzrichtlinien haben.
+Lernschritte
+Schaffe # Lernschritte
+Verfolge Spiele, Serien und YouTube, folge deinen eigenen Lernpfaden und tu jeden Tag ein bisschen Gutes.
 `);
