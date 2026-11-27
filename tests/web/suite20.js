@@ -72,7 +72,7 @@ const recoveries=[]; let saves=0;
  ok('online sign-up creates a linked account and logs in', ac.current==='Cloudy_1' && ac.users.cloudy_1 && ac.users.cloudy_1.online && ac.users.cloudy_1.online.email==='cloudy@example.com' && /^rt-/.test(ac.users.cloudy_1.online.rt) && await a.isHidden('#consent'), JSON.stringify(ac).slice(0,300));
  let item=memberData.get('m-'+ac.users.cloudy_1.online.id);
  ok('progress is uploaded to the member’s own item', !!item);
- ok('the uploaded progress is encrypted', item && !item.item.data.payload.includes('Cloudy_1') && !item.item.data.payload.includes('xp') && JSON.parse(item.item.data.payload).ct);
+ ok('the uploaded progress is encrypted', item && !item.item.data.payload.includes('Cloudy_1') && !/"xp"\s*:/.test(item.item.data.payload) && Object.keys(JSON.parse(item.item.data.payload)).sort().join()==='ct,iv,v,z'); // (random ciphertext can contain the letters "xp" by chance, so look for a readable field)
  // make progress, sync
  const s0=saves; await a.goto(BASE+'#study'); await a.fill('#taskIn','cloud task from A'); await a.press('#taskIn','Enter'); await a.waitForTimeout(300);
  await a.goto(BASE+'#options'); await a.waitForTimeout(400);
