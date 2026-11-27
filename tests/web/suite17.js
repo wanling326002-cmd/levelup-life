@@ -33,7 +33,7 @@ async function mock(route){
  // ---- speed: font comes with the site, nothing from Google
  const s1=await mk('speed'); await s1.waitForTimeout(800);
  ok('no requests to Google Fonts', !s1._reqs.some(u=>/fonts\.(googleapis|gstatic)/.test(u)));
- ok('Outfit font loads from the site', await s1.evaluate(async()=>{ await document.fonts.ready; return document.fonts.check('500 16px Outfit') && [...document.fonts].some(f=>f.family.replace(/"/g,'')==='Outfit'&&f.status==='loaded'); }));
+ ok('Inter Tight font loads from the site', await s1.evaluate(async()=>{ await document.fonts.ready; return document.fonts.check('500 16px "Inter Tight"') && [...document.fonts].some(f=>f.family.replace(/"/g,'')==='Inter Tight'&&f.status==='loaded'); }));
  // ---- installable
  const man=await (await s1.request.get(BASE+'manifest.json')).json();
  ok('manifest has name, start page and 192/512 icons', man.name==='LevelUp Life' && man.icons.some(i=>i.sizes==='192x192') && man.icons.some(i=>i.sizes==='512x512') && man.display==='standalone');

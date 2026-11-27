@@ -62,7 +62,7 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
   await ctx.setOffline(true);
   await p.goto(BASE + '#settings').catch(() => {}); await p.waitForTimeout(800);
   ok('the app still opens with no internet', (await p.title()).includes('LevelUp Life') && await p.isVisible('#main'));
-  ok('and it is styled (its design loaded)', await p.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Outfit') || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'));
+  ok('and it is styled (its design loaded)', await p.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Inter Tight') || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'));
   await p.goto(BASE + 'index.html').catch(() => {}); await p.waitForTimeout(500);
   ok('index.html opens offline too', (await p.title()).includes('LevelUp Life'));
   await ctx.setOffline(false);

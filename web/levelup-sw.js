@@ -4,7 +4,7 @@
    are never cached: they always go straight to the network. No personal data is stored here. */
 const CACHE = 'levelup-shell-v2'; // v2 also clears anything the old version saved from Wix's own addresses
 const SHELL = ['./', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
-  'fonts/outfit.woff2'];
+  'fonts/inter-tight.woff2'];
 const WATCH = /\/(app\.js|styles\.css)?$/; // a change to these means a new version of the app
 
 self.addEventListener('install', e => {

@@ -11,7 +11,8 @@ const pad2 = n => String(n).padStart(2, '0');
 const today = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; // YYYY-MM-DD, local time
 const dayOffset = n => { const d = new Date(); d.setDate(d.getDate() - n); return today(d); };
 const fmtMin = m => m >= 60 ? `${Math.floor(m/60)}h ${m%60 ? (m%60)+'m' : ''}`.trim() : `${m}m`;
-const hue = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 65% 55%)`; };
+const TONES = ['#0f3238', '#2f6f7a', '#77692b', '#5b4f9a', '#9a5a28', '#2f7d57', '#7a4a5e', '#3d5a80']; // muted tones from the teal/gold/lilac palette; white initials stay readable (5:1+)
+const hue = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return TONES[h % TONES.length]; };
 const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
 const ytId = u => { try { const x = new URL(u); if (x.hostname.includes('youtu.be')) return x.pathname.slice(1, 12);
   if (x.hostname.includes('youtube.com')) return x.searchParams.get('v') || (x.pathname.match(/\/(shorts|embed|live)\/([\w-]{11})/) || [])[2] || ''; } catch {} return ''; };
@@ -319,7 +320,7 @@ const avatarInner = () => M.pfp ? pic(M.pfp, M.pfpVid) : esc(displayName().trim(
 
 /* ---------- state ---------- */
 const DEFAULT = {
-  name:'', agreed:false, theme:'dark', xp:0, notify:false, thumbs:true, breakEvery:60, epLen:40,
+  name:'', agreed:false, theme:'light', look:2, xp:0, notify:false, thumbs:true, breakEvery:60, epLen:40,
   goals:{learn:60, play:120, watch:90},
   log:[],                         // {d, cat:'learn'|'play'|'watch', m}
   lessons:{},                     // finished study steps (and lessons of the old built-in courses): id -> date
@@ -371,7 +372,7 @@ const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const CATS = ['learn', 'play', 'watch'];
 function clean(raw) {
   const s = raw && typeof raw === 'object' ? raw : {}, d = structuredClone(DEFAULT);
-  d.name = str(s.name, 24); d.agreed = s.agreed === true; d.theme = s.theme === 'light' ? 'light' : 'dark';
+  d.name = str(s.name, 24); d.agreed = s.agreed === true; d.theme = s.theme === 'dark' ? 'dark' : 'light'; d.look = 2; if (s.look !== 2) d.theme = 'light'; // the cream "paper" look (2) is everyone's start once; after that the moon/sun switch is remembered
   d.xp = num(s.xp, 0); d.notify = s.notify === true; d.thumbs = s.thumbs !== false;
   d.breakEvery = num(s.breakEvery, 60, 0, 600); d.epLen = num(s.epLen, 40, 1, 300);
   const g = s.goals || {}; d.goals = {learn:num(g.learn, 60, 0, 1440), play:num(g.play, 120, 0, 1440), watch:num(g.watch, 90, 0, 1440)};
@@ -561,9 +562,9 @@ function lineChart(series) {
   const max = Math.max(30, ...series.flatMap(s => s.data));
   const pts = data => data.map((v, i) => [pad + i * (W - 2 * pad) / (data.length - 1), H - pad - v / max * (H - 2 * pad)]);
   const path = p => p.reduce((a, [x, y], i, arr) => { if (!i) return `M${x},${y}`; const [px, py] = arr[i - 1]; const cx = (px + x) / 2; return a + ` C${cx},${py} ${cx},${y} ${x},${y}`; }, '');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${series.map(s => `<path d="${path(pts(s.data))}" stroke="${s.c}" stroke-width="2.2" fill="none" vector-effect="non-scaling-stroke"/>`).join('')}</svg></div>`;
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${series.map(s => `<path d="${path(pts(s.data))}" style="stroke:${s.c}" stroke-width="2.2" fill="none" vector-effect="non-scaling-stroke"/>`).join('')}</svg></div>`;
 }
-const CAT = {learn:{n:'Learn', c:'#7c5dff'}, play:{n:'Play', c:'#4fd4f0'}, watch:{n:'Watch', c:'#f2c46d'}};
+const CAT = {learn:{n:'Learn', c:'var(--c-learn)'}, play:{n:'Play', c:'var(--c-play)'}, watch:{n:'Watch', c:'var(--c-watch)'}}; // theme colours (styles.css)
 const week = cat => Array.from({length:7}, (_, i) => minsOn(dayOffset(6 - i), cat));
 
 /* ---------- views ---------- */
@@ -760,7 +761,7 @@ VIEWS.focus = () => {
   const todayF = S.log.filter(x=>x.d===today()&&x.cat==='learn').reduce((a,x)=>a+x.m,0);
   return `<div class="grid">
   ${card('c7', '', `<div style="text-align:center"><div class="seg">${[['work','Focus'],['short','Short break'],['long','Long break']].map(([k,n])=>`<button data-mode="${k}" class="${T.mode===k?'on':''}">${n}</button>`).join('')}</div>
-    <div class="timer"><svg viewBox="0 0 260 260"><defs><linearGradient id="tg" x1="0" x2="1"><stop offset="0" stop-color="#9a7bff"/><stop offset="1" stop-color="${T.mode==='work'?'#4fd4f0':'#5fd3a5'}"/></linearGradient></defs>
+    <div class="timer"><svg viewBox="0 0 260 260"><defs><linearGradient id="tg" x1="0" x2="1"><stop offset="0" style="stop-color:var(--ring-a)"/><stop offset="1" style="stop-color:${T.mode==='work'?'var(--ring-b)':'var(--ok)'}"/></linearGradient></defs>
       <circle class="ring-bg" cx="130" cy="130" r="120"/><circle class="ring" id="tRing" cx="130" cy="130" r="120" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
       <div class="time"><div><b id="tTime">--:--</b><span>${T.mode==='work'?'Focus time':'Break time'}</span></div></div></div>
     <input id="tLabel" placeholder="What are you working on? (optional)" maxlength="60" value="${esc(T.label)}" style="max-width:420px;margin:0 auto 16px;display:block;text-align:center">

@@ -34,6 +34,9 @@ function replaceConst(src, name, value) {
   return src.replace(re, (m, comment) => `const ${name} = ${value};${comment || ''}`);
 }
 
+// A suite run on its own uses a folder named after its process id. Ids get reused, so a folder left by an earlier
+// run could hold an old copy of the site: start such a run from a clean folder (run.js gives each run a fresh one).
+if (!process.env.LEVELUP_TEST_DIR && fs.existsSync(RUN) && !process.env.LEVELUP_KEEP_RUN) fs.rmSync(RUN, {recursive: true, force: true});
 function build() {
   const ready = path.join(RUN, 'keys.json');
   if (fs.existsSync(ready)) return JSON.parse(fs.readFileSync(ready, 'utf8'));
@@ -94,8 +97,8 @@ const authDone = page => page.waitForFunction(() => ![...document /* (runs in th
   null, {timeout: 30000, polling: 50}).catch(() => {});
 // A reload always opens Home (see app.js). Tests that check that something survives a reload on a certain tab
 // use this: reload, then go back to the tab the page was on.
-const reloadKeep = async page => { const h = await page.evaluate(() => location.hash); await page.reload();
-  if (h && h !== '#home') await page.evaluate(x => { location.hash = x; }, h); };
+const reloadKeep = async page => { const h = await page.evaluate(() => globalThis.location.hash); await page.reload(); // (these run in the page)
+  if (h && h !== '#home') await page.evaluate(x => { globalThis.location.hash = x; }, h); };
 
 module.exports = {
   ROOT, WEB, SITE, OUT, FIX,

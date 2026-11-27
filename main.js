@@ -79,7 +79,7 @@ function setLang(code, save = true) {
 }
 function createSplash() {
   const w = new BrowserWindow({width: 440, height: 340, frame: false, resizable: false, maximizable: false, fullscreenable: false, show: false, center: true,
-    backgroundColor: '#06060b', title: 'LevelUp Life', icon: ICON, skipTaskbar: false, webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}});
+    backgroundColor: '#f5f4ee', title: 'LevelUp Life', icon: ICON, skipTaskbar: false, webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true}});
   w.loadFile(path.join(__dirname, 'companion', 'ui', 'splash.html'));
   w.once('ready-to-show', () => { w.show(); splashShownAt = Date.now(); splashState({version: t(`Version ${app.getVersion()}`), tag: t('Level up your day'), skip: t('Start without updating'), text: t(pendingSplash.text || 'Starting…')}); });
   w.on('closed', () => { if (splashWin === w) splashWin = null; });
@@ -132,7 +132,7 @@ function checkForUpdates(show, {background = false} = {}) {
 function createMain() {
   mainWin = new BrowserWindow({
     width: 1440, height: 920, minWidth: 380, minHeight: 600, show: false,
-    backgroundColor: '#06060b', title: 'LevelUp Life', autoHideMenuBar: true, icon: ICON,
+    backgroundColor: '#f5f4ee', title: 'LevelUp Life', autoHideMenuBar: true, icon: ICON,
     webPreferences: {contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.js')},
   });
   mainWin.loadFile(path.join(__dirname, 'web', 'index.html'));

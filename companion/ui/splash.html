@@ -5,10 +5,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'">
 <title>LevelUp Life</title>
 <style>
-@font-face{font-family:'Outfit';font-weight:300 700;src:url(../../web/fonts/outfit.woff2) format('woff2')}
-:root{--bg:#06060b;--card:#121219;--text:#ecebf3;--muted:#8f8ea0;--line:rgba(255,255,255,.075);--accent:#6f4ef6;--accent2:#9a7bff}
+@font-face{font-family:'Inter Tight';font-weight:400 700;src:url(../../web/fonts/inter-tight.woff2) format('woff2')}
+:root{--bg:#f5f4ee;--card:#ffffff;--text:#10292d;--muted:#5f6b68;--line:#e2e0d6;--accent:#0f3238;--accent2:#8c7b33}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',system-ui,'Segoe UI',sans-serif;overflow:hidden;user-select:none;-webkit-app-region:drag}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Inter Tight',system-ui,'Segoe UI',sans-serif;overflow:hidden;user-select:none;-webkit-app-region:drag}
 body{display:grid;place-items:center;background:radial-gradient(520px 320px at 50% -10%,rgba(111,78,246,.35),transparent 70%),var(--bg)}
 main{width:300px;text-align:center}
 .logo{width:84px;height:84px;filter:drop-shadow(0 10px 30px rgba(111,78,246,.55));animation:float 3s ease-in-out infinite}
@@ -16,12 +16,12 @@ main{width:300px;text-align:center}
 h1{font-size:26px;font-weight:600;margin:16px 0 2px;letter-spacing:.01em}
 .tag{color:var(--muted);font-size:13px;margin:0 0 26px}
 .bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
-.bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:linear-gradient(90deg,#8b5cf6,#22d3ee);transition:width .25s ease}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;background:#8c7b33;transition:width .25s ease}
 .bar.wait i{width:35%;animation:slide 1.2s ease-in-out infinite}
 @keyframes slide{0%{left:-35%}100%{left:100%}}
 #status{font-size:13px;color:var(--muted);margin:12px 0 0;min-height:18px}
 #skip{-webkit-app-region:no-drag;margin-top:10px;background:none;border:0;color:var(--accent2);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline;visibility:hidden}
-#ver{position:fixed;bottom:10px;left:0;right:0;font-size:11px;color:#55546a}
+#ver{position:fixed;bottom:10px;left:0;right:0;font-size:11px;color:#66726f}
 @media (prefers-reduced-motion:reduce){.logo,.bar.wait i{animation:none}.bar.wait i{width:100%;opacity:.5}}
 </style>
 </head>
