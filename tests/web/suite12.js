@@ -117,6 +117,27 @@ const URL=H.FILE_URL;
  ok('Download app in the sheet opens the download panel on screen', await ph.evaluate(()=>{const p=document.querySelector('#dlPanel');if(!p||p.hidden)return false;const r=p.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0;}));
  await ph.keyboard.press('Escape');
  ok('no sideways scrolling on the phone', await ph.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ // 10. a phone with 2 days of activity: the greeting with "Start focus" comes before the chart
+ await ph.evaluate(()=>{ const k=Object.keys(localStorage).find(x=>{try{return Array.isArray(JSON.parse(localStorage.getItem(x)).log);}catch{return false;}});
+   const s=JSON.parse(localStorage.getItem(k)); const d=new Date(Date.now()-864e5); const t=new Date(), f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; s.log.push({d:f(d),cat:'learn',m:30},{d:f(t),cat:'play',m:20}); localStorage.setItem(k,JSON.stringify(s)); });
+ await ph.reload(); await ph.waitForTimeout(500);
+ const ord=await ph.evaluate(()=>{const g=document.querySelector('#main .home-greet'),c=document.querySelector('#main .spark');return {greet:g&&Math.round(g.getBoundingClientRect().top),chart:c&&Math.round(c.getBoundingClientRect().top)};});
+ ok('on a phone the greeting and "Start focus" come before the 7-day chart', ord.greet!=null && ord.chart!=null && ord.greet<ord.chart, JSON.stringify(ord));
  await ph.context().close();
+ const pc=await (await b.newContext({viewport:{width:1440,height:900}})).newPage(); pc.on('pageerror',e=>errs.push(e.message));
+ await pc.context().route(/fonts\.(googleapis|gstatic)|wixapis/,r=>r.abort());
+ await pc.goto(URL); await pc.click('#guestBtn'); await pc.waitForTimeout(300);
+ await pc.evaluate(()=>{ const k=Object.keys(localStorage).find(x=>{try{return Array.isArray(JSON.parse(localStorage.getItem(x)).log);}catch{return false;}});
+   const s=JSON.parse(localStorage.getItem(k)); const d=new Date(Date.now()-864e5); const t=new Date(), f=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; s.log.push({d:f(d),cat:'learn',m:30},{d:f(t),cat:'play',m:20}); localStorage.setItem(k,JSON.stringify(s)); });
+ await pc.reload(); await pc.waitForTimeout(500);
+ ok('on a computer the chart stays on the left of the greeting', await pc.evaluate(()=>{const g=document.querySelector('#main .home-greet').getBoundingClientRect(),c=document.querySelector('#main .spark').getBoundingClientRect();return c.left<g.left && Math.abs(c.top-g.top)<80;}));
+ // 11. only the main action glows
+ const glow=await pc.evaluate(()=>[...document.querySelectorAll('#main .btn.primary')].map(b=>({t:b.textContent.trim(),g:getComputedStyle(b).boxShadow.includes('30px')})));
+ ok('only "Start focus" glows on Home; the other purple buttons do not', glow.filter(x=>x.g).length===1 && glow.find(x=>x.g).t.includes('Start focus') && glow.length>1, JSON.stringify(glow));
+ // 12. Players for a guest: one sign-up prompt, full-width leaderboard
+ await pc.click('#navMoreBtn'); await pc.click('#navMoreMenu [data-route="players"]'); await pc.waitForTimeout(500);
+ const pl=await pc.evaluate(()=>({h:[...document.querySelectorAll('#main .card-h h2')].map(h=>h.textContent),dup:document.querySelector('#main').textContent.includes('Make an account to add friends'),lbW:Math.round(document.querySelector('#lbList').closest('.card').getBoundingClientRect().width),mainW:Math.round(document.querySelector('#main').getBoundingClientRect().width)}));
+ ok('Players asks a guest to sign up once, and the leaderboard is full width', pl.h.join()==='Join the leaderboard,Leaderboard' && !pl.dup && pl.lbW>=pl.mainW-4, JSON.stringify(pl));
+ await pc.context().close();
  console.log(res.join('\n')); console.log('JS errors:',errs.length?errs:'none'); await b.close();
 })();

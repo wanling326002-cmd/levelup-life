@@ -565,19 +565,19 @@ VIEWS.home = () => {
   return `<div class="grid">
   ${needBackup() ? `<section class="card c12 backup-note" role="note">${icon('download')}<div class="grow"><b>Back up your progress</b><p class="muted small" style="margin:2px 0 0">${S.lastBackup ? `Your last backup was ${Math.floor((Date.now() - S.lastBackup) / 864e5)} days ago.` : 'You have never made a backup.'} Your progress lives only on this device, so a backup file keeps it safe if this browser is cleared.</p></div>
     <div class="row"><button type="button" class="btn primary sm" data-backup="now">${icon('download')}Download backup</button><button type="button" class="btn sm" data-backup="later">Remind me next week</button></div></section>` : ''}
-  ${fresh ? card('c12 start-card', `${greet}, ${emo(displayName())}`, `<p class="muted" style="margin:-4px 0 16px">Welcome to LevelUp Life! Pick one to get started:</p>
+  ${fresh ? card('c12 start-card home-greet', `${greet}, ${emo(displayName())}`, `<p class="muted" style="margin:-4px 0 16px">Welcome to LevelUp Life! Pick one to get started:</p>
     <div class="start-steps">${step('#focus', 'focus', 'Start a focus session', '25 minutes of deep work, then a break')}${step('#study', 'study', 'Open your first lesson', 'Web Design and App Development, step by step')}${step('#gaming', 'gaming', 'Log a game session', 'See how play fits into your week')}</div>`,
-    `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`) : ''}
+    `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`) : ''}
   ${!fresh && days >= 2 ? card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`) : ''}
-  ${fresh ? '' : card(days >= 2 ? 'c7' : 'c12', `${greet}, ${emo(displayName())}`, `<div class="statrow">
+  ${fresh ? '' : card(days >= 2 ? 'c7 home-greet' : 'c12 home-greet', `${greet}, ${emo(displayName())}`, `<div class="statrow">
     <div class="stat"><span class="k">Learned today</span><span class="v">${fmtMin(L)}</span><span class="d">goal ${fmtMin(S.goals.learn)}</span></div>
     <div class="stat"><span class="k">Played today</span><span class="v">${fmtMin(Pl)}</span><span class="d">limit ${fmtMin(S.goals.play)}</span></div>
     <div class="stat"><span class="k">Watched today</span><span class="v">${fmtMin(W)}</span><span class="d">limit ${fmtMin(S.goals.watch)}</span></div>
     <div class="stat"><span class="k">Learning streak</span><span class="v">${streak()}🔥</span><span class="d">${S.questsTotal} good deeds</span></div></div>`,
-    `<a class="btn primary" href="#focus">${icon('focus')}Start focus</a>`)}
+    `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`)}
   ${ACC.current ? weeklyCard() : ''}
   ${card(side, 'Continue learning', next ? `<div class="orb" aria-hidden="true"><i></i><i></i><i></i></div>
     <p style="text-align:center;margin:0">${esc(next.lesson)}</p><p class="muted small" style="text-align:center;margin:4px 0 16px"><span>${esc(TRACKS[next.track].name)}</span> · <span>${esc(next.module)}</span></p>
@@ -1703,15 +1703,15 @@ VIEWS.players = () => {
   ${!S.pub ? card('c12', 'Join the leaderboard', `<p class="muted" style="margin-top:-6px">${u ? `Make your profile public to show up on the leaderboard, let people click your name, and add friends. ${SHARED_INFO} You can turn it off any time in Settings.` : 'Create an account to join the leaderboard, get a profile other players can open, and add friends.'}</p>
     ${u && PL.status === 'taken' ? `<p class="err">Another player already uses the name ${esc(u.username)} on the leaderboard. Make a new account with a different username to join.</p>` : ''}
     <div class="row">${u ? `<button type="button" class="btn primary" id="goPublic">${icon('globe')}Make my profile public</button>` : `<button type="button" class="btn primary" data-open-auth="signup">${icon('user')}Create account</button><button type="button" class="btn" data-open-auth="login">Log in</button>`}</div>`) : ''}
-  ${card('c8', 'Leaderboard', `<div class="row lb-tools"><div class="seg" role="tablist"><button type="button" role="tab" data-lbtab="all" class="${PL.tab === 'all' ? 'on' : ''}" aria-selected="${PL.tab === 'all'}">Everyone</button><button type="button" role="tab" data-lbtab="week" class="${PL.tab === 'week' ? 'on' : ''}" aria-selected="${PL.tab === 'week'}">This week</button><button type="button" role="tab" data-lbtab="friends" class="${PL.tab === 'friends' ? 'on' : ''}" aria-selected="${PL.tab === 'friends'}">Friends</button></div>
+  ${card(u || isOwner || isAdmin ? 'c8' : 'c12', 'Leaderboard', `<div class="row lb-tools"><div class="seg" role="tablist"><button type="button" role="tab" data-lbtab="all" class="${PL.tab === 'all' ? 'on' : ''}" aria-selected="${PL.tab === 'all'}">Everyone</button><button type="button" role="tab" data-lbtab="week" class="${PL.tab === 'week' ? 'on' : ''}" aria-selected="${PL.tab === 'week'}">This week</button><button type="button" role="tab" data-lbtab="friends" class="${PL.tab === 'friends' ? 'on' : ''}" aria-selected="${PL.tab === 'friends'}">Friends</button></div>
       <input id="lbSearch" class="grow" placeholder="Find a player" aria-label="Find a player" value="${esc(PL.q)}" maxlength="24"><button type="button" class="iconbtn" id="lbRefresh" aria-label="Refresh" title="Refresh">${icon('reset')}</button></div>
     <ol class="lb" id="lbList"></ol>
     <p class="muted small" style="margin:12px 0 0" id="lbHint">Ranked by level, then XP. Click anyone to see their profile. Levels are reported by each player's own app, so moderators can hide cheaters.</p>`, `<span class="tag p" id="lbCount"></span>`)}
-  <div class="c4" style="display:grid;gap:22px;align-content:start">
-  ${card('', 'Friends', u ? `<form class="row" id="addFriendForm"><input id="addFriendIn" class="grow" placeholder="Username" maxlength="20" aria-label="Friend's username" autocomplete="off"><button class="btn">${icon('userplus')}Add</button></form>
-    <div id="friendsBox" style="margin-top:14px"></div>` : '<p class="muted" style="margin-top:-6px">Make an account to add friends.</p>', '<span class="tag p" id="reqCount" hidden></span>')}
+  ${u || isOwner || isAdmin ? `<div class="c4" style="display:grid;gap:22px;align-content:start">
+  ${u ? card('', 'Friends', u ? `<form class="row" id="addFriendForm"><input id="addFriendIn" class="grow" placeholder="Username" maxlength="20" aria-label="Friend's username" autocomplete="off"><button class="btn">${icon('userplus')}Add</button></form>
+    <div id="friendsBox" style="margin-top:14px"></div>` : '', '<span class="tag p" id="reqCount" hidden></span>') : ''}
   ${isOwner || isAdmin ? card('', 'Hidden players', '<div id="hiddenBox"></div>', isOwner ? `<span class="tag owner">${icon('crown')}Owner</span>` : `<span class="tag adm">${icon('shield')}Admin</span>`) : ''}
-  </div>
+  </div>` : ''}
   ${isOwner || isAdmin ? `${card('c7', 'Reports', '<div id="repBox"><p class="muted small" style="margin:0">Loading reports…</p></div>', '<span class="tag p" id="repCount" hidden></span>')}
   ${card('c5', 'Moderation log', '<ul class="modlog" id="modLog"></ul>')}` : ''}
   </div>`;
@@ -2626,9 +2626,9 @@ const hereUrl = () => location.origin + location.pathname;
 const swFresh = () => !('serviceWorker' in navigator) ? Promise.resolve() :
   Promise.race([navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}), new Promise(r => setTimeout(r, 2500))]);
 const canHosted = () => hereUrl() === SITE_URL || /^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/.test(hereUrl()); // the return address must be allowed in the site's settings
-async function hostedLogin() {
+async function hostedLogin(errEl) {
   await swFresh(); // an older offline helper could answer Wix's sign-in address with this page
-  const err = $('#olErr'); if (err) err.textContent = '';
+  const err = errEl || $('#olErr'); if (err) err.textContent = '';
   try {
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32))), state = randHex(16);
     const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(verifier))));
@@ -3519,6 +3519,8 @@ function events() {
   $('#suPass').oninput = $('#suPass2').oninput = showMatch;
   $('#loginForm').onsubmit = login;
   $('#guestBtn').onclick = asGuest;
+  $('#authHosted').insertAdjacentHTML('afterbegin', icon('globe'));
+  $('#authHosted').onclick = () => hostedLogin($('#authQuickErr'));
   $('#authClose').onclick = () => { $('#consent').hidden = true; };
   $$('.toPrivacy').forEach(a => a.onclick = () => { $('#consent').hidden = true; });
   window.addEventListener('hashchange', () => { if (!ACC.current && current !== 'privacy') openAuth('signup'); });
@@ -3529,6 +3531,8 @@ const fails = {n:0, until:0};
 function setAuthTab(t) {
   $$('[data-auth]').forEach(b => { b.classList.toggle('on', b.dataset.auth === t); b.setAttribute('aria-selected', String(b.dataset.auth === t)); });
   $('#signupForm').hidden = t !== 'signup'; $('#loginForm').hidden = t !== 'login'; $('#onlineForm').hidden = t !== 'online'; $('#authNote').hidden = t === 'online';
+  const quick = canHosted() && t !== 'online'; // the Online tab has the same button inside it
+  $('#authQuick').hidden = !quick; $('.auth').classList.toggle('has-quick', quick); $('#authQuickErr').textContent = '';
   $('#suErr').textContent = ''; $('#liErr').textContent = '';
   if (t === 'online') { bindOnline(); paintOnline(); } else OL.connect = '';
   hidePeeks($('#consent'));

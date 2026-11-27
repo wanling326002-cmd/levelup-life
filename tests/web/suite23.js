@@ -115,8 +115,13 @@ async function mock(route) {
 
   // 5. on another device: the same sign-in, then the same password unlocks the saved progress
   p = await mk();
-  await p.click('[data-auth="online"]'); await p.waitForTimeout(300);
-  await p.click('#olHosted'); await p.waitForURL(/login\.mock\.test/); await p.click('#google'); await p.waitForURL(u2 => String(u2).startsWith(BASE));
+  ok('the first screen leads with "Continue with Google or Wix", with LevelUp accounts below', await p.isVisible('#authHosted') && (await p.textContent('.auth-quick')).includes('or use a LevelUp account') && await p.isVisible('#signupForm'));
+  ok('...and Create account below it is a plain button, so there is one main button', await p.evaluate(() => getComputedStyle(document.querySelector('#signupForm .btn.primary')).backgroundImage === 'none'));
+  ok('the whole sign-in box fits on the screen', await p.evaluate(() => { const r = document.querySelector('.auth').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }));
+  await p.click('[data-auth="online"]'); await p.waitForTimeout(200);
+  ok('the Online tab does not repeat it at the top (it has its own button)', !(await p.isVisible('#authHosted')) && await p.isVisible('#olHosted'));
+  await p.click('[data-auth="signup"]'); await p.waitForTimeout(200);
+  await p.click('#authHosted'); await p.waitForURL(/login\.mock\.test/); await p.click('#google'); await p.waitForURL(u2 => String(u2).startsWith(BASE));
   await p.waitForSelector('#olSync', {timeout: 8000}).catch(() => {});
   ok('with saved progress it asks to unlock it (one password box)', await p.isVisible('#olSync') && !(await p.$('#olSync2')) && (await p.textContent('#onlineForm')).includes('Unlock your saved progress'));
   await p.fill('#olSync', 'WrongPassword9'); await p.click('#onlineForm .btn.primary'); await settle(p);

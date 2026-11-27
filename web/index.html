@@ -96,6 +96,11 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
     <div class="orb small" aria-hidden="true"><i></i><i></i><i></i></div>
     <h2 id="authTitle">Welcome to LevelUp Life</h2>
     <p class="muted">Track games, series and YouTube, study App Development &amp; Web Design, and do a bit of good every day.</p>
+    <div class="auth-quick" id="authQuick" hidden>
+      <button type="button" class="btn primary wide cta" id="authHosted">Continue with Google or Wix</button>
+      <p class="err" id="authQuickErr" role="alert"></p>
+      <p class="ol-or"><span>or use a LevelUp account</span></p>
+    </div>
     <div class="seg" role="tablist" aria-label="Account"><button type="button" role="tab" aria-selected="true" class="on" data-auth="signup">Create account</button><button type="button" role="tab" aria-selected="false" data-auth="login">Log in</button><button type="button" role="tab" aria-selected="false" data-auth="online">Online</button></div>
     <form id="signupForm" class="form" novalidate>
       <label class="field"><span>Username</span><input id="suUser" autocomplete="username" maxlength="20" placeholder="3–20 letters, numbers or _"></label>
