@@ -7,7 +7,7 @@ const H = require('./harness'); const D = H.OUT;
 const SITE = D + 'served24/'; H.copySite(SITE);
 const PORT = 8776, BASE = `http://localhost:${PORT}/`;
 const NEW_SW = fs.readFileSync(SITE + 'levelup-sw.js', 'utf8');
-let OLD_SW = ''; try { OLD_SW = execFileSync('git', ['show', '3b532b0:web/levelup-sw.js'], {cwd: H.ROOT, encoding: 'utf8'}); } catch {}
+let OLD_SW = ''; try { OLD_SW = execFileSync('git', ['show', '3b532b0:web/levelup-sw.js'], {cwd: H.ROOT, encoding: 'utf8'}).replace('fonts/outfit.woff2', 'fonts/inter-tight.woff2'); } catch {} // (the old helper's font has since been replaced; without it the old helper can't install)
 // stand-ins for Wix's pages on the website's address
 fs.mkdirSync(SITE + '_api/oauth2', {recursive: true}); fs.mkdirSync(SITE + '__auth', {recursive: true});
 fs.writeFileSync(SITE + '_api/oauth2/authorize.html', '<title>Wix sign in</title><h1 id="wixLogin">Log in with Google</h1>');

@@ -84,10 +84,10 @@ const URL=H.FILE_URL;
  ok('"Up next" shows only the rows that have something in them', h.upNext && h.text.includes('Hollow Test') && !h.text.includes('No series in progress') && !h.text.includes('No saved videos'));
 
  // 7. the header: a labelled light / dark button and a tidy Download link under the profile
+ ok('it shows a sun in light mode (the paper look everyone starts on)', await p2.isVisible('#themeBtn .sun') && !(await p2.isVisible('#themeBtn .moon')));
  const t1=await p2.getAttribute('#themeBtn','title'); await p2.click('#themeBtn'); await p2.waitForTimeout(150);
- const t2=await p2.getAttribute('#themeBtn','title'), lightNow=await p2.evaluate(()=>document.documentElement.dataset.theme);
- ok('the light / dark button says what it does and switches the theme', t1==='Switch to light mode' && t2==='Switch to dark mode' && lightNow==='light', `${t1} | ${t2} | ${lightNow}`);
- ok('it shows a sun in light mode', await p2.isVisible('#themeBtn .sun') && !(await p2.isVisible('#themeBtn .moon')));
+ const t2=await p2.getAttribute('#themeBtn','title'), darkNow=await p2.evaluate(()=>document.documentElement.dataset.theme);
+ ok('the light / dark button says what it does and switches the theme', t1==='Switch to dark mode' && t2==='Switch to light mode' && darkNow==='dark', `${t1} | ${t2} | ${darkNow}`);
  await p2.click('#themeBtn');
  const row=await p2.evaluate(()=>{const c=el=>{const r=document.querySelector(el).getBoundingClientRect();return Math.round(r.top+r.height/2);};return {bell:c('#bellBtn'),theme:c('#themeBtn'),profile:c('.profile'),settings:c('.topbar a.round[href="#options"]')};});
  ok('the bell, light / dark button, profile and settings line up in one row', new Set(Object.values(row)).size===1, JSON.stringify(row));
@@ -132,8 +132,8 @@ const URL=H.FILE_URL;
  await pc.reload(); await pc.waitForTimeout(500);
  ok('on a computer the chart stays on the left of the greeting', await pc.evaluate(()=>{const g=document.querySelector('#main .home-greet').getBoundingClientRect(),c=document.querySelector('#main .spark').getBoundingClientRect();return c.left<g.left && Math.abs(c.top-g.top)<80;}));
  // 11. only the main action glows
- const glow=await pc.evaluate(()=>[...document.querySelectorAll('#main .btn.primary')].map(b=>({t:b.textContent.trim(),g:getComputedStyle(b).boxShadow.includes('30px')})));
- ok('only "Start focus" glows on Home; the other purple buttons do not', glow.filter(x=>x.g).length===1 && glow.find(x=>x.g).t.includes('Start focus') && glow.length>1, JSON.stringify(glow));
+ const glow=await pc.evaluate(()=>[...document.querySelectorAll('#main .btn.primary')].map(b=>({t:b.textContent.trim(),g:getComputedStyle(b).boxShadow!=='none'})));
+ ok('only "Start focus" has a shadow on Home; the other main buttons do not', glow.filter(x=>x.g).length===1 && glow.find(x=>x.g).t.includes('Start focus') && glow.length>1, JSON.stringify(glow));
  // 12. Players for a guest: one sign-up prompt, full-width leaderboard
  await pc.click('#navMoreBtn'); await pc.click('#navMoreMenu [data-route="players"]'); await pc.waitForTimeout(500);
  const pl=await pc.evaluate(()=>({h:[...document.querySelectorAll('#main .card-h h2')].map(h=>h.textContent),dup:document.querySelector('#main').textContent.includes('Make an account to add friends'),lbW:Math.round(document.querySelector('#lbList').closest('.card').getBoundingClientRect().width),mainW:Math.round(document.querySelector('#main').getBoundingClientRect().width)}));
