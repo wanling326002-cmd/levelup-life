@@ -79,7 +79,13 @@ window.LEVELUP_I18N = {}; window.LEVELUP_LANG = function (l, t) { window.LEVELUP
 </div>
 
 <div class="sheet" id="sheet" hidden>
-  <div class="sheet-box glass"><div class="sheet-grid" id="sheetGrid"></div></div>
+  <div class="sheet-box glass">
+    <div class="sheet-actions">
+      <button type="button" class="btn" id="sheetSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search</button>
+      <button type="button" class="btn" id="sheetDl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/></svg>Download app</button>
+    </div>
+    <div class="sheet-grid" id="sheetGrid"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>

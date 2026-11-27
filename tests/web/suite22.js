@@ -116,18 +116,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // 4b. the website installed as an app: no Download app button and no search entry for it
   p = await open({installed: true});
   ok('the installed web app has no Download app button', !(await p.isVisible('#dlBtn')));
+  ok('...and none in the phone More sheet either', await p.evaluate(() => document.querySelector('#sheetDl').hidden));
   await p.keyboard.press('Control+k'); await p.fill('#paletteInput', 'download the app'); await p.waitForTimeout(150);
   ok('the installed web app does not offer the download in search', !(await p.textContent('#paletteList')).includes('Download the app'));
   await p.context().close();
 
-  // 5. on an iPhone: compact button, web app first, panel fits the screen
+  // 5. on an iPhone: Download app lives in the More sheet (not the header), web app first, panel fits the screen
   github = {status: 404, body: {}};
-  p = await open({viewport: {width: 390, height: 844}, ua: IPHONE_UA, mobile: true});
-  const w = await p.$eval('#dlBtn', e => e.getBoundingClientRect().width);
-  await p.click('#dlBtn'); await p.waitForFunction(() => /Coming soon|Download for Windows/.test(document.querySelector('#dlPanel').textContent));
+  p = await open({viewport: {width: 390, height: 664}, ua: IPHONE_UA, mobile: true});
+  ok('on a phone the header has no Download button (it is in the More sheet)', !(await p.isVisible('#dlBtn')));
+  await p.click('#moreBtn'); await p.click('#sheetDl'); await p.waitForFunction(() => /Coming soon|Download for Windows/.test(document.querySelector('#dlPanel').textContent));
   const box = await p.$eval('#dlPanel', e => e.getBoundingClientRect().toJSON());
   t = await panelText(p);
-  ok('on a phone the button is compact and the panel fits on screen', w <= 60 && box.left >= 0 && box.right <= 390 && box.bottom <= 844, JSON.stringify({w, box}));
+  ok('Download app in the More sheet opens the panel, closes the sheet, and the panel fits on screen', await p.isHidden('#sheet') && box.left >= 0 && box.right <= 390 && box.top >= 0 && box.bottom <= 664, JSON.stringify(box));
   ok('on an iPhone the web app comes first, with the Add to Home Screen steps', t.indexOf('On a phone') < t.indexOf('LevelUp Life for Windows') && t.includes('Add to Home Screen'));
   ok('no sideways scrolling on a phone', await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await p.screenshot({path: D + 'download-phone.png'});

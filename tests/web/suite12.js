@@ -98,5 +98,25 @@ const URL=H.FILE_URL;
  // 8. phones keep the bottom bar; the desktop list never shows there
  await p.setViewportSize({width:390,height:844}); await p.goto(URL+'#home'); await p.waitForTimeout(300);
  ok('on a phone the top menu and its list are hidden (the bottom bar is used)', !(await p.isVisible('#nav')) && !(await p.isVisible('#navMoreMenu')) && await p.isVisible('#bottomnav'));
+
+ // 9. phones: a lighter header (Search and Download app are in the More sheet) and pop-ups that don't cover the bottom bar
+ const ph=await (await b.newContext({viewport:{width:390,height:664},isMobile:true,hasTouch:true})).newPage(); ph.on('pageerror',e=>errs.push(e.message));
+ await ph.context().route(/fonts\.(googleapis|gstatic)|wixapis/,r=>r.abort());
+ await ph.goto(URL); await ph.click('#guestBtn'); await ph.waitForTimeout(200);
+ const tb=await ph.evaluate(()=>{const t=document.querySelector('#toast'),n=document.querySelector('#bottomnav').getBoundingClientRect(),r=t.getBoundingClientRect();return {show:t.classList.contains('show'),bottom:Math.round(r.bottom),navTop:Math.round(n.top),left:Math.round(r.left),right:Math.round(r.right)};});
+ ok('a pop-up message on a phone sits above the bottom bar, not on top of it', tb.show && tb.bottom<=tb.navTop-8 && tb.left>=0 && tb.right<=390, JSON.stringify(tb));
+ const vis=await ph.evaluate(()=>[...document.querySelectorAll('.topbar > *, .topbar .me-stack > *')].filter(e=>e.getClientRects().length&&getComputedStyle(e).display!=='none'&&e.offsetWidth).map(e=>e.id||e.className.split(' ')[0]));
+ ok('the phone header keeps only the logo, bell, profile and settings', !vis.includes('searchBtn') && !vis.includes('dlBtn') && vis.includes('brand') && vis.includes('bellBtn') && vis.includes('profile'), vis.join());
+ await ph.click('#moreBtn'); await ph.waitForTimeout(200);
+ const sh=await ph.evaluate(()=>{const b=document.querySelector('.sheet-box').getBoundingClientRect();return {top:Math.round(b.top),bottom:Math.round(b.bottom),vh:innerHeight};});
+ ok('the More sheet fits on a short phone screen', sh.top>=0 && sh.bottom<=sh.vh, JSON.stringify(sh));
+ ok('the More sheet starts with Search and Download app', await ph.isVisible('#sheetSearch') && await ph.isVisible('#sheetDl'));
+ await ph.click('#sheetSearch'); await ph.waitForTimeout(200);
+ ok('Search in the sheet opens search and closes the sheet', await ph.isVisible('#palette') && await ph.isHidden('#sheet'));
+ await ph.keyboard.press('Escape'); await ph.click('#moreBtn'); await ph.click('#sheetDl'); await ph.waitForTimeout(300);
+ ok('Download app in the sheet opens the download panel on screen', await ph.evaluate(()=>{const p=document.querySelector('#dlPanel');if(!p||p.hidden)return false;const r=p.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0;}));
+ await ph.keyboard.press('Escape');
+ ok('no sideways scrolling on the phone', await ph.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await ph.context().close();
  console.log(res.join('\n')); console.log('JS errors:',errs.length?errs:'none'); await b.close();
 })();

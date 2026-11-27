@@ -3121,6 +3121,7 @@ const isInstalledApp = () => IS_DESKTOP || isStandalone();
 function syncDownloadButton() {
   const b = $('#dlBtn'); if (!b) return;
   b.hidden = isInstalledApp();
+  const sd = $('#sheetDl'); if (sd) sd.hidden = b.hidden; // the phone's More sheet has the same button
   if (b.hidden) toggleDownload(false);
 }
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3215,8 +3216,10 @@ function toggleDownload(open) {
   if (open) {
     const first = () => p.querySelector('#dlGo') || p.querySelector('button');
     paintDownload(); p.hidden = false;
-    const r = btn.getBoundingClientRect(); p.style.top = `${r.bottom + 10}px`; // under the button, but always on screen
-    p.style.right = `${Math.max(12, Math.min(innerWidth - r.right - 8, innerWidth - p.offsetWidth - 12))}px`;
+    const r = btn.getBoundingClientRect();
+    if (r.width) { p.style.top = `${r.bottom + 10}px`; // under the button, but always on screen
+      p.style.right = `${Math.max(12, Math.min(innerWidth - r.right - 8, innerWidth - p.offsetWidth - 12))}px`; }
+    else { p.style.top = '16px'; p.style.right = `${Math.max(12, (innerWidth - p.offsetWidth) / 2)}px`; } // on a phone (opened from the More sheet): centred at the top
     const f = first(); if (f) f.focus();
     if (!DL.info) dlResolve().then(() => { if (!p.hidden) { const had = p.contains(document.activeElement); paintDownload(); if (had) { const g = first(); if (g) g.focus(); } } });
   } else if (!p.hidden) { p.hidden = true; if (p.contains(document.activeElement)) btn.focus(); }
@@ -3229,7 +3232,7 @@ const TOUR = [
   {t:'Welcome to LevelUp Life! 👋', b:'Here is a quick tour of where everything is. It takes about 30 seconds, and you can skip it any time.'},
   {sel:() => isPhone() ? '#bottomnav' : '#nav', t:'Pages', b:'Study, Focus, Gaming and Chat. Series, YouTube, Players and the rest are under More.'},
   {sel:'.profile', t:'Your level', b:'Earn XP by studying, focusing, finishing games and doing good deeds. Click here to see your badges.'},
-  {sel:'#searchBtn', t:'Search everything', b:'Find any page or action. Shortcut: Ctrl + K. The number keys 1 to 9 jump between pages.'},
+  {sel:() => isPhone() ? '#moreBtn' : '#searchBtn', t:'Search everything', b:'Find any page or action. Shortcut: Ctrl + K. The number keys 1 to 9 jump between pages.'},
   {sel:() => isPhone() ? '#moreBtn' : '#navMoreBtn', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
   {sel:'a.round[href="#options"]', t:'Settings', b:'Light or dark mode, your account, public profile, backups and installing the app.'},
   {t:"You're ready! 🎮", b:'Start with today’s quests on the Help the World page, or open Study to pick a track. Have fun!'},
@@ -3481,6 +3484,8 @@ function events() {
     if (e.target.closest('#navMoreBtn')) toggleNavMore();
     else if (!e.target.closest('#navMoreMenu')) toggleNavMore(false);
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
+    if (e.target.closest('#sheetSearch')) { $('#sheet').hidden = true; openPalette(); }
+    if (e.target.closest('#sheetDl')) { $('#sheet').hidden = true; toggleDownload(true); }
     else if (e.target.id === 'sheet') $('#sheet').hidden = true;
     if (e.target.id === 'palette') closePalette();
     const li = e.target.closest('#paletteList li[data-i]'); if (li) runPal(+li.dataset.i);
