@@ -454,7 +454,7 @@ const level = () => {
 const flame = `<span class="flame">${icon('flame')}</span>`;
 function hud() {
   const l = level(), pct = l.max ? 100 : Math.min(99, Math.floor(l.xp / l.need * 100));
-  return `<div class="hud"><div class="hud-ring" style="--p:${pct}" role="img" aria-label="${l.max ? `Level ${l.lv}, top level` : `Level ${l.lv}, ${pct}% of the way to level ${l.lv + 1}`}"><b>${l.lv}</b><small>Level</small></div>
+  return `<div class="hud"><div class="hud-ring${l.lv >= 1000 ? ' long' : ''}" style="--p:${pct}" role="img" aria-label="${l.max ? `Level ${l.lv}, top level` : `Level ${l.lv}, ${pct}% of the way to level ${l.lv + 1}`}"><b>${l.lv}</b><small>Level</small></div>
     <div class="hud-t"><b>${l.max ? 'Top level reached' : `${l.need - l.xp} XP to level ${l.lv + 1}`}</b><span class="muted small">Focus sessions, study steps and good deeds all give XP.</span></div></div>`;
 }
 const displayName = () => (me() && me().username) || S.name || 'Player';
@@ -593,7 +593,7 @@ VIEWS.home = () => {
   ${fresh ? card('c12 start-card home-greet', `${greet}, ${emo(displayName())}`, `<p class="muted" style="margin:-4px 0 16px">Welcome to LevelUp Life! Pick one to get started:</p>
     <div class="start-steps">${step('#focus', 'focus', 'Start a focus session', '25 minutes of deep work, then a break')}${step('#study', 'study', 'Make your study path', 'Plan what you want to learn, step by step')}${step('#gaming', 'gaming', 'Log a game session', 'See how play fits into your week')}</div>`,
     `<a class="btn primary cta" href="#focus">${icon('focus')}Start focus</a>`) : ''}
-  ${!fresh && days >= 2 ? card('c5', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
+  ${!fresh && days >= 2 ? card('c5 home-chart', '', `<div class="spark"><div><div class="badge">${icon('star')}</div><h2 style="margin-top:14px;font-size:1.3rem">Analytics</h2><div class="muted">Last 7 days</div>
     <div class="small" style="color:var(--accent2);margin-top:6px">${prevL ? `${trend >= 0 ? '+' : ''}${trend}% learning vs last week` : 'Your first week of tracking'}</div></div>
     <div style="flex:1;min-width:0">${lineChart(['learn','play','watch'].map(c=>({c:CAT[c].c,data:week(c)})))}
     <div class="legend" style="margin-top:10px">${Object.values(CAT).map(c=>`<span><i style="background:${c.c}"></i>${c.n}</span>`).join('')}</div></div></div>`) : ''}

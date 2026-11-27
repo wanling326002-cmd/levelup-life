@@ -51,6 +51,23 @@ const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) +
   ok('on a phone every button, icon button, chip, tab and dropdown is at least 44px tall', !small.length, small.slice(0, 6).join(' | '));
   await ph.goto(URL + '#home'); await ph.waitForTimeout(250);
   ok('on a phone the level ring sits above the day stats', await ph.evaluate(() => { const h = document.querySelector('.hud').getBoundingClientRect(), s = document.querySelector('.home-greet .statrow').getBoundingClientRect(); return h.bottom <= s.top + 1 && document.documentElement.scrollWidth <= innerWidth; }).catch(() => false));
+  // 5. found by the bug scan: on a small phone the card title was squeezed to one character per line by its button,
+  //    and on a tablet the chart sat alone with an empty half beside it, above the greeting
+  const day = i => { const x = new Date(Date.now() - i * 864e5); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  const log = [0, 1, 2].map(i => ({d: day(i), cat: 'learn', m: 30}));
+  const sm = await (await b.newContext({viewport: {width: 320, height: 640}, isMobile: true, hasTouch: true})).newPage(); await sm.context().route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
+  await seed(sm); await sm.evaluate(() => localStorage.setItem('levelup-lang', 'ja')); await sm.reload(); await sm.waitForTimeout(400);
+  ok('on a small phone a card title keeps its width and the button moves below it', await sm.evaluate(() => { const h = document.querySelector('.home-greet .card-h h2').getBoundingClientRect(), btn = document.querySelector('.home-greet .card-h .btn').getBoundingClientRect(); return h.width > 200 && btn.top >= h.bottom - 1; }));
+  const tab = await (await b.newContext({viewport: {width: 1024, height: 768}})).newPage(); await tab.context().route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
+  await seed(tab, {log});
+  ok('on a tablet the greeting comes first and the chart is full width below it', await tab.evaluate(() => { const g = document.querySelector('.home-greet').getBoundingClientRect(), c = document.querySelector('.home-chart').getBoundingClientRect(), h = document.querySelector('.hud').getBoundingClientRect(), s = document.querySelector('.home-greet .statrow').getBoundingClientRect();
+    return g.bottom <= c.top + 1 && Math.abs(c.width - g.width) < 2 && h.right <= s.left + 1; }));
+  const pc0 = await (await b.newContext({viewport: {width: 1440, height: 900}})).newPage(); await pc0.context().route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
+  await seed(pc0, {log});
+  ok('on a computer the chart stays to the left of the greeting', await pc0.evaluate(() => document.querySelector('.home-chart').getBoundingClientRect().right <= document.querySelector('.home-greet').getBoundingClientRect().left + 1));
+  await pc0.evaluate(() => { const S = JSON.parse(localStorage.getItem('levelup-life-v1')); S.xp = 1e9; localStorage.setItem('levelup-life-v1', JSON.stringify(S)); }); await pc0.reload(); await pc0.waitForTimeout(400);
+  ok('level 1000 fits inside the ring', await pc0.evaluate(() => { const r = document.querySelector('.hud-ring'), n = r.querySelector('b'); return n.textContent === '1000' && r.classList.contains('long') && n.getBoundingClientRect().width < r.getBoundingClientRect().width * .8; }));
+
   const pc = await (await b.newContext({viewport: {width: 1440, height: 900}})).newPage(); await pc.context().route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
   await seed(pc); await pc.goto(URL + '#study'); await pc.waitForTimeout(250);
   ok('with a mouse, buttons keep their compact size', (await pc.evaluate(() => document.querySelector('#newPathBtn').getBoundingClientRect().height)) < 40);

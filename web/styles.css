@@ -127,8 +127,8 @@ main,main:focus,main:focus-visible,#main:focus{outline:none}
   position:relative;min-width:0;animation:rise .35s ease both}
 :root[data-theme="light"] .card{background:var(--card)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}}
-.card-h{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-.card-h h2,.card-h h3{font-size:1.12rem;flex:1}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.card-h h2,.card-h h3{font-size:1.12rem;flex:1 1 9em} /* when the title and its button don't both fit, the button moves to the next line instead of squeezing the title */
 .card-h .more{color:var(--muted);letter-spacing:2px;font-weight:700}
 .glass{background:rgba(18,18,25,.82);backdrop-filter:blur(20px);border:1px solid var(--line2);border-radius:var(--radius)}
 :root[data-theme="light"] .glass{background:rgba(255,255,255,.9)}
@@ -735,7 +735,7 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .auth{gap:12px}
 @media (max-height:940px){.auth .orb.small{display:none}}
 /* phones: the greeting with "Start focus" comes before the 7-day chart */
-@media (max-width:860px){.grid>.home-greet{order:-1}.grid>.backup-note{order:-2}}
+@media (max-width:1200px){.grid>.home-greet{order:-1}.grid>.backup-note{order:-2}.grid>.home-chart{grid-column:span 12}} /* phones and tablets: greeting first, chart full width below */
 #consent{padding-top:max(16px,2vh);padding-bottom:16px}
 /* study paths */
 .sp-top{gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -770,12 +770,14 @@ button.thumb:hover,button.thumb:focus-visible{outline:2px solid var(--accent2);o
 .hud-ring b{font-size:2.5rem;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .hud-ring small{font-size:.8rem;color:var(--muted);margin-top:4px}
 .hud-t{display:grid;gap:4px;max-width:170px}.hud-t b{font-weight:500;font-variant-numeric:tabular-nums}
-.home-greet.c7 .greet-body,.home-greet.c6 .greet-body{grid-template-columns:1fr}
-.home-greet.c7 .hud,.home-greet.c6 .hud{padding:0 0 20px;border-right:0;border-bottom:1px solid var(--line)}
-.home-greet.c7 .hud-t,.home-greet.c6 .hud-t{max-width:none}
-.home-greet.c7 .statrow{grid-template-columns:repeat(2,1fr)}
+@media (min-width:1201px){ /* next to the chart on a computer the greeting is narrower: level on top, stats 2 by 2 */
+  .home-greet.c7 .greet-body{grid-template-columns:1fr}
+  .home-greet.c7 .hud{padding:0 0 20px;border-right:0;border-bottom:1px solid var(--line)}
+  .home-greet.c7 .hud-t{max-width:none}
+  .home-greet.c7 .statrow{grid-template-columns:repeat(2,1fr)}}
+.hud-ring.long b{font-size:2rem} /* four-digit levels */
 @media (max-width:860px){.greet-body{grid-template-columns:1fr;gap:20px}
-  .hud{padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}.hud-t{max-width:none}.hud-ring{width:92px;height:92px}.hud-ring b{font-size:2rem}}
+  .hud{padding:0 0 18px;border-right:0;border-bottom:1px solid var(--line)}.hud-t{max-width:none}.hud-ring{width:92px;height:92px}.hud-ring b{font-size:2rem}.hud-ring.long b{font-size:1.55rem}}
 /* a study step's link: a bigger hit area than the text line */
 .sp-steps .item a.small{display:inline-flex;align-items:center;min-height:26px}
 /* touch screens: controls at least 44px tall so they are easy to hit with a thumb (Apple HIG / Material) */
