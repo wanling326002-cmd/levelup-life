@@ -6,8 +6,21 @@
     <title>LevelUp Life</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#f5f4ee" />
-    <!-- coming back from "Continue with Google or Wix": hand the sign-in result to the app, which finishes signing in -->
-    <script>if (/[?&](code|state|error)=/.test(location.search)) location.replace("app.html" + location.search + location.hash)</script>
+    <script>
+      // coming back from "Continue with Google or Wix": hand the sign-in result to the app, which finishes signing in.
+      // If this page was opened as app.html, an older offline helper answered with a saved copy of the front page:
+      // remove that helper once and load the real app (never loops: at most one try per tab).
+      (function () {
+        if (!/app\.html$/.test(location.pathname)) {
+          if (/[?&](code|state|error)=/.test(location.search)) location.replace("app.html" + location.search + location.hash)
+          return
+        }
+        try { if (sessionStorage.getItem("lu-sw-fix")) return; sessionStorage.setItem("lu-sw-fix", "1") } catch (e) { return }
+        var go = function () { location.reload() }
+        if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister() })) }).then(go, go)
+        else go()
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

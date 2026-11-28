@@ -8,18 +8,18 @@ const URL = H.FILE_URL;
   const ctx = await b.newContext({viewport: {width: 1440, height: 900}}); await ctx.route(/fonts\.(googleapis|gstatic)|wixapis|api\.github/, r => r.abort());
   const p = await ctx.newPage(); p.on('pageerror', e => errs.push(e.message));
   const st = () => p.evaluate(() => JSON.parse(localStorage.getItem('levelup-life-v1')));
-  const look = () => p.evaluate(() => ({theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, font: getComputedStyle(document.body).fontFamily}));
+  const look = () => p.evaluate(() => ({theme: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, side: getComputedStyle(document.querySelector('.side')).backgroundColor, font: getComputedStyle(document.body).fontFamily}));
 
   // 1. a new player gets the cream paper look and the Inter Tight font
   await p.goto(URL); await p.click('#guestBtn'); await p.waitForTimeout(400);
   let l = await look();
-  ok('a new player starts on the cream paper look', l.theme === 'light' && l.bg === 'rgb(245, 244, 238)' && (await st()).theme === 'light', JSON.stringify(l));
+  ok('a new player starts on the paper look: white dashboard, cream sidebar', l.theme === 'light' && l.bg === 'rgb(255, 255, 255)' && /^rgb\(24[0-9], 24[0-9], 24[0-9]\)$/.test(l.side) && (await st()).theme === 'light', JSON.stringify(l));
   ok('the page uses the Inter Tight font, and it loads', l.font.includes('Inter Tight') && await p.evaluate(async () => { await document.fonts.ready; return [...document.fonts].some(f => f.family.replace(/"/g, '') === 'Inter Tight' && f.status === 'loaded'); }), l.font);
   ok('the main button is deep teal with white text', await p.evaluate(() => { const s = getComputedStyle(document.querySelector('.btn.primary')); return s.backgroundColor === 'rgb(15, 50, 56)' && s.color === 'rgb(255, 255, 255)'; }));
 
   // 2. the moon/sun switch gives the deep-teal night theme and it is remembered
   await p.click('#themeBtn'); await p.waitForTimeout(200); await p.reload(); await p.waitForTimeout(400); l = await look();
-  ok('the switch gives the deep-teal night theme, and it is still there after a reload', l.theme === 'dark' && l.bg === 'rgb(7, 28, 32)' && (await st()).theme === 'dark', JSON.stringify(l));
+  ok('the switch gives the deep-teal night theme, and it is still there after a reload', l.theme === 'dark' && l.bg === 'rgb(12, 47, 53)' && (await st()).theme === 'dark', JSON.stringify(l));
   ok('at night the main button is lilac with dark ink', await p.evaluate(() => getComputedStyle(document.querySelector('.btn.primary')).backgroundColor === 'rgb(205, 200, 246)'));
 
   // 3. someone who used the old dark look gets the new paper look once; after that their choice is kept

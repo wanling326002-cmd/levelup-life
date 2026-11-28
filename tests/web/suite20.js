@@ -4,7 +4,7 @@ const {chromium}=require('playwright'); const fs=require('fs'); const {spawn,exe
 const H=require('./harness'); const D=H.OUT;
 const OKEY=H.OKEY;
 const SITE=D+'served20/'; fs.rmSync(SITE,{recursive:true,force:true}); H.copySite(SITE); fs.writeFileSync(SITE+'mockauth.html','<script>var q=new URLSearchParams(location.search);parent.postMessage({code:"code-"+q.get("sess"),state:q.get("state")},"*");</script>');
-const BASE='http://localhost:8771/';
+const BASE='http://localhost:8771/app.html'; // the app (the front page is the landing page)
 const chat=[], players=new Map(); let n=0;
 const hdr={'access-control-allow-origin':'*','content-type':'application/json'};
 const one=(have,want)=>want&&typeof want==='object'&&Array.isArray(want.$in)?want.$in.includes(have):have===want;

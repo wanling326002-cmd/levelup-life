@@ -32,7 +32,7 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
     fs.writeFileSync(SITE + 'levelup-sw.js', OLD_SW);
     await p.goto(APP); await controlled();
     const r = await wixPage('_api/oauth2/authorize.html?state=abc');
-    ok('(before the fix) the old helper answers Wix\'s sign-in address with LevelUp Life', r.ours && !r.wix, JSON.stringify(r));
+    ok('(before the fix) the old helper keeps Wix\'s sign-in page from showing', !r.wix, JSON.stringify(r)); // (it answers with a saved copy of the site)
     // 2. the fixed helper arrives on their next visit and takes over by itself
     fs.writeFileSync(SITE + 'levelup-sw.js', NEW_SW);
     await p.goto(APP);
