@@ -6,6 +6,7 @@
 //   state of a group is announced (aria-expanded), the current page is marked (aria-current)
 // - an entry can show a red dot (`dot`, with `dotTitle`), and a group opens by itself when one of its pages is current
 // - `navId` names the scrolling menu (the app's guided tour points at it)
+// - the group headings are a little darker (80% instead of 50%), so they are readable (WCAG AA contrast)
 import React, { useEffect, useState } from 'react';
 import {
   Search,
@@ -350,7 +351,7 @@ export function SidebarNav({
         {groups.map((group, idx) => (
           <div key={idx} className="flex flex-col gap-0.5">
             {group.heading && (
-              <span className="px-2.5 mb-1 text-[11px] font-semibold tracking-wider text-muted-foreground/50 uppercase">
+              <span className="px-2.5 mb-1 text-[11px] font-semibold tracking-wider text-muted-foreground/80 uppercase">
                 {group.heading}
               </span>
             )}

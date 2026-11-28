@@ -859,3 +859,4 @@ input,select,textarea{border-radius:8px;background:var(--card);border-color:var(
 :root[data-theme="light"] .bottomnav{background:rgba(255,255,255,.94)}
 :root:not([data-theme="light"]) .bottomnav{background:rgba(23,23,23,.94)}
 .bottomnav a,.bottomnav button{border-radius:10px}
+.start-step .thumb{background:var(--soft2);color:var(--text)} /* the Start-here icons: a soft grey tile, like the sidebar's icons */
