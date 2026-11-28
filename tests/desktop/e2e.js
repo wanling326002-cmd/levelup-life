@@ -29,7 +29,7 @@ async function until(fn, ms = 15000, step = 250) { const end = Date.now() + ms; 
     env: {...process.env, LEVELUP_USER_DATA: userData, LEVELUP_FAKE_PROCESSES: procsFile, LEVELUP_WIX_API: wix.url,
       LEVELUP_POLL_MS: '1000', LEVELUP_HEARTBEAT_MS: '2000', LEVELUP_OPEN_EXTERNAL_HOOK: '1'},
   });
-  const mainOf = async app => until(() => app.windows().find(w => /web\/index\.html/.test(w.url().replace(/\\/g, '/'))), 20000);
+  const mainOf = async app => until(() => app.windows().find(w => /web\/app\.html/.test(w.url().replace(/\\/g, '/'))), 20000);
   const notes = app => app.evaluate(() => global.__levelupNotes || []);
   const text = async (p, sel = '#main') => (await p.textContent(sel)).replace(/\s+/g, ' ');
 
