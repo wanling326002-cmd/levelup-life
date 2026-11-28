@@ -15,7 +15,7 @@
     "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:web": "node tests/web/run.js",
     "test": "npm run lint && npm run test:unit && npm run test:web",
-    "build:landing": "cd landing && npm ci --ignore-scripts && npx vite build"
+    "build:landing": "cd landing && npm ci --ignore-scripts && npx vite build && npx vite build -c vite.shell.config.ts"
   },
   "build": {
     "appId": "app.levelup.life",

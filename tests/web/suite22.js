@@ -32,7 +32,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // 1. nothing published yet: "coming soon", never a broken link
   let p = await open();
   const pr = await p.$eval('.profile', e => e.getBoundingClientRect().toJSON()), dr = await p.$eval('#dlBtn', e => e.getBoundingClientRect().toJSON());
-  ok('the Download app button sits right under the profile button', dr.top >= pr.bottom && dr.top - pr.bottom < 16 && Math.abs((dr.left + dr.right) / 2 - (pr.left + pr.right) / 2) < 30, JSON.stringify({pr, dr}));
+  ok('the Download app button sits in the header, just left of the profile', dr.right <= pr.left && pr.left - dr.right < 16 && Math.abs((dr.top + dr.bottom) / 2 - (pr.top + pr.bottom) / 2) < 3, JSON.stringify({pr, dr}));
   ok('the button says what it is', (await p.textContent('#dlBtn')).includes('Download app') && (await p.getAttribute('#dlBtn', 'aria-expanded')) === 'false');
   await p.click('#dlBtn');
   await p.waitForFunction(() => document.querySelector('#dlPanel') && !document.querySelector('#dlPanel').hidden && /Coming soon|Download for Windows/.test(document.querySelector('#dlPanel').textContent));
@@ -44,7 +44,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok('the button reports the panel is open', (await p.getAttribute('#dlBtn', 'aria-expanded')) === 'true');
   await p.keyboard.press('Escape');
   ok('Escape closes the panel and returns focus to the button', await p.$eval('#dlPanel', e => e.hidden) && await p.evaluate(() => document.activeElement.id === 'dlBtn'));
-  await p.click('#dlBtn'); await p.waitForTimeout(150); await p.click('.pagehead');
+  await p.click('#dlBtn'); await p.waitForTimeout(150); await p.mouse.click(130, 740); // an empty part of the sidebar
   ok('clicking elsewhere closes the panel', await p.$eval('#dlPanel', e => e.hidden));
 
   // 2. no old download or install buttons anywhere on the website

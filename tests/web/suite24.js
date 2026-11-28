@@ -38,9 +38,9 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
     await p.goto(APP);
     for (let i = 0; i < 60; i++) { // the browser checks for a new helper on each visit; it takes over in a moment
       if (await p.evaluate(async () => { const k = await caches.keys(); const r = await navigator.serviceWorker.getRegistration();
-        return k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1') && !!r.active && r.active.state === 'activated' && !r.installing && !r.waiting; }).catch(() => false)) break;
+        return k.includes('levelup-shell-v4') && !k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1') && !!r.active && r.active.state === 'activated' && !r.installing && !r.waiting; }).catch(() => false)) break;
       await p.waitForTimeout(250); }
-    ok('a returning visitor gets the fixed helper, and the old saved copy is removed', await p.evaluate(async () => { const k = await caches.keys(); return k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1'); }), JSON.stringify(await p.evaluate(() => caches.keys())));
+    ok('a returning visitor gets the fixed helper, and the old saved copy is removed', await p.evaluate(async () => { const k = await caches.keys(); return k.includes('levelup-shell-v4') && !k.includes('levelup-shell-v3') && !k.includes('levelup-shell-v2') && !k.includes('levelup-shell-v1'); }), JSON.stringify(await p.evaluate(() => caches.keys())));
   } else { await p.goto(APP); await controlled(); }
   await controlled();
   ok('the offline helper is running', await p.evaluate(() => !!navigator.serviceWorker.controller));
@@ -62,6 +62,7 @@ const hdr = {'access-control-allow-origin': '*', 'content-type': 'application/js
   await ctx.setOffline(true);
   await p.goto(APP + '#settings').catch(() => {}); await p.waitForTimeout(800);
   ok('the app still opens with no internet', (await p.title()).includes('LevelUp Life') && await p.isVisible('#main'));
+  ok('the sidebar works with no internet too', await p.waitForSelector('#nav [data-route="home"]', {timeout: 5000}).then(() => true, () => false));
   ok('and it is styled (its design loaded)', await p.evaluate(() => getComputedStyle(document.body).fontFamily.includes('Inter Tight') || getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'));
   await p.goto(BASE + 'app.html?x=1').catch(() => {}); await p.waitForTimeout(500);
   ok('app.html opens offline too (with a query string)', (await p.title()).includes('LevelUp Life'));

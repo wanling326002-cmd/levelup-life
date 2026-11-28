@@ -1,65 +1,64 @@
-// Top menu: five main pages plus a "More" button whose list holds the rest. It fits at every desktop width,
-// works with the mouse and the keyboard, and shows the page you are on when that page lives under More.
+// The sidebar (the "Dashboard Sidebar" component from 21st.dev): every page, grouped, with the current one marked. It works
+// with the mouse and the keyboard, opens the search, shows red dots where something waits, and can be hidden.
 const {chromium}=require('playwright');
 const H=require('./harness'); const D=H.OUT;
 const URL=H.FILE_URL;
 (async()=>{
  const b=await chromium.launch(); const errs=[]; const res=[]; const ok=(t,c,x='')=>res.push(`${c?'PASS':'FAIL'}  ${t} ${c?'':x}`);
- const ctx=await b.newContext({viewport:{width:1700,height:900}}); await ctx.route(/fonts\.(googleapis|gstatic)|wixapis/,r=>r.abort());
+ const ctx=await b.newContext({viewport:{width:1440,height:900}}); await ctx.route(/fonts\.(googleapis|gstatic)|wixapis/,r=>r.abort());
  const p=await ctx.newPage(); p.on('pageerror',e=>errs.push(e.message));
- await p.goto(URL); await p.click('#guestBtn'); await p.waitForTimeout(300);
- const st=()=>p.evaluate(()=>{const n=document.querySelector('#nav');return {sw:n.scrollWidth,cw:n.clientWidth};});
- const open=()=>p.evaluate(()=>!document.querySelector('#navMoreMenu').hidden);
- const label=()=>p.textContent('#navMoreLbl');
+ await p.goto(URL); await p.click('#guestBtn'); await p.waitForSelector('#nav [data-route="home"]'); await p.waitForTimeout(200);
+ const cur=()=>p.$$eval('#nav [aria-current="page"]',a=>a.map(x=>x.dataset.route));
 
- // 1. five main pages + More, and it fits at every desktop width
- const main=await p.$$eval('#nav > a',a=>a.map(x=>x.dataset.route));
- ok('the top menu shows Home, Study, Focus, Gaming and Chat', main.join()==='home,study,focus,gaming,chat', main.join());
- ok('followed by a More button', await p.isVisible('#nav #navMoreBtn') && (await label())==='More');
- const fits=[]; for (const w of [1700,1440,1280,1100,980,900]) { await p.setViewportSize({width:w,height:900}); await p.waitForTimeout(150); const s=await st(); if (s.sw>s.cw+1) fits.push(`${w}px: ${s.sw}/${s.cw}`); }
- ok('the menu fits without scrolling from 1700px down to 900px', !fits.length, fits.join(', '));
+ // 1. every page, main pages first, in labelled groups; settings and help at the bottom; the player at the top
+ const r=await p.$$eval('#nav [data-route]',a=>a.map(x=>x.dataset.route));
+ ok('the sidebar lists Search and every page, the main pages first', r.join()==='search,home,study,focus,gaming,chat,series,youtube,companion,balance,messages,players,impact,badges', r.join());
+ const navText=await p.textContent('#nav');
+ ok('...in groups labelled Track, Community and You', ['Track','Community','You'].every(w=>navText.includes(w)));
+ const bottom=await p.$$eval('#sideRoot [data-route]',a=>a.filter(x=>!x.closest('#nav')).map(x=>x.dataset.route));
+ ok('Settings, Help and Sign in sit at the bottom', bottom.join()==='options,help,signin', bottom.join());
+ const top=await p.textContent('#sideRoot button[aria-haspopup="menu"]');
+ ok('the switcher at the top shows the player and their level', top.includes('Player') && top.includes('Level 1'), top);
+ ok('Home is marked as the current page', (await cur()).join()==='home');
 
- // 2. More opens a list of the other pages
- await p.setViewportSize({width:1440,height:900}); await p.waitForTimeout(150);
- ok('the list starts closed', !(await open()) && (await p.getAttribute('#navMoreBtn','aria-expanded'))==='false');
- await p.click('#navMoreBtn'); await p.waitForTimeout(150);
- const more=await p.$$eval('#navMoreMenu a',a=>a.map(x=>x.dataset.route));
- ok('More opens a list with the other pages', await open() && (await p.getAttribute('#navMoreBtn','aria-expanded'))==='true' && more.join()==='companion,series,youtube,balance,impact,messages,players', more.join());
- ok('the list opens right under the More button, indented in the sidebar', await p.evaluate(()=>{const b=document.querySelector('#navMoreBtn').getBoundingClientRect(),m=document.querySelector('#navMoreMenu').getBoundingClientRect();return m.top>=b.bottom && m.top-b.bottom<30 && m.left>=b.left && m.left-b.left<40;}));
- ok('keyboard focus moves into the list', await p.evaluate(()=>document.activeElement.closest('#navMoreMenu')!==null));
- await p.keyboard.press('Escape'); await p.waitForTimeout(100);
- ok('Esc closes it and puts focus back on More', !(await open()) && await p.evaluate(()=>document.activeElement.id==='navMoreBtn'));
- await p.keyboard.press('Enter'); await p.waitForTimeout(150);
- ok('Enter on More opens it', await open());
- await p.mouse.click(700,600); await p.waitForTimeout(150);
- ok('clicking elsewhere closes it', !(await open()));
-
- // 3. choosing a page from the list
- await p.click('#navMoreBtn'); await p.click('#navMoreMenu [data-route="players"]'); await p.waitForTimeout(400);
- ok('choosing Players opens Players and closes the list', (await p.textContent('#pageTitle'))==='Players' && !(await open()));
- ok('More now says "Players" and is highlighted as the current page', (await label())==='Players' && await p.evaluate(()=>{const b=document.querySelector('#navMoreBtn');return b.classList.contains('active')&&b.getAttribute('aria-current')==='page';}));
- ok('Players is highlighted inside the list too', await p.evaluate(()=>document.querySelector('#navMoreMenu [data-route="players"]').classList.contains('active')));
+ // 2. choosing pages: real links, one current page, shortcuts move the mark too
+ ok('pages are real links (they work with the keyboard and screen readers)', await p.$$eval('#nav [data-route]:not([data-route="search"])',a=>a.every(x=>x.tagName==='A'&&x.getAttribute('href')==='#'+x.dataset.route)));
+ await p.click('#nav [data-route="players"]'); await p.waitForTimeout(400);
+ ok('choosing Players opens it and marks it as the current page', (await p.textContent('#pageTitle'))==='Players' && (await cur()).join()==='players' && await p.evaluate(()=>document.querySelector('#nav [data-route="players"]').classList.contains('active')));
  await p.keyboard.press('8'); await p.waitForTimeout(300);
- ok('keyboard shortcuts still open pages under More (8 = Impact)', (await p.textContent('#pageTitle'))==='Help the World' && (await label())==='Impact');
- await p.click('#nav [data-route="home"]'); await p.waitForTimeout(300);
- ok('back on a main page, the button says More again', (await label())==='More' && !(await p.evaluate(()=>document.querySelector('#navMoreBtn').classList.contains('active'))));
+ ok('keyboard shortcuts move the mark too (8 = Help the World)', (await p.textContent('#pageTitle'))==='Help the World' && (await cur()).join()==='impact');
+ ok('the breadcrumb at the top shows the page', (await p.textContent('#crumb'))==='Impact');
+ await p.focus('#nav [data-route="focus"]'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+ ok('Enter on a focused page opens it', (await p.textContent('#pageTitle'))==='Focus');
 
- // 4. a red dot on a page under More also shows on the More button
- await p.evaluate(()=>document.querySelector('#navMoreMenu [data-route="players"]').classList.add('has-req')); await p.click('#nav [data-route="focus"]'); await p.waitForTimeout(200);
- ok('a red dot inside the list shows on More', await p.evaluate(()=>document.querySelector('#navMoreBtn').classList.contains('has-req')));
- await p.evaluate(()=>document.querySelector('#navMoreMenu [data-route="players"]').classList.remove('has-req')); await p.click('#nav [data-route="home"]'); await p.waitForTimeout(200);
- ok('and goes away with it', !(await p.evaluate(()=>document.querySelector('#navMoreBtn').classList.contains('has-req'))));
+ // 3. Search in the sidebar opens the app's search
+ await p.click('#nav [data-route="search"]'); await p.waitForTimeout(150);
+ ok('Search in the sidebar opens the search', await p.isVisible('#palette'));
+ await p.keyboard.press('Escape'); await p.waitForTimeout(100);
 
- // 5. narrow window: the list stays on screen; the mouse wheel scrolls the page as usual
- await p.setViewportSize({width:900,height:700}); await p.goto(URL+'#privacy'); await p.waitForTimeout(300);
- await p.click('#navMoreBtn'); await p.waitForTimeout(150);
- ok('at 900px the list stays inside the window', await p.evaluate(()=>{const m=document.querySelector('#navMoreMenu').getBoundingClientRect();return m.left>=0&&m.right<=innerWidth;}));
- await p.screenshot({path:D+'shots2/menu-more-900.png',clip:{x:0,y:0,width:900,height:520}});
- await p.keyboard.press('Escape');
- const b2=await p.locator('#nav').boundingBox(); await p.mouse.move(b2.x+b2.width/2,b2.y+b2.height/2); await p.mouse.wheel(0,400); await p.waitForTimeout(300);
- ok('the wheel over the menu scrolls the page as usual', (await p.evaluate(()=>scrollY))>0);
+ // 4. red dots
+ const dot=(on,title)=>p.evaluate(([on,title])=>window.dispatchEvent(new CustomEvent('lu:shell',{detail:{...window.__luShell,dots:{players:{on,title}}}})),[on,title]); // what the app sends (suites 13, 14 and 17 check the real friend-request dots)
+ await dot(true,'Players · 1 friend request'); await p.waitForTimeout(150);
+ ok('a red dot shows on Players when something is waiting, with a label', await p.evaluate(()=>{const a=document.querySelector('#nav [data-route="players"]');return a.classList.contains('has-req')&&!!a.querySelector('[aria-label="Players · 1 friend request"]');}));
+ await dot(false,''); await p.waitForTimeout(150);
+ ok('...and goes away with it', !(await p.$('#nav [data-route="players"].has-req')));
 
- // 6. Home for a brand-new player: a short "Start here" list, no empty chart, no row of zeros, no empty "Up next", no tile grid
+ // 5. hiding the sidebar
+ await p.click('#sideToggle'); await p.waitForTimeout(450);
+ ok('the button at the top left hides the sidebar', !(await p.isVisible('#nav [data-route="home"]')) && (await p.getAttribute('#sideToggle','aria-expanded'))==='false');
+ await p.reload(); await p.waitForTimeout(600);
+ ok('it stays hidden after a reload', await p.evaluate(()=>document.querySelector('.frame').classList.contains('side-off')));
+ await p.click('#sideToggle'); await p.waitForTimeout(450);
+ ok('and the same button shows it again', await p.isVisible('#nav [data-route="home"]') && (await p.getAttribute('#sideToggle','aria-expanded'))==='true');
+
+ // 6. narrower computer screens: everything fits, and the sidebar stays put while the page scrolls
+ await p.setViewportSize({width:900,height:700}); await p.goto(URL+'#privacy'); await p.waitForTimeout(400);
+ ok('at 900px the page has no sideways scrolling', await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await p.screenshot({path:D+'shots2/sidebar-900.png'});
+ await p.mouse.move(700,400); await p.mouse.wheel(0,400); await p.waitForTimeout(300);
+ ok('the sidebar stays in view while the page scrolls', (await p.evaluate(()=>scrollY))>0 && await p.evaluate(()=>Math.round(document.querySelector('#sideRoot').getBoundingClientRect().top)===0));
+
+ // 7. Home for a brand-new player: a short "Start here" list, no empty chart, no row of zeros, no empty "Up next", no tile grid
  await p.setViewportSize({width:1440,height:900});
  const p2=await (await b.newContext({viewport:{width:1440,height:900}})).newPage(); p2.on('pageerror',e=>errs.push(e.message));
  await p2.context().route(/fonts\.(googleapis|gstatic)|wixapis/,r=>r.abort());
@@ -91,13 +90,13 @@ const URL=H.FILE_URL;
  await p2.click('#themeBtn');
  const row=await p2.evaluate(()=>{const c=el=>{const r=document.querySelector(el).getBoundingClientRect();return Math.round(r.top+r.height/2);};return {bell:c('#bellBtn'),theme:c('#themeBtn'),profile:c('.profile'),settings:c('.topbar a.round[href="#options"]')};});
  ok('the bell, light / dark button, profile and settings line up in one row', new Set(Object.values(row)).size===1, JSON.stringify(row));
- ok('Download app sits just under the profile', await p2.evaluate(()=>{const pr=document.querySelector('.profile').getBoundingClientRect(),d=document.querySelector('#dlBtn').getBoundingClientRect();return d.top>=pr.bottom&&d.top-pr.bottom<10&&Math.abs((d.left+d.right)/2-(pr.left+pr.right)/2)<3;}));
+ ok('Download app sits in the header row, just left of the profile', await p2.evaluate(()=>{const pr=document.querySelector('.profile').getBoundingClientRect(),d=document.querySelector('#dlBtn').getBoundingClientRect();return d.right<=pr.left&&pr.left-d.right<12&&Math.abs((d.top+d.bottom)/2-(pr.top+pr.bottom)/2)<2;}));
  await p2.screenshot({path:D+'shots2/home-new-header.png',clip:{x:0,y:0,width:1440,height:240}});
  await p2.context().close();
 
  // 8. phones keep the bottom bar; the desktop list never shows there
  await p.setViewportSize({width:390,height:844}); await p.goto(URL+'#home'); await p.waitForTimeout(300);
- ok('on a phone the top menu and its list are hidden (the bottom bar is used)', !(await p.isVisible('#nav')) && !(await p.isVisible('#navMoreMenu')) && await p.isVisible('#bottomnav'));
+ ok('on a phone the sidebar is hidden (the bottom bar is used)', !(await p.isVisible('#sideRoot')) && await p.isVisible('#bottomnav'));
 
  // 9. phones: a lighter header (Search and Download app are in the More sheet) and pop-ups that don't cover the bottom bar
  const ph=await (await b.newContext({viewport:{width:390,height:664},isMobile:true,hasTouch:true})).newPage(); ph.on('pageerror',e=>errs.push(e.message));
@@ -135,7 +134,7 @@ const URL=H.FILE_URL;
  const glow=await pc.evaluate(()=>[...document.querySelectorAll('#main .btn.primary')].map(b=>({t:b.textContent.trim(),g:getComputedStyle(b).boxShadow!=='none'})));
  ok('only "Start focus" has a shadow on Home; the other main buttons do not', glow.filter(x=>x.g).length===1 && glow.find(x=>x.g).t.includes('Start focus') && glow.length>1, JSON.stringify(glow));
  // 12. Players for a guest: one sign-up prompt, full-width leaderboard
- await pc.click('#navMoreBtn'); await pc.click('#navMoreMenu [data-route="players"]'); await pc.waitForTimeout(500);
+ await pc.click('#nav [data-route="players"]'); await pc.waitForTimeout(500);
  const pl=await pc.evaluate(()=>({h:[...document.querySelectorAll('#main .card-h h2')].map(h=>h.textContent),dup:document.querySelector('#main').textContent.includes('Make an account to add friends'),lbW:Math.round(document.querySelector('#lbList').closest('.card').getBoundingClientRect().width),mainW:Math.round(document.querySelector('#main').getBoundingClientRect().width)}));
  ok('Players asks a guest to sign up once, and the leaderboard is full width', pl.h.join()==='Join the leaderboard,Leaderboard' && !pl.dup && pl.lbW>=pl.mainW-4, JSON.stringify(pl));
  await pc.context().close();

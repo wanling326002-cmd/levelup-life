@@ -473,18 +473,18 @@ function notify(title, body) {
   toast(`${title} — ${body}`);
   if (S.notify && 'Notification' in window && Notification.permission === 'granted') try { new Notification(title, {body, icon:'icon.svg'}); } catch {}
 }
-/* the sidebar's "This week" list: minutes per kind over the last 7 days, each a link to its page */
-const SIDE_ACC = [['learn', 'study'], ['play', 'gaming'], ['watch', 'series']];
+/* the sidebar (the "Dashboard Sidebar" component, shell/levelup-shell.js) shows what the app tells it here: the pages,
+   the current one, the player's name, level and connection status, and a red dot where something is waiting */
+const SHELL_DOTS = {};
 function paintSide() {
-  const box = $('#sideAccs'); if (!box) return;
-  const days = new Set(Array.from({length:7}, (_, i) => dayOffset(i)));
-  const html = SIDE_ACC.map(([c, r]) => { const m = S.log.filter(x => x.cat === c && days.has(x.d)).reduce((a, x) => a + x.m, 0);
-    return `<a class="side-acc" href="#${r}" data-acc="${r}"><i style="background:${CAT[c].c}"></i><span>${CAT[c].n}</span><small>${fmtMin(m)}</small></a>`; }).join('');
-  if (box.innerHTML !== html) box.innerHTML = html;
-  box.querySelectorAll('.side-acc').forEach(a => a.toggleAttribute('data-on', a.dataset.acc === current));
-  const t = !navigator.onLine ? 'Offline' : isOnlineAcc() ? 'Synced' : me() ? 'Signed in' : 'On this device';
-  const pill = $('#livePill'); if (pill) { $('#liveTxt').textContent = t; pill.dataset.state = t === 'Offline' ? 'off' : 'on'; }
+  const {lv, max} = level(), t = !navigator.onLine ? 'Offline' : isOnlineAcc() ? 'Synced' : me() ? 'Signed in' : 'On this device';
+  const st = {current, routes:ROUTES.map(r => ({id:r.id, name:r.name, short:r.short})), dots:{...SHELL_DOTS},
+    user:{name:displayName(), sub:`Level ${lv}${max ? ' MAX' : ''} · ${t}`, avatarHtml:avatarInner(), signedIn:!!me()}};
+  const key = JSON.stringify(st); if (key === paintSide.last) return; paintSide.last = key;
+  window.__luShell = st; window.dispatchEvent(new CustomEvent('lu:shell', {detail:st}));
+  $('#crumbWho').textContent = displayName();
 }
+const setDot = (id, on, title) => { SHELL_DOTS[id] = {on, title}; paintSide(); };
 function paintPlayer() {
   paintSide();
   const {lv, xp, need, max} = level();
@@ -499,30 +499,27 @@ function applyTheme() {
   const tb = $('#themeBtn'); tb.setAttribute('aria-checked', S.theme === 'dark');
   tb.title = S.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 }
-const navLink = r => `<a href="#${r.id}" data-route="${r.id}" title="${r.name}${r.key ? ` (${r.key})` : ''}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`;
-const MORE_ROUTES = ROUTES.filter(r => r.main && !r.top); // the pages behind the top menu's "More" button
-function buildNav() { // the top menu: five main pages, the rest behind "More"
-  $('#nav').innerHTML = ROUTES.filter(r => r.top).map(navLink).join('') +
-    `<button type="button" class="nav-more-btn" id="navMoreBtn" aria-expanded="false" aria-controls="navMoreMenu" title="More pages"><span id="navMoreLbl">More</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>`;
-  $('#navMoreMenu').innerHTML = MORE_ROUTES.map(navLink).join('');
+function buildNav() { // the phone bottom bar and its More sheet (on a computer, the sidebar lists the pages)
   $('#bottomnav').innerHTML = ['home','study','focus','gaming'].map(id => { const r = ROUTES.find(x => x.id === id);
     return `<a href="#${id}" data-route="${id}">${iconFor(id)}${r.short || r.name}</a>`; }).join('') + `<button id="moreBtn">${icon('more')}More</button>`;
   $('#sheetGrid').innerHTML = ROUTES.map(r => `<a class="tile" href="#${r.id}">${iconFor(r.id)}<span>${r.short || r.name}</span></a>`).join('');
 }
-
-/* the top menu's "More" button: it shows the page you are on when that page lives in its list, and a red dot when one there has news */
-function paintNavMore() {
-  const b = $('#navMoreBtn'); if (!b) return;
-  const r = MORE_ROUTES.find(x => x.id === current);
-  b.classList.toggle('active', !!r); r ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current');
-  const lbl = $('#navMoreLbl'), t = r ? r.short || r.name : 'More'; if (lbl.textContent !== t) lbl.textContent = t;
-  b.classList.toggle('has-req', !!$('#navMoreMenu .has-req'));
+/* the sidebar can be hidden with the button at the top left (remembered on this device); if it can't load, the bottom bar
+   shows on computers too, so the pages are always reachable */
+const SIDE_KEY = 'levelup-side-hidden';
+function setSideHidden(off) {
+  $('.frame').classList.toggle('side-off', off);
+  const b = $('#sideToggle'), t = off ? 'Show the sidebar' : 'Hide the sidebar';
+  b.setAttribute('aria-expanded', String(!off)); b.setAttribute('aria-label', t); b.title = t;
+  try { localStorage.setItem(SIDE_KEY, off ? '1' : '0'); } catch {}
 }
-function toggleNavMore(open) {
-  const b = $('#navMoreBtn'), m = $('#navMoreMenu'); if (!b || !m) return;
-  open = open ?? m.hidden; if (open === !m.hidden) return;
-  m.hidden = !open; b.setAttribute('aria-expanded', open);
-  if (open) (m.querySelector('a.active') || m.querySelector('a')).focus();
+function setupSidebar() {
+  let off = false; try { off = localStorage.getItem(SIDE_KEY) === '1'; } catch {}
+  setSideHidden(off);
+  $('#sideToggle').onclick = () => setSideHidden(!$('.frame').classList.contains('side-off'));
+  window.addEventListener('lu:search', () => openPalette());
+  window.addEventListener('lu:action', e => { if (e.detail === 'logout') logout(); else if (e.detail === 'signin') openAuth('signup'); });
+  setTimeout(() => { if (!$('#sideRoot').childElementCount) document.documentElement.classList.add('no-shell'); }, 4000);
 }
 
 /* ---------- router ---------- */
@@ -536,7 +533,6 @@ function route() {
   current = r.id;
   $$('[data-route]').forEach(a => { const on = a.dataset.route === r.id; a.classList.toggle('active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
   const act = $(`#nav [data-route="${r.id}"]`); if (act) act.scrollIntoView({block:'nearest', inline:'nearest'});
-  toggleNavMore(false); paintNavMore();
   $('#pageTitle').textContent = r.name; $('#crumb').textContent = r.short || r.name; paintSide(); $('#pageSub').textContent = r.sub; baseTitle = `${r.name} · LevelUp Life`; document.title = baseTitle;
   $('#sheet').hidden = true;
   render();
@@ -1588,7 +1584,8 @@ async function changeFriend(u, act) {
 function reqDot() { // a dot on the Players menu item for friend requests (and open reports, for the owner/admins)
   const fr = me() ? friendRequests().length : 0, rp = isOwner || isAdmin ? RP.list.length : 0, n = fr + rp;
   const msg = [fr ? `${fr} friend request${fr === 1 ? '' : 's'}` : '', rp ? `${rp} open report${rp === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');
-  $$('[data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${msg}` : 'Players'; }); paintNavMore();
+  $$('#bottomnav [data-route="players"], .tile[href="#players"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Players · ${msg}` : 'Players'; });
+  setDot('players', n > 0, n ? `Players · ${msg}` : '');
 }
 async function setHidden(u, hide) {
   const st = await staffKey(); if (!st) return toast(`Open Chat and enter your ${isOwner ? 'owner' : 'admin'} key once on this device first.`);
@@ -2319,7 +2316,7 @@ const dmFriends = () => PL.list.filter(p => p.u !== myU() && isFriend(friendStat
 const canDM = p => !!(p && p.dx && p.dy && isFriend(friendState(p.u)) && S.pub);
 const dmUnread = u => (S.dm[u] || []).filter(x => !x.f && x.at > (S.dmRead[u] || 0)).length;
 const dmUnreadAll = () => Object.keys(S.dm).reduce((a, u) => a + dmUnread(u), 0);
-function dmDot() { const n = dmUnreadAll(); $$('[data-route="messages"], .tile[href="#messages"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Messages · ${n} unread` : 'Messages'; }); paintNavMore(); }
+function dmDot() { const n = dmUnreadAll(); $$('#bottomnav [data-route="messages"], .tile[href="#messages"]').forEach(a => { a.classList.toggle('has-req', n > 0); a.title = n ? `Messages · ${n} unread` : 'Messages'; }); setDot('messages', n > 0, n ? `Messages · ${n} unread` : ''); }
 async function publishOutbox() {
   if (!me() || !S.pub || DM.busy) return false; DM.busy = true;
   try {
@@ -3333,7 +3330,7 @@ const TOUR = [
   {sel:() => isPhone() ? '#bottomnav' : '#nav', t:'Pages', b:'Study, Focus, Gaming and Chat. Series, YouTube, Players and the rest are under More.'},
   {sel:'.profile', t:'Your level', b:'Earn XP by studying, focusing, finishing games and doing good deeds. Click here to see your badges.'},
   {sel:() => isPhone() ? '#moreBtn' : '#searchBtn', t:'Search everything', b:'Find any page or action. Shortcut: Ctrl + K. The number keys 1 to 9 jump between pages.'},
-  {sel:() => isPhone() ? '#moreBtn' : '#navMoreBtn', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
+  {sel:() => isPhone() ? '#moreBtn' : '#nav [data-route="players"]', t:'Players and chat', b:'Join the leaderboard, add friends and chat. All of it is optional: your progress stays private until you choose otherwise.'},
   {sel:'a.round[href="#options"]', t:'Settings', b:'Light or dark mode, your account, public profile, backups and installing the app.'},
   {t:"You're ready! 🎮", b:'Start with today’s quests on the Help the World page, or open Study to pick a track. Have fun!'},
 ];
@@ -3534,7 +3531,7 @@ document.addEventListener('click', e => {
 function events() {
   window.addEventListener('hashchange', route);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && isOnlineAcc() && Date.now() - OL.syncAt > 60000) cloudSync(); });
-  setupShell(); window.addEventListener('online', paintSide); window.addEventListener('offline', paintSide);
+  setupShell(); setupSidebar(); window.addEventListener('online', paintSide); window.addEventListener('offline', paintSide);
   document.addEventListener('keydown', trapFocus);
   $('#themeBtn').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (current === 'options') rerender(); };
   $('#searchBtn').onclick = openPalette;
@@ -3550,8 +3547,6 @@ function events() {
   document.addEventListener('click', e => {
     const np = $('#notePanel'); if (np && !np.hidden && !np.contains(e.target) && !e.target.closest('#bellBtn')) toggleNotes(false);
     const dp = $('#dlPanel'); if (dp && !dp.hidden && !dp.contains(e.target) && !e.target.closest('#dlBtn')) toggleDownload(false);
-    if (e.target.closest('#navMoreBtn')) toggleNavMore();
-    else if (!e.target.closest('#navMoreMenu')) toggleNavMore(false);
     if (e.target.closest('#moreBtn')) $('#sheet').hidden = false;
     if (e.target.closest('#sheetSearch')) { $('#sheet').hidden = true; openPalette(); }
     if (e.target.closest('#sheetDl')) { $('#sheet').hidden = true; toggleDownload(true); }
@@ -3566,7 +3561,6 @@ function events() {
     else if (e.key === 'Enter') { e.preventDefault(); runPal(palSel); } // (so the Enter doesn't also press whatever gets focus next)
   };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !$('#navMoreMenu').hidden) { toggleNavMore(false); $('#navMoreBtn').focus(); return; }
     if (e.key === 'Escape') { endTour(); toggleNotes(false); toggleDownload(false); closePalette(); closeProfile(); const ep = $('#emoPick'); if (ep) ep.hidden = true; $('#sheet').hidden = true; if (ACC.current) $('#consent').hidden = true; return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#palette').hidden ? openPalette() : closePalette(); return; }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !$('#palette').hidden || !$('#consent').hidden;

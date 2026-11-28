@@ -2,10 +2,9 @@
    App files are served from a saved copy and refreshed in the background; when a new version is
    downloaded, the page is told so it can offer a "Reload" button. Wix APIs, YouTube and other sites
    are never cached: they always go straight to the network. No personal data is stored here. */
-const CACHE = 'levelup-shell-v3'; // v3: the app moved to app.html (the front page is now the landing page); clears older saved copies
-const SHELL = ['app.html', 'app.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png',
-  'fonts/inter-tight.woff2'];
-const WATCH = /\/(app\.html|app\.js|styles\.css)$/; // a change to these means a new version of the app
+const CACHE = 'levelup-shell-v4'; // v4: the sidebar (shell/levelup-shell.js) is part of the app; v3 moved the app to app.html
+const SHELL = ['app.html', 'app.js', 'shell/levelup-shell.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+const WATCH = /\/(app\.html|app\.js|levelup-shell\.js|styles\.css)$/; // a change to these means a new version of the app
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -41,7 +41,7 @@ const pay=id=>JSON.parse(JSON.parse(players.get(id).data.payload).d);
  await H.reloadKeep(kid); await kid.waitForTimeout(1500);
  ok('player is told the owner added them', (await kid.textContent('#toast')).includes('Owner) added you as a friend'), await kid.textContent('#toast'));
  ok("player's friends list shows the owner, no request to accept", (await kid.textContent('#friendsBox')).includes('Jinx002') && (await kid.$$('#friendsBox [data-fr="add"]')).length===0 && (await kid.textContent('#friendsBox')).includes('Added by the owner'));
- ok('no red request dot for staff adds', (await kid.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===0);
+ ok('no red request dot for staff adds', (await kid.$$('#nav [data-route="players"].has-req')).length===0);
  ok('player cannot remove a friendship the owner made', (await kid.$$('#friendsBox [data-fr="remove"][data-u="jinx002"]')).length===0);
  // owner adds a private player by username
  await own.fill('#addFriendIn','quiet1'); await own.click('#addFriendForm .btn'); await own.waitForTimeout(1500);

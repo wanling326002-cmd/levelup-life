@@ -33,7 +33,7 @@ async function mock(route){
  // ---- speed: font comes with the site, nothing from Google
  const s1=await mk('speed'); await s1.waitForTimeout(800);
  ok('no requests to Google Fonts', !s1._reqs.some(u=>/fonts\.(googleapis|gstatic)/.test(u)));
- ok('Inter Tight font loads from the site', await s1.evaluate(async()=>{ await document.fonts.ready; return document.fonts.check('500 16px "Inter Tight"') && [...document.fonts].some(f=>f.family.replace(/"/g,'')==='Inter Tight'&&f.status==='loaded'); }));
+ ok('the app uses the system font (nothing extra to download)', await s1.evaluate(()=>getComputedStyle(document.body).fontFamily.startsWith('ui-sans-serif')));
  // ---- installable
  const man=await (await s1.request.get(BASE+'manifest.json')).json();
  ok('manifest has name, start page and 192/512 icons', man.name==='LevelUp Life' && man.icons.some(i=>i.sizes==='192x192') && man.icons.some(i=>i.sizes==='512x512') && man.display==='standalone');
@@ -57,7 +57,7 @@ async function mock(route){
  fs.appendFileSync(SITE+'app.js','\n// new version\n'); await s1.reload(); await s1.waitForTimeout(2500);
  ok('a new version shows the Reload prompt', await s1.isVisible('#updateBar'));
  await s1.click('#updateBtn'); await s1.waitForTimeout(1500);
- ok('Reload loads the new version', (await (await s1.evaluate(()=>caches.open('levelup-shell-v3').then(c=>c.match('app.js')).then(r=>r.text()))).includes('// new version')));
+ ok('Reload loads the new version', (await (await s1.evaluate(()=>caches.open('levelup-shell-v4').then(c=>c.match('app.js')).then(r=>r.text()))).includes('// new version')));
  await s1.context().close();
 
  // ---- tour (new player, a real browser)
@@ -105,7 +105,7 @@ async function mock(route){
  await kid.keyboard.press('Escape');
  await own.goto(APP+'#players'); await own.waitForTimeout(2500);
  ok('owner sees the report, decrypted', (await own.textContent('#repBox')).includes('Bullying or hate') && (await own.textContent('#repBox')).includes('noobs') && (await own.textContent('#repBox')).includes('keeps insulting people'));
- ok('red dot for open reports', (await own.$$('#navMoreMenu [data-route="players"].has-req, #navMoreBtn.has-req')).length===2);
+ ok('red dot for open reports', (await own.$$('#nav [data-route="players"].has-req')).length===1);
  await own.screenshot({path:D+'shots2/reports.png',fullPage:true});
  await own.click('[data-repres][data-act="hidden"]'); await own.waitForTimeout(2500);
  ok('"Hide from leaderboard" handles the report and hides the player', !(await own.textContent('#repBox')).includes('noobs') && (await own.textContent('#hiddenBox')).includes('Rude99'));

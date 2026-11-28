@@ -1,0 +1,30 @@
+/* Styles for the app's sidebar (app-shell.tsx). Only Tailwind's theme and the utilities these two files use, no reset,
+   so the rest of the app keeps its own styles. The utilities are marked important so the app's general rules (links,
+   icons) don't override them. Colours come from the app's own theme variables, so light and dark mode follow the app. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) important source(none);
+@source "./components/ui/dashboard-sidebar.tsx";
+@source "./app-shell.tsx";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--card);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--line2);
+  --color-primary: var(--btn-bg);
+  --color-primary-foreground: var(--btn-ink);
+  --font-sans: var(--font-ui);
+}
+
+.lu-av img, .lu-av video { width: 100%; height: 100%; object-fit: cover; display: block }
+
+/* the browser's own button and link looks, cleared inside the sidebar only (the component expects Tailwind's reset,
+   which isn't loaded so the rest of the app keeps its styles); the component's own classes still win */
+#sideRoot *, #sideRoot *::before, #sideRoot *::after { box-sizing: border-box }
+#sideRoot button, #sideRoot a { font: inherit; color: inherit; background: none; border: 0; margin: 0; text-decoration: none; letter-spacing: inherit }
+#sideRoot button:focus-visible, #sideRoot a:focus-visible { outline: 2px solid var(--text); outline-offset: -2px }
+#sideRoot kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace }
