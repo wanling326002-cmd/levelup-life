@@ -5,9 +5,11 @@
 const CACHE = 'levelup-shell-v4'; // v4: the sidebar (shell/levelup-shell.js) is part of the app; v3 moved the app to app.html
 const SHELL = ['app.html', 'app.js', 'shell/levelup-shell.js', 'companion-core.js', 'styles.css', 'icon.svg', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const WATCH = /\/(app\.html|app\.js|levelup-shell\.js|styles\.css)$/; // a change to these means a new version of the app
+const MEDIA = /^https:\/\/[\w-]+\.usrfiles\.com\/ugd\/[\w.~-]+\.txt$/; // the site's own Wix Media files (each address never changes)
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // each file is saved on its own, so one that can't be fetched doesn't stop the helper from installing
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(f => c.add(f).catch(() => {})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
@@ -16,6 +18,8 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // on the live site the sidebar script is kept in the site's own Wix Media: saved here too, so the app works offline
+  if (MEDIA.test(req.url)) { e.respondWith(fromCache(req, req.url, e)); return; }
   if (url.origin !== self.location.origin) return; // other sites (Wix APIs, YouTube): network only
   if (/\/downloads\.json$/.test(url.pathname)) return; // where the app download lives: always the latest
   const base = new URL(self.registration.scope).pathname, rel = url.pathname.slice(base.length);
@@ -30,7 +34,7 @@ async function fromCache(req, key, e) {
   const cache = await caches.open(CACHE);
   const hit = await cache.match(key, {ignoreSearch:true});
   const fresh = fetch(req.mode === 'navigate' ? 'app.html' : req, {cache:'no-cache'}).then(async res => {
-    if (res.ok && res.type === 'basic') {
+    if (res.ok && (res.type === 'basic' || res.type === 'cors')) {
       const changed = hit && WATCH.test(new URL(res.url).pathname) && (hit.headers.get('etag') || '') !== (res.headers.get('etag') || '');
       await cache.put(key, res.clone());
       if (changed) (await self.clients.matchAll()).forEach(c => c.postMessage({type:'update'}));
